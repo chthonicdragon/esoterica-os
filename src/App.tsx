@@ -57,7 +57,7 @@ function AppContent() {
       <Sidebar currentPage={currentPage} onNavigate={(page) => setCurrentPage(page as Page)} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title={pageTitle} userName={user.displayName || user.email} />
-        <main className="flex-1 overflow-y-auto">
+        <main className={`flex-1 ${currentPage === 'altars' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
           {currentPage === 'dashboard' && <Dashboard user={user} onNavigate={(p) => setCurrentPage(p as Page)} />}
           {currentPage === 'altars' && <Altars user={user} />}
           {currentPage === 'ai-mentor' && <AIMentor user={user} />}

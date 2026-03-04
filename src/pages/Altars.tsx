@@ -1,316 +1,499 @@
-import React, { useEffect, useState } from 'react'
-import { useLang } from '../contexts/LanguageContext'
-import { blink } from '../blink/client'
-import { Plus, FlameKindling, Flame, X, Trash2 } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Plus, Trash2, Settings2, RotateCcw, Maximize2, Minimize2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { cn } from '../lib/utils'
+import { useLang } from '../contexts/LanguageContext'
+import { AltarScene3D } from '../altar/AltarScene3D'
+import { ObjectPanel } from '../altar/ObjectPanel'
+import { RitualPanel } from '../altar/RitualPanel'
+import { ProgressionPanel } from '../altar/ProgressionPanel'
+import { CATALOG, ALTAR_THEMES } from '../altar/catalog'
+import {
+  loadLocalState,
+  saveLocalState,
+  createDefaultLayout,
+  addObjectToLayout,
+  updateObjectInLayout,
+  removeObjectFromLayout,
+  completeRitual,
+  syncProgressionToDb,
+  loadProgressionFromDb,
+} from '../altar/altarStore'
+import type { AltarLayout, AltarTheme, PlacedObject, RitualSession, Progression } from '../altar/types'
 
-interface AltarObject {
-  id: string
-  type: string
-  emoji: string
-  label: string
-  x: number
-  y: number
-}
-
-interface Altar {
-  id: string
-  name: string
-  tradition: string
-  description?: string
-  objects: AltarObject[]
-  ritualState: string
-}
-
-const ALTAR_OBJECTS = [
-  { type: 'candle', emoji: '🕯️', label: 'Candle' },
-  { type: 'incense', emoji: '🌿', label: 'Incense' },
-  { type: 'crystal', emoji: '💎', label: 'Crystal' },
-  { type: 'skull', emoji: '💀', label: 'Skull' },
-  { type: 'pentacle', emoji: '⭐', label: 'Pentacle' },
-  { type: 'chalice', emoji: '🍷', label: 'Chalice' },
-  { type: 'athame', emoji: '🗡️', label: 'Athame' },
-  { type: 'book', emoji: '📖', label: 'Grimoire' },
-  { type: 'mirror', emoji: '🪞', label: 'Mirror' },
-  { type: 'flower', emoji: '🌹', label: 'Offering' },
-]
+const ALTAR_THEMES_LIST: AltarTheme[] = ['stone', 'wood', 'obsidian', 'mystical']
 
 interface AltarsProps {
-  user: { id: string }
+  user: { id: string; displayName?: string | null; email?: string }
+}
+
+const DEFAULT_SESSION: RitualSession = {
+  active: false,
+  mode: 'soft',
+  durationMinutes: 30,
+  startTime: null,
+  elapsed: 0,
+  completed: false,
+  interrupted: false,
 }
 
 export function Altars({ user }: AltarsProps) {
-  const { t, lang } = useLang()
-  const [altars, setAltars] = useState<Altar[]>([])
-  const [activeAltar, setActiveAltar] = useState<Altar | null>(null)
-  const [showCreate, setShowCreate] = useState(false)
+  const { lang } = useLang()
+  const [layouts, setLayouts] = useState<AltarLayout[]>([])
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const [selectedObjId, setSelectedObjId] = useState<string | null>(null)
+  const [pendingDrop, setPendingDrop] = useState<string | null>(null)
+  const [session, setSession] = useState<RitualSession>(DEFAULT_SESSION)
+  const [progression, setProgression] = useState<Progression>({ points: 0, level: 1, streak: 0, lastPracticeDate: null, totalRituals: 0 })
+  const [lastPoints, setLastPoints] = useState(0)
+  const [showCreateForm, setShowCreateForm] = useState(false)
   const [newName, setNewName] = useState('')
-  const [newTradition, setNewTradition] = useState('eclectic')
-  const [loading, setLoading] = useState(true)
+  const [newTheme, setNewTheme] = useState<AltarTheme>('mystical')
+  const [activeTab, setActiveTab] = useState<'objects' | 'ritual' | 'progress'>('objects')
+  const [fullscreen, setFullscreen] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [showThemeMenu, setShowThemeMenu] = useState(false)
 
-  useEffect(() => { loadAltars() }, [user.id])
+  // Load state on mount
+  useEffect(() => {
+    const local = loadLocalState()
+    setLayouts(local.layouts)
+    setActiveId(local.activeLayoutId)
+    setProgression(local.progression)
 
-  async function loadAltars() {
-    try {
-      const data = await blink.db.altars.list({ where: { userId: user.id } }) as Altar[]
-      const parsed = data.map(a => ({ ...a, objects: typeof a.objects === 'string' ? JSON.parse(a.objects) : a.objects }))
-      setAltars(parsed)
-    } catch (e) { console.error(e) } finally { setLoading(false) }
-  }
-
-  async function createAltar() {
-    if (!newName.trim()) return
-    try {
-      const altar = await blink.db.altars.create({
-        userId: user.id,
-        name: newName,
-        tradition: newTradition,
-        objects: JSON.stringify([]),
-        ritualState: 'inactive',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }) as Altar
-      altar.objects = []
-      setAltars(prev => [...prev, altar])
-      setActiveAltar(altar)
-      setShowCreate(false)
-      setNewName('')
-      toast.success(lang === 'ru' ? 'Алтарь создан' : 'Altar created')
-    } catch (e) { toast.error(t.error) }
-  }
-
-  async function addObject(objTemplate: typeof ALTAR_OBJECTS[0]) {
-    if (!activeAltar) return
-    const newObj: AltarObject = {
-      id: `obj_${Date.now()}`,
-      type: objTemplate.type,
-      emoji: objTemplate.emoji,
-      label: objTemplate.label,
-      x: 20 + Math.random() * 60,
-      y: 20 + Math.random() * 60,
-    }
-    const updatedObjects = [...activeAltar.objects, newObj]
-    try {
-      await blink.db.altars.update(activeAltar.id, {
-        objects: JSON.stringify(updatedObjects),
-        updatedAt: new Date().toISOString(),
-      })
-      const updated = { ...activeAltar, objects: updatedObjects }
-      setActiveAltar(updated)
-      setAltars(prev => prev.map(a => a.id === updated.id ? updated : a))
-    } catch (e) { toast.error(t.error) }
-  }
-
-  async function removeObject(objId: string) {
-    if (!activeAltar) return
-    const updatedObjects = activeAltar.objects.filter(o => o.id !== objId)
-    await blink.db.altars.update(activeAltar.id, {
-      objects: JSON.stringify(updatedObjects),
-      updatedAt: new Date().toISOString(),
+    // Also sync from DB
+    loadProgressionFromDb(user.id).then(dbProg => {
+      if (dbProg) setProgression(dbProg)
     })
-    const updated = { ...activeAltar, objects: updatedObjects }
-    setActiveAltar(updated)
-    setAltars(prev => prev.map(a => a.id === updated.id ? updated : a))
+  }, [user.id])
+
+  // Save whenever layouts or progression change
+  useEffect(() => {
+    saveLocalState({ layouts, activeLayoutId: activeId, progression })
+  }, [layouts, activeId, progression])
+
+  // Ritual timer tick
+  useEffect(() => {
+    if (session.active && !session.completed && !session.interrupted) {
+      timerRef.current = setInterval(() => {
+        setSession(s => ({ ...s, elapsed: s.elapsed + 1 }))
+      }, 1000)
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  }, [session.active, session.completed, session.interrupted])
+
+  // Strict mode: detect page visibility change
+  useEffect(() => {
+    if (!session.active || session.mode !== 'strict') return
+    const handler = () => {
+      if (document.hidden) {
+        handleInterrupt()
+      }
+    }
+    document.addEventListener('visibilitychange', handler)
+    return () => document.removeEventListener('visibilitychange', handler)
+  }, [session.active, session.mode])
+
+  const activeLayout = layouts.find(l => l.id === activeId) || null
+
+  function createLayout() {
+    if (!newName.trim()) return
+    const layout = createDefaultLayout(newName.trim(), newTheme)
+    const updated = [...layouts, layout]
+    setLayouts(updated)
+    setActiveId(layout.id)
+    setShowCreateForm(false)
+    setNewName('')
+    toast.success(lang === 'ru' ? 'Алтарь создан' : 'Altar created')
   }
 
-  async function toggleRitual() {
-    if (!activeAltar) return
-    const newState = activeAltar.ritualState === 'active' ? 'inactive' : 'active'
-    await blink.db.altars.update(activeAltar.id, { ritualState: newState, updatedAt: new Date().toISOString() })
-    const updated = { ...activeAltar, ritualState: newState }
-    setActiveAltar(updated)
-    setAltars(prev => prev.map(a => a.id === updated.id ? updated : a))
-    toast.success(newState === 'active' ? (lang === 'ru' ? 'Ритуал начат' : 'Ritual begun') : (lang === 'ru' ? 'Ритуал завершён' : 'Ritual ended'))
-  }
-
-  async function deleteAltar(id: string) {
-    await blink.db.altars.delete(id)
-    setAltars(prev => prev.filter(a => a.id !== id))
-    if (activeAltar?.id === id) setActiveAltar(null)
+  function deleteLayout(id: string) {
+    setLayouts(l => l.filter(x => x.id !== id))
+    if (activeId === id) setActiveId(null)
     toast.success(lang === 'ru' ? 'Алтарь удалён' : 'Altar deleted')
   }
 
-  if (loading) return <div className="p-6 text-muted-foreground">{t.loading}</div>
+  function updateLayout(updated: AltarLayout) {
+    setLayouts(l => l.map(x => x.id === updated.id ? updated : x))
+  }
+
+  function handleDropPlaced(pos: [number, number, number]) {
+    if (!pendingDrop || !activeLayout) return
+
+    // Clamp to altar surface bounds
+    const clampedX = Math.max(-0.85, Math.min(0.85, pos[0]))
+    const clampedZ = Math.max(-0.5, Math.min(0.5, pos[2]))
+
+    const placed: PlacedObject = {
+      id: `placed_${Date.now()}`,
+      catalogId: pendingDrop,
+      position: [clampedX, 0.05, clampedZ],
+      rotationY: Math.random() * Math.PI * 2,
+      scale: 1,
+    }
+    updateLayout(addObjectToLayout(activeLayout, placed))
+    setPendingDrop(null)
+    toast.success(lang === 'ru' ? 'Объект размещён' : 'Object placed', { duration: 1500 })
+  }
+
+  function handleObjectMoved(id: string, newPos: [number, number, number]) {
+    if (!activeLayout) return
+    const obj = activeLayout.objects.find(o => o.id === id)
+    if (!obj) return
+    updateLayout(updateObjectInLayout(activeLayout, { ...obj, position: newPos }))
+  }
+
+  function handleDeleteSelected() {
+    if (!activeLayout || !selectedObjId) return
+    updateLayout(removeObjectFromLayout(activeLayout, selectedObjId))
+    setSelectedObjId(null)
+    toast.success(lang === 'ru' ? 'Объект удалён' : 'Object removed', { duration: 1200 })
+  }
+
+  function rotateSelected() {
+    if (!activeLayout || !selectedObjId) return
+    const obj = activeLayout.objects.find(o => o.id === selectedObjId)
+    if (!obj) return
+    updateLayout(updateObjectInLayout(activeLayout, {
+      ...obj,
+      rotationY: obj.rotationY + Math.PI / 4,
+    }))
+  }
+
+  function scaleSelected(delta: number) {
+    if (!activeLayout || !selectedObjId) return
+    const obj = activeLayout.objects.find(o => o.id === selectedObjId)
+    if (!obj) return
+    const newScale = Math.max(0.4, Math.min(3.0, obj.scale + delta))
+    updateLayout(updateObjectInLayout(activeLayout, { ...obj, scale: newScale }))
+  }
+
+  function changeTheme(theme: AltarTheme) {
+    if (!activeLayout) return
+    updateLayout({ ...activeLayout, theme })
+    setShowThemeMenu(false)
+  }
+
+  const handleStartRitual = useCallback((durationMinutes: number, mode: 'soft' | 'strict') => {
+    setSession({
+      active: true,
+      mode,
+      durationMinutes,
+      startTime: Date.now(),
+      elapsed: 0,
+      completed: false,
+      interrupted: false,
+    })
+    setActiveTab('ritual')
+    toast.success(lang === 'ru' ? '✦ Ритуал начат' : '✦ Ritual begun', { duration: 2000 })
+  }, [lang])
+
+  const handleCompleteRitual = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current)
+
+    // Award points
+    const { progression: newProg, pointsEarned, bonusMultiplier } = completeRitual(progression, session.durationMinutes)
+    setProgression(newProg)
+    setLastPoints(pointsEarned)
+    syncProgressionToDb(user.id, newProg)
+
+    setSession(s => ({ ...s, active: false, completed: true }))
+
+    const msg = bonusMultiplier > 1
+      ? (lang === 'ru' ? `✦ Завершено! +${pointsEarned} очков (x${bonusMultiplier} бонус)` : `✦ Completed! +${pointsEarned} pts (x${bonusMultiplier} bonus)`)
+      : (lang === 'ru' ? `✦ Завершено! +${pointsEarned} очков` : `✦ Completed! +${pointsEarned} pts`)
+    toast.success(msg, { duration: 4000 })
+  }, [progression, session.durationMinutes, user.id, lang])
+
+  const handleInterrupt = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current)
+    setSession(s => ({ ...s, active: false, interrupted: true }))
+    toast.error(lang === 'ru' ? 'Сессия прервана' : 'Session interrupted', { duration: 2000 })
+  }, [lang])
+
+  function resetSession() {
+    setSession(DEFAULT_SESSION)
+    setLastPoints(0)
+  }
+
+  const ritualProgress = session.active
+    ? session.elapsed / (session.durationMinutes * 60)
+    : 0
+
+  const selectedObj = activeLayout?.objects.find(o => o.id === selectedObjId)
+  const selectedCatalog = selectedObj ? CATALOG.find(c => c.id === selectedObj.catalogId) : null
+
+  const t = {
+    myAltars: lang === 'ru' ? 'Мои Алтари' : 'My Altars',
+    create: lang === 'ru' ? 'Создать алтарь' : 'Create Altar',
+    altarName: lang === 'ru' ? 'Название...' : 'Altar name...',
+    theme: lang === 'ru' ? 'Тема' : 'Theme',
+    save: lang === 'ru' ? 'Создать' : 'Create',
+    cancel: lang === 'ru' ? 'Отмена' : 'Cancel',
+    noAltars: lang === 'ru' ? 'Нет алтарей' : 'No altars yet',
+    selectAltar: lang === 'ru' ? 'Выберите алтарь' : 'Select an altar',
+    objects: lang === 'ru' ? 'Объекты' : 'Objects',
+    ritual: lang === 'ru' ? 'Ритуал' : 'Ritual',
+    progress: lang === 'ru' ? 'Прогресс' : 'Progress',
+    clickToPlace: lang === 'ru' ? 'Нажмите на алтарь для размещения' : 'Click altar to place',
+    selected: lang === 'ru' ? 'Выбрано:' : 'Selected:',
+    delete: lang === 'ru' ? 'Удалить' : 'Delete',
+    rotate: lang === 'ru' ? 'Повернуть' : 'Rotate',
+    scaleUp: lang === 'ru' ? 'Больше' : 'Bigger',
+    scaleDown: lang === 'ru' ? 'Меньше' : 'Smaller',
+    changeTheme: lang === 'ru' ? 'Тема алтаря' : 'Altar Theme',
+  }
 
   return (
-    <div className="p-6 flex gap-6 h-full">
-      {/* Altar list */}
-      <div className="w-64 flex-shrink-0 space-y-3">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-foreground">{t.myAltars}</h2>
-          <button onClick={() => setShowCreate(true)} className="p-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors">
-            <Plus className="w-4 h-4" />
-          </button>
-        </div>
-
-        {showCreate && (
-          <div className="rounded-xl bg-card border border-primary/30 p-4 space-y-3">
-            <input
-              value={newName}
-              onChange={e => setNewName(e.target.value)}
-              placeholder={t.altarName}
-              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:border-primary/50"
-            />
-            <select
-              value={newTradition}
-              onChange={e => setNewTradition(e.target.value)}
-              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none"
+    <div className="flex h-full overflow-hidden bg-background">
+      {/* Left panel — altar list */}
+      {!fullscreen && (
+        <div className="w-56 flex-shrink-0 border-r border-border/30 flex flex-col overflow-hidden">
+          <div className="p-3 border-b border-border/30 flex items-center justify-between">
+            <span className="text-xs font-semibold text-foreground">{t.myAltars}</span>
+            <button
+              onClick={() => setShowCreateForm(v => !v)}
+              className="p-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
             >
-              {Object.entries(t.traditions).map(([key, val]) => (
-                <option key={key} value={key}>{val}</option>
-              ))}
-            </select>
-            <div className="flex gap-2">
-              <button onClick={createAltar} className="flex-1 bg-primary text-primary-foreground rounded-lg py-2 text-sm font-medium hover:bg-primary/90 transition-colors">{t.save}</button>
-              <button onClick={() => setShowCreate(false)} className="px-3 rounded-lg border border-border text-muted-foreground hover:text-foreground text-sm transition-colors">{t.cancel}</button>
-            </div>
+              <Plus className="w-3.5 h-3.5" />
+            </button>
           </div>
-        )}
 
-        {altars.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border/40 p-6 text-center">
-            <p className="text-xs text-muted-foreground">{t.noAltars}</p>
-          </div>
-        ) : altars.map(altar => (
-          <div
-            key={altar.id}
-            onClick={() => setActiveAltar(altar)}
-            className={cn(
-              'rounded-xl border p-3 cursor-pointer transition-all duration-200 group',
-              activeAltar?.id === altar.id ? 'border-primary/40 bg-primary/10' : 'border-border/40 bg-card hover:border-primary/20'
-            )}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-foreground">{altar.name}</p>
-                <p className="text-xs text-muted-foreground capitalize">{(t.traditions as Record<string, string>)[altar.tradition] || altar.tradition}</p>
+          {showCreateForm && (
+            <div className="p-3 border-b border-border/30 space-y-2">
+              <input
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && createLayout()}
+                placeholder={t.altarName}
+                autoFocus
+                className="w-full bg-background border border-border/40 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-primary/50 text-foreground"
+              />
+              <select
+                value={newTheme}
+                onChange={e => setNewTheme(e.target.value as AltarTheme)}
+                className="w-full bg-background border border-border/40 rounded-lg px-2.5 py-1.5 text-xs outline-none text-foreground"
+              >
+                {ALTAR_THEMES_LIST.map(th => (
+                  <option key={th} value={th}>
+                    {lang === 'ru' ? ALTAR_THEMES[th].nameRu : ALTAR_THEMES[th].name}
+                  </option>
+                ))}
+              </select>
+              <div className="flex gap-1.5">
+                <button onClick={createLayout} className="flex-1 bg-primary text-primary-foreground rounded-lg py-1 text-xs font-medium hover:bg-primary/90">{t.save}</button>
+                <button onClick={() => setShowCreateForm(false)} className="px-2 rounded-lg border border-border/40 text-muted-foreground text-xs hover:text-foreground">{t.cancel}</button>
               </div>
-              <div className="flex items-center gap-1">
-                {altar.ritualState === 'active' && (
-                  <div className="w-2 h-2 rounded-full bg-orange-400 shadow-[0_0_6px_theme(colors.orange.400)] animate-pulse" />
+            </div>
+          )}
+
+          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            {layouts.length === 0 ? (
+              <p className="text-xs text-muted-foreground/60 text-center p-4">{t.noAltars}</p>
+            ) : layouts.map(l => (
+              <button
+                key={l.id}
+                onClick={() => { setActiveId(l.id); setSelectedObjId(null) }}
+                className={cn(
+                  'w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-left transition-all group',
+                  activeId === l.id
+                    ? 'bg-primary/10 border border-primary/30 text-foreground'
+                    : 'border border-transparent hover:bg-card text-muted-foreground hover:text-foreground'
                 )}
+              >
+                <div>
+                  <p className="text-xs font-medium truncate max-w-[100px]">{l.name}</p>
+                  <p className="text-[10px] opacity-60">
+                    {lang === 'ru' ? ALTAR_THEMES[l.theme]?.nameRu : ALTAR_THEMES[l.theme]?.name}
+                  </p>
+                </div>
                 <button
-                  onClick={e => { e.stopPropagation(); deleteAltar(altar.id) }}
+                  onClick={e => { e.stopPropagation(); deleteLayout(l.id) }}
                   className="opacity-0 group-hover:opacity-100 p-1 hover:text-destructive transition-all"
                 >
                   <Trash2 className="w-3 h-3" />
                 </button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Altar canvas */}
-      {activeAltar ? (
-        <div className="flex-1 flex flex-col gap-4">
-          {/* Controls */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold font-cinzel text-foreground">{activeAltar.name}</h2>
-              <p className="text-xs text-muted-foreground capitalize">{(t.traditions as Record<string, string>)[activeAltar.tradition]}</p>
-            </div>
-            <button
-              onClick={toggleRitual}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm transition-all duration-300',
-                activeAltar.ritualState === 'active'
-                  ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30 hover:bg-orange-500/30'
-                  : 'bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20'
-              )}
-            >
-              <Flame className={cn('w-4 h-4', activeAltar.ritualState === 'active' && 'animate-pulse')} />
-              {activeAltar.ritualState === 'active' ? t.endRitual : t.beginRitual}
-            </button>
-          </div>
-
-          {/* Canvas */}
-          <div className={cn(
-            'flex-1 relative rounded-2xl border overflow-hidden min-h-[400px] transition-all duration-500',
-            activeAltar.ritualState === 'active'
-              ? 'border-orange-500/40 shadow-[0_0_40px_hsl(30,100%,50%/0.15)]'
-              : 'border-border/30'
-          )}>
-            <div className="absolute inset-0 bg-gradient-to-b from-background via-[hsl(var(--primary)/0.03)] to-background" />
-            {/* Sacred geometry overlay */}
-            <svg className="absolute inset-0 w-full h-full opacity-5" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="50%" cy="50%" r="38%" fill="none" stroke="currentColor" />
-              <circle cx="50%" cy="50%" r="28%" fill="none" stroke="currentColor" />
-              <polygon points="50,15 90,80 10,80" fill="none" stroke="currentColor" transform="translate(0,0) scale(1)" style={{ transform: 'scale(0.7) translate(21%, 15%)' }} />
-            </svg>
-
-            {/* Glow effect when active */}
-            {activeAltar.ritualState === 'active' && (
-              <div className="absolute inset-0 pointer-events-none">
-                {[...Array(6)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="absolute w-1 h-1 rounded-full bg-orange-400/60 animate-float"
-                    style={{
-                      left: `${10 + i * 15}%`,
-                      bottom: `${10 + Math.sin(i) * 20}%`,
-                      animationDelay: `${i * 0.4}s`,
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Altar objects */}
-            {activeAltar.objects.map((obj) => (
-              <div
-                key={obj.id}
-                className="absolute group"
-                style={{ left: `${obj.x}%`, top: `${obj.y}%`, transform: 'translate(-50%,-50%)' }}
-              >
-                <div className={cn(
-                  'text-3xl cursor-pointer select-none transition-transform hover:scale-125',
-                  activeAltar.ritualState === 'active' && 'drop-shadow-[0_0_8px_rgba(255,150,50,0.8)]'
-                )}>
-                  {obj.emoji}
-                </div>
-                <button
-                  onClick={() => removeObject(obj.id)}
-                  className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-destructive text-white items-center justify-center hidden group-hover:flex text-xs"
-                >
-                  <X className="w-2 h-2" />
-                </button>
-              </div>
+              </button>
             ))}
-
-            {activeAltar.objects.length === 0 && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center">
-                  <FlameKindling className="w-10 h-10 text-muted-foreground/20 mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground/50">{lang === 'ru' ? 'Добавьте священные объекты' : 'Add sacred objects'}</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Object palette */}
-          <div>
-            <p className="text-xs text-muted-foreground mb-2">{t.altarObjects}</p>
-            <div className="flex gap-2 flex-wrap">
-              {ALTAR_OBJECTS.map(obj => (
-                <button
-                  key={obj.type}
-                  onClick={() => addObject(obj)}
-                  className="flex flex-col items-center gap-1 px-2 py-2 rounded-lg bg-card border border-border/40 hover:border-primary/30 hover:bg-primary/5 transition-all text-xs"
-                  title={obj.label}
-                >
-                  <span className="text-xl">{obj.emoji}</span>
-                </button>
-              ))}
-            </div>
           </div>
         </div>
-      ) : (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <FlameKindling className="w-12 h-12 text-muted-foreground/20 mx-auto mb-4" />
-            <p className="text-muted-foreground">{altars.length === 0 ? t.noAltars : (lang === 'ru' ? 'Выберите алтарь' : 'Select an altar')}</p>
+      )}
+
+      {/* Center — 3D canvas */}
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        {activeLayout ? (
+          <>
+            {/* Canvas toolbar */}
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30 bg-background/80 backdrop-blur-sm">
+              <h2 className="text-sm font-cinzel text-foreground/90 flex-1">{activeLayout.name}</h2>
+
+              {/* Theme picker */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowThemeMenu(v => !v)}
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-card border border-border/40 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Settings2 className="w-3 h-3" />
+                  <span className="hidden sm:inline">{t.changeTheme}</span>
+                </button>
+                {showThemeMenu && (
+                  <div className="absolute top-full mt-1 right-0 z-20 bg-card border border-border/50 rounded-xl shadow-lg p-1.5 min-w-[140px]">
+                    {ALTAR_THEMES_LIST.map(th => (
+                      <button
+                        key={th}
+                        onClick={() => changeTheme(th)}
+                        className={cn(
+                          'w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors',
+                          activeLayout.theme === th
+                            ? 'bg-primary/20 text-primary'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                        )}
+                      >
+                        {lang === 'ru' ? ALTAR_THEMES[th].nameRu : ALTAR_THEMES[th].name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {session.active && (
+                <div className={cn(
+                  'flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] border animate-pulse',
+                  session.mode === 'strict' ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-primary/10 border-primary/30 text-primary'
+                )}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                  {session.mode === 'strict' ? 'STRICT' : 'SOFT'} MODE
+                </div>
+              )}
+
+              <button
+                onClick={() => setFullscreen(v => !v)}
+                className="p-1 rounded-lg bg-card border border-border/40 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {fullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+
+            {/* Object controls bar (when object selected) */}
+            {selectedObjId && selectedCatalog && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/5 border-b border-primary/10 text-xs">
+                <span className="text-muted-foreground">{t.selected}</span>
+                <span className="text-foreground">{lang === 'ru' ? selectedCatalog.labelRu : selectedCatalog.label}</span>
+                <div className="flex gap-1 ml-auto">
+                  <button onClick={rotateSelected} className="px-2 py-0.5 rounded-lg bg-card border border-border/40 hover:border-primary/40 text-muted-foreground hover:text-foreground transition-colors">
+                    <RotateCcw className="w-3 h-3" />
+                  </button>
+                  <button onClick={() => scaleSelected(0.1)} className="px-2 py-0.5 rounded-lg bg-card border border-border/40 hover:border-primary/40 text-xs text-muted-foreground hover:text-foreground transition-colors">+</button>
+                  <button onClick={() => scaleSelected(-0.1)} className="px-2 py-0.5 rounded-lg bg-card border border-border/40 hover:border-primary/40 text-xs text-muted-foreground hover:text-foreground transition-colors">−</button>
+                  <button onClick={handleDeleteSelected} className="px-2 py-0.5 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive hover:bg-destructive/20 text-xs transition-colors">
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 3D Canvas */}
+            <div
+              className={cn(
+                'flex-1 relative transition-all duration-500',
+                session.active && 'ring-1 ring-inset',
+                session.active && session.mode === 'strict' ? 'ring-red-500/30' : session.active ? 'ring-primary/30' : ''
+              )}
+              style={{
+                cursor: pendingDrop ? 'crosshair' : 'default',
+              }}
+            >
+              {pendingDrop && (
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-background/90 border border-[hsl(var(--neon))/40] rounded-full px-3 py-1 text-[10px] text-[hsl(var(--neon))] pointer-events-none">
+                  {t.clickToPlace}
+                </div>
+              )}
+              <AltarScene3D
+                layout={activeLayout}
+                selectedId={selectedObjId}
+                ritualActive={session.active}
+                ritualProgress={ritualProgress}
+                pendingDrop={pendingDrop}
+                onSelect={(id) => { setSelectedObjId(id); if (id) setPendingDrop(null) }}
+                onObjectMoved={handleObjectMoved}
+                onDropPlaced={handleDropPlaced}
+              />
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center flex-col gap-4">
+            <div className="text-5xl opacity-20">✦</div>
+            <p className="text-sm text-muted-foreground/60">{t.selectAltar}</p>
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm hover:bg-primary/20 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              {t.create}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Right panel — tabs */}
+      {!fullscreen && activeLayout && (
+        <div className="w-64 flex-shrink-0 border-l border-border/30 flex flex-col overflow-hidden">
+          {/* Tab bar */}
+          <div className="flex border-b border-border/30">
+            {(['objects', 'ritual', 'progress'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={cn(
+                  'flex-1 py-2.5 text-[10px] font-medium transition-colors uppercase tracking-wider',
+                  activeTab === tab
+                    ? 'text-primary border-b-2 border-primary bg-primary/5'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {tab === 'objects' ? t.objects : tab === 'ritual' ? t.ritual : t.progress}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-3">
+            {activeTab === 'objects' && (
+              <ObjectPanel
+                lang={lang}
+                unlockedLevel={progression.level}
+                pendingDrop={pendingDrop}
+                onSelectForDrop={(id) => {
+                  setPendingDrop(prev => prev === id ? null : id)
+                  setSelectedObjId(null)
+                }}
+              />
+            )}
+            {activeTab === 'ritual' && (
+              <div className="space-y-3">
+                <RitualPanel
+                  lang={lang}
+                  session={session}
+                  onStart={handleStartRitual}
+                  onComplete={handleCompleteRitual}
+                  onInterrupt={handleInterrupt}
+                />
+                {(session.completed || session.interrupted) && (
+                  <button
+                    onClick={resetSession}
+                    className="w-full py-2 rounded-xl bg-card border border-border/40 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {lang === 'ru' ? 'Сбросить' : 'Reset'}
+                  </button>
+                )}
+              </div>
+            )}
+            {activeTab === 'progress' && (
+              <ProgressionPanel
+                lang={lang}
+                progression={progression}
+                lastPointsEarned={lastPoints}
+              />
+            )}
           </div>
         </div>
       )}
