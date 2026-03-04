@@ -1,5 +1,6 @@
 import React from 'react'
 import { useLang } from '../../contexts/LanguageContext'
+import { useAudio } from '../../contexts/AudioContext'
 import {
   LayoutDashboard, FlameKindling, Bot, Moon, Sparkles,
   BookOpen, ShoppingBag, Settings, LogOut, Hexagon
@@ -16,6 +17,7 @@ interface SidebarProps {
 
 export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
   const { t } = useLang()
+  const { playUiSound } = useAudio()
 
   const navItems = [
     { id: 'dashboard' as Page, icon: LayoutDashboard, label: t.dashboard },
@@ -27,8 +29,13 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
     { id: 'marketplace' as Page, icon: ShoppingBag, label: t.marketplace },
   ]
 
+  const handleNavigate = (id: Page) => {
+    onNavigate(id)
+    playUiSound('click')
+  }
+
   return (
-    <aside className="w-64 h-screen flex flex-col bg-[hsl(var(--sidebar))] border-r border-[hsl(var(--sidebar-border))]">
+    <aside className="w-64 h-screen flex flex-col bg-[hsl(var(--sidebar))] border-r border-[hsl(var(--sidebar-border))] transition-all duration-300">
       {/* Logo */}
       <div className="h-16 flex items-center gap-3 px-5 border-b border-[hsl(var(--sidebar-border))]">
         <div className="relative">
@@ -47,7 +54,7 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
           {navItems.map((item) => (
             <li key={item.id}>
               <button
-                onClick={() => onNavigate(item.id)}
+                onClick={() => handleNavigate(item.id)}
                 className={cn(
                   'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200',
                   currentPage === item.id
@@ -69,7 +76,7 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
       {/* Bottom */}
       <div className="border-t border-[hsl(var(--sidebar-border))] p-2 space-y-0.5">
         <button
-          onClick={() => onNavigate('settings')}
+          onClick={() => handleNavigate('settings')}
           className={cn(
             'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200',
             currentPage === 'settings'
@@ -81,7 +88,7 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
           <span>{t.settings}</span>
         </button>
         <button
-          onClick={() => blink.auth.logout()}
+          onClick={() => { blink.auth.logout(); playUiSound('click') }}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all duration-200"
         >
           <LogOut className="w-4 h-4" />

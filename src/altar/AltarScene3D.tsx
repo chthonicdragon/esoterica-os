@@ -1,5 +1,5 @@
-import { useRef, useState, Suspense } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { useRef, useState, Suspense, useMemo } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import type { AltarLayout } from './types'
@@ -167,6 +167,22 @@ function RitualRing({ progress, active }: { progress: number; active: boolean })
   )
 }
 
+// Component to dynamically adjust camera based on aspect ratio
+function ResponsiveCamera() {
+  const { size, camera } = useThree()
+  const isPortrait = size.width < size.height
+
+  useMemo(() => {
+    if (camera instanceof THREE.PerspectiveCamera) {
+      camera.position.set(0, isPortrait ? 1.8 : 1.4, isPortrait ? 3.0 : 2.2)
+      camera.fov = isPortrait ? 55 : 45
+      camera.updateProjectionMatrix()
+    }
+  }, [isPortrait, camera])
+
+  return null
+}
+
 interface AltarScene3DProps {
   layout: AltarLayout
   selectedId: string | null
@@ -189,13 +205,12 @@ export function AltarScene3D({
   onDropPlaced,
 }: AltarScene3DProps) {
   const theme = ALTAR_THEMES[layout.theme]
-
   const catalogMap = Object.fromEntries(CATALOG.map(c => [c.id, c]))
 
   return (
     <Canvas
       shadows
-      camera={{ position: [0, 1.4, 2.2], fov: 45, near: 0.1, far: 50 }}
+      camera={{ near: 0.1, far: 50 }}
       style={{ background: 'transparent' }}
       onPointerMissed={() => onSelect(null)}
     >
@@ -264,6 +279,7 @@ export function AltarScene3D({
         dampingFactor={0.05}
         enableDamping
       />
+      <ResponsiveCamera />
     </Canvas>
   )
 }

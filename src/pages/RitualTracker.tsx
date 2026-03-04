@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
+import { useAudio } from '../contexts/AudioContext'
 import { blink } from '../blink/client'
 import { getMoonPhase, moonEmoji, moonEnergy, moonEnergyRu } from '../utils/moonPhase'
 import { Plus, Moon, Trash2, TrendingUp } from 'lucide-react'
@@ -43,6 +44,7 @@ interface RitualTrackerProps {
 
 export function RitualTracker({ user }: RitualTrackerProps) {
   const { t, lang } = useLang()
+  const { playUiSound } = useAudio()
   const [rituals, setRituals] = useState<Ritual[]>([])
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -69,6 +71,7 @@ export function RitualTracker({ user }: RitualTrackerProps) {
 
   async function saveRitual() {
     if (!form.title.trim() || !form.intention.trim()) return
+    playUiSound('click')
     try {
       const ritual = await blink.db.rituals.create({
         userId: user.id,
@@ -102,11 +105,13 @@ export function RitualTracker({ user }: RitualTrackerProps) {
 
       setShowForm(false)
       setForm({ title: '', type: 'manifestation', intention: '', energyLevel: 7, outcome: '', notes: '' })
+      playUiSound('success')
       toast.success(lang === 'ru' ? 'Ритуал записан' : 'Ritual logged')
     } catch (e) { toast.error(t.error) }
   }
 
   async function deleteRitual(id: string) {
+    playUiSound('click')
     await blink.db.rituals.delete(id)
     setRituals(prev => prev.filter(r => r.id !== id))
   }
@@ -130,7 +135,7 @@ export function RitualTracker({ user }: RitualTrackerProps) {
       {/* Wheel of Year */}
       <div>
         <p className="text-xs text-muted-foreground mb-3">{t.wheelOfYear} — Slavic</p>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {WHEEL_SLAVIC.map(s => (
             <div key={s.name} className="rounded-xl bg-card border border-border/40 p-3 text-center hover:border-primary/30 transition-colors">
               <div className="text-2xl mb-1">{s.emoji}</div>
@@ -142,7 +147,7 @@ export function RitualTracker({ user }: RitualTrackerProps) {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="rounded-xl bg-card border border-border/40 p-3 text-center">
           <p className="text-2xl font-bold text-primary">{rituals.length}</p>
           <p className="text-xs text-muted-foreground mt-1">{lang === 'ru' ? 'Ритуалов' : 'Rituals'}</p>
@@ -163,7 +168,7 @@ export function RitualTracker({ user }: RitualTrackerProps) {
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">{t.ritualHistory}</h3>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => { setShowForm(true); playUiSound('click') }}
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm hover:bg-primary/20 transition-colors"
         >
           <Plus className="w-4 h-4" />
@@ -215,8 +220,8 @@ export function RitualTracker({ user }: RitualTrackerProps) {
             rows={2}
           />
           <div className="flex gap-2">
-            <button onClick={saveRitual} className="flex-1 bg-primary text-primary-foreground rounded-xl py-2.5 text-sm font-medium hover:bg-primary/90 transition-colors">{t.save}</button>
-            <button onClick={() => setShowForm(false)} className="px-4 rounded-xl border border-border text-muted-foreground hover:text-foreground text-sm transition-colors">{t.cancel}</button>
+            <button onClick={() => { saveRitual(); playUiSound('click') }} className="flex-1 bg-primary text-primary-foreground rounded-xl py-2.5 text-sm font-medium hover:bg-primary/90 transition-colors">{t.save}</button>
+            <button onClick={() => { setShowForm(false); playUiSound('click') }} className="px-4 rounded-xl border border-border text-muted-foreground hover:text-foreground text-sm transition-colors">{t.cancel}</button>
           </div>
         </div>
       )}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Flame, Timer, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { useAudio } from '../contexts/AudioContext'
 import type { RitualSession } from './types'
 
 const DURATION_OPTIONS = [15, 30, 60, 90]
@@ -49,6 +50,7 @@ export function RitualPanel({ lang, session, onStart, onComplete, onInterrupt }:
   const [selectedMode, setSelectedMode] = useState<'soft' | 'strict'>('soft')
   const [customDuration, setCustomDuration] = useState('')
   const [showConfirm, setShowConfirm] = useState(false)
+  const { playUiSound } = useAudio()
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const elapsed = session.elapsed
@@ -64,8 +66,9 @@ export function RitualPanel({ lang, session, onStart, onComplete, onInterrupt }:
   }, [remaining, session.active, onComplete])
 
   const handleStart = useCallback(() => {
+    playUiSound('click')
     setShowConfirm(true)
-  }, [])
+  }, [playUiSound])
 
   const confirmStart = useCallback(() => {
     const dur = customDuration ? parseInt(customDuration) : selectedDuration
@@ -123,13 +126,13 @@ export function RitualPanel({ lang, session, onStart, onComplete, onInterrupt }:
         <p className="text-sm text-center text-foreground/90 leading-snug">{t.confirmQ}</p>
         <div className="flex gap-2 w-full">
           <button
-            onClick={confirmStart}
+            onClick={() => { confirmStart(); playUiSound('click') }}
             className="flex-1 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
           >
             {t.yes}
           </button>
           <button
-            onClick={() => setShowConfirm(false)}
+            onClick={() => { setShowConfirm(false); playUiSound('click') }}
             className="flex-1 py-2 rounded-xl bg-card border border-border/40 text-muted-foreground text-sm hover:text-foreground transition-colors"
           >
             {t.no}
@@ -162,7 +165,7 @@ export function RitualPanel({ lang, session, onStart, onComplete, onInterrupt }:
 
         <div className="flex gap-2 w-full">
           <button
-            onClick={onComplete}
+            onClick={() => { onComplete(); playUiSound('success') }}
             className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-green-500/15 border border-green-500/30 text-green-400 text-xs hover:bg-green-500/25 transition-colors"
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
@@ -170,7 +173,7 @@ export function RitualPanel({ lang, session, onStart, onComplete, onInterrupt }:
           </button>
           {session.mode === 'soft' && (
             <button
-              onClick={onInterrupt}
+              onClick={() => { onInterrupt(); playUiSound('click') }}
               className="px-3 py-2 rounded-xl bg-card border border-border/40 text-muted-foreground text-xs hover:text-foreground transition-colors"
             >
               {t.interrupt}
@@ -191,7 +194,7 @@ export function RitualPanel({ lang, session, onStart, onComplete, onInterrupt }:
           {DURATION_OPTIONS.map(d => (
             <button
               key={d}
-              onClick={() => { setSelectedDuration(d); setCustomDuration('') }}
+              onClick={() => { setSelectedDuration(d); setCustomDuration(''); playUiSound('click') }}
               className={cn(
                 'py-1.5 rounded-lg text-xs border transition-all',
                 selectedDuration === d && !customDuration
@@ -209,7 +212,7 @@ export function RitualPanel({ lang, session, onStart, onComplete, onInterrupt }:
           max="240"
           placeholder={`${t.custom}...`}
           value={customDuration}
-          onChange={e => setCustomDuration(e.target.value)}
+          onChange={e => { setCustomDuration(e.target.value); playUiSound('click') }}
           className="mt-1.5 w-full bg-card border border-border/40 rounded-lg px-2 py-1 text-xs text-foreground outline-none focus:border-primary/50 placeholder:text-muted-foreground/50"
         />
       </div>
@@ -221,7 +224,7 @@ export function RitualPanel({ lang, session, onStart, onComplete, onInterrupt }:
           {(['soft', 'strict'] as const).map(mode => (
             <button
               key={mode}
-              onClick={() => setSelectedMode(mode)}
+              onClick={() => { setSelectedMode(mode); playUiSound('click') }}
               className={cn(
                 'flex flex-col gap-0.5 p-2 rounded-xl border text-left transition-all',
                 selectedMode === mode
@@ -242,7 +245,7 @@ export function RitualPanel({ lang, session, onStart, onComplete, onInterrupt }:
 
       {/* Begin button */}
       <button
-        onClick={handleStart}
+        onClick={() => { handleStart(); playUiSound('click') }}
         className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-primary to-purple-700 text-white text-sm font-medium hover:opacity-90 transition-all hover:shadow-[0_0_20px_hsl(267_80%_60%/0.4)]"
       >
         <Flame className="w-4 h-4" />

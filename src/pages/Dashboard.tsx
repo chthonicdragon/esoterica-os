@@ -92,36 +92,38 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       {/* Welcome */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/20 via-background to-[hsl(var(--neon))/10] border border-primary/20 p-6">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/20 via-background to-[hsl(var(--neon))/10] border border-primary/20 p-5 sm:p-6">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,hsl(var(--primary)/0.15),transparent_60%)]" />
         <div className="relative">
-          <p className="text-sm text-muted-foreground mb-1">{t.welcomeBack}</p>
-          <h2 className="text-2xl font-bold font-cinzel text-foreground mb-2">
+          <p className="text-[10px] sm:text-sm text-muted-foreground mb-1 uppercase tracking-widest font-medium opacity-70">{t.welcomeBack}</p>
+          <h2 className="text-xl sm:text-2xl font-bold font-cinzel text-foreground mb-2 truncate">
             {profile?.displayName || user.displayName || user.email?.split('@')[0] || 'Seeker'}
           </h2>
-          <div className="flex items-center gap-3 mt-4">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/15 border border-primary/25 text-sm">
-              <span className="text-xl">{moonEmoji[moonPhase]}</span>
-              <span className="text-primary">{t.moonPhases[moonPhase]}</span>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-4">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/15 border border-primary/25 text-sm w-fit">
+              <span className="text-base sm:text-xl">{moonEmoji[moonPhase]}</span>
+              <span className="text-primary font-medium">{t.moonPhases[moonPhase]}</span>
             </div>
-            <p className="text-xs text-muted-foreground italic max-w-xs">{energy}</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground italic max-w-xs leading-relaxed">{energy}</p>
           </div>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { label: t.initiationLevel, value: currentLevel ? (lang === 'ru' ? currentLevel.nameRu : currentLevel.name) : '—', icon: Star, color: 'text-primary' },
           { label: t.currentStreak, value: `${profile?.practiceStreak || 0} ${t.days}`, icon: Zap, color: 'text-yellow-400' },
           { label: t.totalRituals, value: profile?.totalRituals || 0, icon: TrendingUp, color: 'text-green-400' },
         ].map((stat) => (
-          <div key={stat.label} className="rounded-xl bg-card border border-border/40 p-4 hover:border-primary/30 transition-colors">
-            <div className="flex items-center justify-between mb-2">
-              <stat.icon className={`w-4 h-4 ${stat.color}`} />
+          <div key={stat.label} className="rounded-xl bg-card border border-border/40 p-4 hover:border-primary/30 transition-colors flex sm:flex-col items-center sm:items-start gap-4 sm:gap-2">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-secondary sm:bg-transparent">
+              <stat.icon className={`w-5 h-5 sm:w-4 sm:h-4 ${stat.color}`} />
             </div>
-            <div className="text-xl font-bold text-foreground">{stat.value}</div>
-            <div className="text-xs text-muted-foreground mt-1">{stat.label}</div>
+            <div>
+              <div className="text-lg sm:text-xl font-bold text-foreground">{stat.value}</div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">{stat.label}</div>
+            </div>
           </div>
         ))}
       </div>

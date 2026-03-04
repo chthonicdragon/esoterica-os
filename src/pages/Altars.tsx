@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, Trash2, Settings2, RotateCcw, Maximize2, Minimize2 } from 'lucide-react'
+import { Plus, Trash2, Settings2, RotateCcw, Maximize2, Minimize2, List } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { cn } from '../lib/utils'
 import { useLang } from '../contexts/LanguageContext'
+import { useAudio } from '../contexts/AudioContext'
+import { useIsMobile } from '../hooks/use-mobile'
 import { AltarScene3D } from '../altar/AltarScene3D'
 import { ObjectPanel } from '../altar/ObjectPanel'
 import { RitualPanel } from '../altar/RitualPanel'
@@ -39,6 +41,8 @@ const DEFAULT_SESSION: RitualSession = {
 
 export function Altars({ user }: AltarsProps) {
   const { lang } = useLang()
+  const { playUiSound } = useAudio()
+  const isMobile = useIsMobile()
   const [layouts, setLayouts] = useState<AltarLayout[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [selectedObjId, setSelectedObjId] = useState<string | null>(null)
@@ -51,6 +55,7 @@ export function Altars({ user }: AltarsProps) {
   const [newTheme, setNewTheme] = useState<AltarTheme>('mystical')
   const [activeTab, setActiveTab] = useState<'objects' | 'ritual' | 'progress'>('objects')
   const [fullscreen, setFullscreen] = useState(false)
+  const [showAltarList, setShowAltarList] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [showThemeMenu, setShowThemeMenu] = useState(false)
 
@@ -98,6 +103,7 @@ export function Altars({ user }: AltarsProps) {
 
   function createLayout() {
     if (!newName.trim()) return
+    playUiSound('success')
     const layout = createDefaultLayout(newName.trim(), newTheme)
     const updated = [...layouts, layout]
     setLayouts(updated)
@@ -108,6 +114,7 @@ export function Altars({ user }: AltarsProps) {
   }
 
   function deleteLayout(id: string) {
+    playUiSound('click')
     setLayouts(l => l.filter(x => x.id !== id))
     if (activeId === id) setActiveId(null)
     toast.success(lang === 'ru' ? 'Алтарь удалён' : 'Altar deleted')
@@ -131,6 +138,7 @@ export function Altars({ user }: AltarsProps) {
       rotationY: Math.random() * Math.PI * 2,
       scale: 1,
     }
+    playUiSound('bell')
     updateLayout(addObjectToLayout(activeLayout, placed))
     setPendingDrop(null)
     toast.success(lang === 'ru' ? 'Объект размещён' : 'Object placed', { duration: 1500 })
@@ -145,6 +153,7 @@ export function Altars({ user }: AltarsProps) {
 
   function handleDeleteSelected() {
     if (!activeLayout || !selectedObjId) return
+    playUiSound('click')
     updateLayout(removeObjectFromLayout(activeLayout, selectedObjId))
     setSelectedObjId(null)
     toast.success(lang === 'ru' ? 'Объект удалён' : 'Object removed', { duration: 1200 })
@@ -154,6 +163,7 @@ export function Altars({ user }: AltarsProps) {
     if (!activeLayout || !selectedObjId) return
     const obj = activeLayout.objects.find(o => o.id === selectedObjId)
     if (!obj) return
+    playUiSound('hover')
     updateLayout(updateObjectInLayout(activeLayout, {
       ...obj,
       rotationY: obj.rotationY + Math.PI / 4,
@@ -165,16 +175,19 @@ export function Altars({ user }: AltarsProps) {
     const obj = activeLayout.objects.find(o => o.id === selectedObjId)
     if (!obj) return
     const newScale = Math.max(0.4, Math.min(3.0, obj.scale + delta))
+    playUiSound('hover')
     updateLayout(updateObjectInLayout(activeLayout, { ...obj, scale: newScale }))
   }
 
   function changeTheme(theme: AltarTheme) {
     if (!activeLayout) return
+    playUiSound('success')
     updateLayout({ ...activeLayout, theme })
     setShowThemeMenu(false)
   }
 
   const handleStartRitual = useCallback((durationMinutes: number, mode: 'soft' | 'strict') => {
+    playUiSound('bell')
     setSession({
       active: true,
       mode,
@@ -198,6 +211,7 @@ export function Altars({ user }: AltarsProps) {
     syncProgressionToDb(user.id, newProg)
 
     setSession(s => ({ ...s, active: false, completed: true }))
+    playUiSound('success')
 
     const msg = bonusMultiplier > 1
       ? (lang === 'ru' ? `✦ Завершено! +${pointsEarned} очков (x${bonusMultiplier} бонус)` : `✦ Completed! +${pointsEarned} pts (x${bonusMultiplier} bonus)`)
@@ -208,6 +222,7 @@ export function Altars({ user }: AltarsProps) {
   const handleInterrupt = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current)
     setSession(s => ({ ...s, active: false, interrupted: true }))
+    playUiSound('error')
     toast.error(lang === 'ru' ? 'Сессия прервана' : 'Session interrupted', { duration: 2000 })
   }, [lang])
 
@@ -242,90 +257,118 @@ export function Altars({ user }: AltarsProps) {
     scaleUp: lang === 'ru' ? 'Больше' : 'Bigger',
     scaleDown: lang === 'ru' ? 'Меньше' : 'Smaller',
     changeTheme: lang === 'ru' ? 'Тема алтаря' : 'Altar Theme',
+    list: lang === 'ru' ? 'Список' : 'List',
   }
 
-  return (
-    <div className="flex h-full overflow-hidden bg-background">
-      {/* Left panel — altar list */}
-      {!fullscreen && (
-        <div className="w-56 flex-shrink-0 border-r border-border/30 flex flex-col overflow-hidden">
-          <div className="p-3 border-b border-border/30 flex items-center justify-between">
-            <span className="text-xs font-semibold text-foreground">{t.myAltars}</span>
+  const renderAltarList = () => (
+    <div className={cn(
+      "flex flex-col h-full bg-background/95 backdrop-blur-md transition-all duration-300",
+      isMobile ? "absolute inset-0 z-50" : "w-56 border-r border-border/30"
+    )}>
+      <div className="p-3 border-b border-border/30 flex items-center justify-between">
+        <span className="text-xs font-semibold text-foreground">{t.myAltars}</span>
+        <div className="flex gap-1">
+          <button
+            onClick={() => setShowCreateForm(v => !v)}
+            className="p-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+          {isMobile && (
             <button
-              onClick={() => setShowCreateForm(v => !v)}
-              className="p-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
+              onClick={() => setShowAltarList(false)}
+              className="p-1 rounded-lg bg-secondary text-muted-foreground hover:text-foreground"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Maximize2 className="w-3.5 h-3.5 rotate-45" />
             </button>
-          </div>
-
-          {showCreateForm && (
-            <div className="p-3 border-b border-border/30 space-y-2">
-              <input
-                value={newName}
-                onChange={e => setNewName(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && createLayout()}
-                placeholder={t.altarName}
-                autoFocus
-                className="w-full bg-background border border-border/40 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-primary/50 text-foreground"
-              />
-              <select
-                value={newTheme}
-                onChange={e => setNewTheme(e.target.value as AltarTheme)}
-                className="w-full bg-background border border-border/40 rounded-lg px-2.5 py-1.5 text-xs outline-none text-foreground"
-              >
-                {ALTAR_THEMES_LIST.map(th => (
-                  <option key={th} value={th}>
-                    {lang === 'ru' ? ALTAR_THEMES[th].nameRu : ALTAR_THEMES[th].name}
-                  </option>
-                ))}
-              </select>
-              <div className="flex gap-1.5">
-                <button onClick={createLayout} className="flex-1 bg-primary text-primary-foreground rounded-lg py-1 text-xs font-medium hover:bg-primary/90">{t.save}</button>
-                <button onClick={() => setShowCreateForm(false)} className="px-2 rounded-lg border border-border/40 text-muted-foreground text-xs hover:text-foreground">{t.cancel}</button>
-              </div>
-            </div>
           )}
+        </div>
+      </div>
 
-          <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {layouts.length === 0 ? (
-              <p className="text-xs text-muted-foreground/60 text-center p-4">{t.noAltars}</p>
-            ) : layouts.map(l => (
-              <button
-                key={l.id}
-                onClick={() => { setActiveId(l.id); setSelectedObjId(null) }}
-                className={cn(
-                  'w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-left transition-all group',
-                  activeId === l.id
-                    ? 'bg-primary/10 border border-primary/30 text-foreground'
-                    : 'border border-transparent hover:bg-card text-muted-foreground hover:text-foreground'
-                )}
-              >
-                <div>
-                  <p className="text-xs font-medium truncate max-w-[100px]">{l.name}</p>
-                  <p className="text-[10px] opacity-60">
-                    {lang === 'ru' ? ALTAR_THEMES[l.theme]?.nameRu : ALTAR_THEMES[l.theme]?.name}
-                  </p>
-                </div>
-                <button
-                  onClick={e => { e.stopPropagation(); deleteLayout(l.id) }}
-                  className="opacity-0 group-hover:opacity-100 p-1 hover:text-destructive transition-all"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
-              </button>
+      {showCreateForm && (
+        <div className="p-3 border-b border-border/30 space-y-2">
+          <input
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && createLayout()}
+            placeholder={t.altarName}
+            autoFocus
+            className="w-full bg-background border border-border/40 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-primary/50 text-foreground"
+          />
+          <select
+            value={newTheme}
+            onChange={e => setNewTheme(e.target.value as AltarTheme)}
+            className="w-full bg-background border border-border/40 rounded-lg px-2.5 py-1.5 text-xs outline-none text-foreground"
+          >
+            {ALTAR_THEMES_LIST.map(th => (
+              <option key={th} value={th}>
+                {lang === 'ru' ? ALTAR_THEMES[th].nameRu : ALTAR_THEMES[th].name}
+              </option>
             ))}
+          </select>
+          <div className="flex gap-1.5">
+            <button onClick={createLayout} className="flex-1 bg-primary text-primary-foreground rounded-lg py-1 text-xs font-medium hover:bg-primary/90">{t.save}</button>
+            <button onClick={() => setShowCreateForm(false)} className="px-2 rounded-lg border border-border/40 text-muted-foreground text-xs hover:text-foreground">{t.cancel}</button>
           </div>
         </div>
       )}
+
+      <div className="flex-1 overflow-y-auto p-2 space-y-1">
+        {layouts.length === 0 ? (
+          <p className="text-xs text-muted-foreground/60 text-center p-4">{t.noAltars}</p>
+        ) : layouts.map(l => (
+          <button
+            key={l.id}
+            onClick={() => { setActiveId(l.id); setSelectedObjId(null); if (isMobile) setShowAltarList(false); playUiSound('click') }}
+            className={cn(
+              'w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-left transition-all group',
+              activeId === l.id
+                ? 'bg-primary/10 border border-primary/30 text-foreground'
+                : 'border border-transparent hover:bg-card text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <div>
+              <p className="text-xs font-medium truncate max-w-[100px]">{l.name}</p>
+              <p className="text-[10px] opacity-60">
+                {lang === 'ru' ? ALTAR_THEMES[l.theme]?.nameRu : ALTAR_THEMES[l.theme]?.name}
+              </p>
+            </div>
+            <button
+              onClick={e => { e.stopPropagation(); deleteLayout(l.id) }}
+              className="opacity-0 group-hover:opacity-100 p-1 hover:text-destructive transition-all"
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+
+  return (
+    <div className={cn(
+      "flex h-full overflow-hidden bg-background",
+      isMobile ? "flex-col" : "flex-row"
+    )}>
+      {/* Left panel — altar list */}
+      {!fullscreen && !isMobile && renderAltarList()}
+      {isMobile && showAltarList && renderAltarList()}
 
       {/* Center — 3D canvas */}
       <div className="flex-1 flex flex-col overflow-hidden relative">
         {activeLayout ? (
           <>
             {/* Canvas toolbar */}
-            <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30 bg-background/80 backdrop-blur-sm">
-              <h2 className="text-sm font-cinzel text-foreground/90 flex-1">{activeLayout.name}</h2>
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30 bg-background/80 backdrop-blur-sm z-10">
+              {isMobile && (
+                <button
+                  onClick={() => setShowAltarList(true)}
+                  className="p-1.5 rounded-lg bg-card border border-border/40 text-muted-foreground"
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              )}
+              <h2 className="text-sm font-cinzel text-foreground/90 flex-1 truncate">{activeLayout.name}</h2>
 
               {/* Theme picker */}
               <div className="relative">
@@ -362,7 +405,7 @@ export function Altars({ user }: AltarsProps) {
                   session.mode === 'strict' ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-primary/10 border-primary/30 text-primary'
                 )}>
                   <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                  {session.mode === 'strict' ? 'STRICT' : 'SOFT'} MODE
+                  {isMobile ? 'STR' : (session.mode === 'strict' ? 'STRICT' : 'SOFT')}
                 </div>
               )}
 
@@ -376,17 +419,17 @@ export function Altars({ user }: AltarsProps) {
 
             {/* Object controls bar (when object selected) */}
             {selectedObjId && selectedCatalog && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/5 border-b border-primary/10 text-xs">
-                <span className="text-muted-foreground">{t.selected}</span>
-                <span className="text-foreground">{lang === 'ru' ? selectedCatalog.labelRu : selectedCatalog.label}</span>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/5 border-b border-primary/10 text-xs z-10">
+                <span className="text-muted-foreground hidden sm:inline">{t.selected}</span>
+                <span className="text-foreground truncate max-w-[80px]">{lang === 'ru' ? selectedCatalog.labelRu : selectedCatalog.label}</span>
                 <div className="flex gap-1 ml-auto">
-                  <button onClick={rotateSelected} className="px-2 py-0.5 rounded-lg bg-card border border-border/40 hover:border-primary/40 text-muted-foreground hover:text-foreground transition-colors">
-                    <RotateCcw className="w-3 h-3" />
+                  <button onClick={rotateSelected} className="p-1.5 rounded-lg bg-card border border-border/40 hover:border-primary/40 text-muted-foreground hover:text-foreground transition-colors">
+                    <RotateCcw className="w-3.5 h-3.5" />
                   </button>
-                  <button onClick={() => scaleSelected(0.1)} className="px-2 py-0.5 rounded-lg bg-card border border-border/40 hover:border-primary/40 text-xs text-muted-foreground hover:text-foreground transition-colors">+</button>
-                  <button onClick={() => scaleSelected(-0.1)} className="px-2 py-0.5 rounded-lg bg-card border border-border/40 hover:border-primary/40 text-xs text-muted-foreground hover:text-foreground transition-colors">−</button>
-                  <button onClick={handleDeleteSelected} className="px-2 py-0.5 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive hover:bg-destructive/20 text-xs transition-colors">
-                    <Trash2 className="w-3 h-3" />
+                  <button onClick={() => scaleSelected(0.1)} className="px-2.5 py-1 rounded-lg bg-card border border-border/40 hover:border-primary/40 text-sm text-muted-foreground hover:text-foreground transition-colors">+</button>
+                  <button onClick={() => scaleSelected(-0.1)} className="px-2.5 py-1 rounded-lg bg-card border border-border/40 hover:border-primary/40 text-sm text-muted-foreground hover:text-foreground transition-colors">−</button>
+                  <button onClick={handleDeleteSelected} className="p-1.5 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive hover:bg-destructive/20 transition-colors">
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
@@ -396,6 +439,7 @@ export function Altars({ user }: AltarsProps) {
             <div
               className={cn(
                 'flex-1 relative transition-all duration-500',
+                isMobile ? 'h-[40vh]' : '',
                 session.active && 'ring-1 ring-inset',
                 session.active && session.mode === 'strict' ? 'ring-red-500/30' : session.active ? 'ring-primary/30' : ''
               )}
@@ -414,7 +458,7 @@ export function Altars({ user }: AltarsProps) {
                 ritualActive={session.active}
                 ritualProgress={ritualProgress}
                 pendingDrop={pendingDrop}
-                onSelect={(id) => { setSelectedObjId(id); if (id) setPendingDrop(null) }}
+                onSelect={(id) => { setSelectedObjId(id); if (id) { setPendingDrop(null); playUiSound('click') } }}
                 onObjectMoved={handleObjectMoved}
                 onDropPlaced={handleDropPlaced}
               />
@@ -437,15 +481,18 @@ export function Altars({ user }: AltarsProps) {
 
       {/* Right panel — tabs */}
       {!fullscreen && activeLayout && (
-        <div className="w-64 flex-shrink-0 border-l border-border/30 flex flex-col overflow-hidden">
+        <div className={cn(
+          "flex-shrink-0 border-border/30 flex flex-col overflow-hidden transition-all duration-300 bg-background/50 backdrop-blur-sm",
+          isMobile ? "w-full border-t h-[45vh]" : "w-64 border-l h-full"
+        )}>
           {/* Tab bar */}
           <div className="flex border-b border-border/30">
             {(['objects', 'ritual', 'progress'] as const).map(tab => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => { setActiveTab(tab); playUiSound('click') }}
                 className={cn(
-                  'flex-1 py-2.5 text-[10px] font-medium transition-colors uppercase tracking-wider',
+                  'flex-1 py-3 text-[10px] font-semibold transition-colors uppercase tracking-widest',
                   activeTab === tab
                     ? 'text-primary border-b-2 border-primary bg-primary/5'
                     : 'text-muted-foreground hover:text-foreground'
@@ -456,7 +503,7 @@ export function Altars({ user }: AltarsProps) {
             ))}
           </div>
 
-          <div className="flex-1 overflow-y-auto p-3">
+          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
             {activeTab === 'objects' && (
               <ObjectPanel
                 lang={lang}

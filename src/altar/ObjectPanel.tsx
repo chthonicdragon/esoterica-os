@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { CATALOG, CATEGORY_LABELS } from './catalog'
 import type { ObjectCategory } from './types'
 import { cn } from '../lib/utils'
+import { useAudio } from '../contexts/AudioContext'
 
 interface ObjectPanelProps {
   lang: 'en' | 'ru'
@@ -12,6 +13,7 @@ interface ObjectPanelProps {
 
 export function ObjectPanel({ lang, unlockedLevel, pendingDrop, onSelectForDrop }: ObjectPanelProps) {
   const [activeCategory, setActiveCategory] = useState<ObjectCategory>('candles')
+  const { playUiSound } = useAudio()
 
   const categories = Object.keys(CATEGORY_LABELS) as ObjectCategory[]
 
@@ -24,7 +26,7 @@ export function ObjectPanel({ lang, unlockedLevel, pendingDrop, onSelectForDrop 
         {categories.map(cat => (
           <button
             key={cat}
-            onClick={() => setActiveCategory(cat)}
+            onClick={() => { setActiveCategory(cat); playUiSound('click') }}
             className={cn(
               'flex items-center gap-1 px-2 py-1 rounded-lg text-xs transition-all',
               activeCategory === cat
@@ -55,7 +57,14 @@ export function ObjectPanel({ lang, unlockedLevel, pendingDrop, onSelectForDrop 
             <button
               key={item.id}
               disabled={locked}
-              onClick={() => !locked && onSelectForDrop(item.id)}
+              onClick={() => {
+                if (!locked) {
+                  onSelectForDrop(item.id)
+                  playUiSound('click')
+                } else {
+                  playUiSound('error')
+                }
+              }}
               className={cn(
                 'flex flex-col items-center gap-1 p-2 rounded-xl border transition-all text-left relative',
                 locked

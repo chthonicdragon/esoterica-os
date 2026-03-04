@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { LanguageProvider, useLang } from './contexts/LanguageContext'
+import { AudioProvider, useAudio } from './contexts/AudioContext'
 import { useAuth } from './hooks/useAuth'
 import { blink } from './blink/client'
 import { Sidebar } from './components/layout/Sidebar'
 import { Header } from './components/layout/Header'
+import { Sheet, SheetContent } from './components/ui/sheet'
 import { Dashboard } from './pages/Dashboard'
 import { Altars } from './pages/Altars'
 import { AIMentor } from './pages/AIMentor'
@@ -12,6 +14,8 @@ import { SigilLab } from './pages/SigilLab'
 import { Journal } from './pages/Journal'
 import { Marketplace } from './pages/Marketplace'
 import { Settings } from './pages/Settings'
+import { Maximize2 } from 'lucide-react'
+import { useIsMobile } from './hooks/use-mobile'
 
 type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'journal' | 'marketplace' | 'settings'
 
@@ -29,11 +33,52 @@ const PAGE_TITLES: Record<Page, { en: string; ru: string }> = {
 function AppContent() {
   const { user, loading } = useAuth()
   const { lang } = useLang()
+  const isMobile = useIsMobile()
+  const { isMuted, setIsMuted, playAmbient, playUiSound } = useAudio()
   const [currentPage, setCurrentPage] = useState<Page>('dashboard')
+  const [hasInteracted, setHasInteracted] = useState(false)
+  const [isLandscapeOnMobile, setIsLandscapeOnMobile] = useState(false)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
+  // Check orientation
+  useEffect(() => {
+    const checkOrientation = () => {
+      if (isMobile) {
+        setIsLandscapeOnMobile(window.innerWidth > window.innerHeight)
+      } else {
+        setIsLandscapeOnMobile(false)
+      }
+    }
+    checkOrientation()
+    window.addEventListener('resize', checkOrientation)
+    return () => window.removeEventListener('resize', checkOrientation)
+  }, [isMobile])
+
+  // Start ambient on first interaction
+  const handleInteraction = useCallback(() => {
+    if (!hasInteracted) {
+      setHasInteracted(true)
+      setIsMuted(false)
+      playAmbient(true)
+      playUiSound('success')
+    }
+  }, [hasInteracted, setIsMuted, playAmbient, playUiSound])
+
+  // Effect to handle navigation sounds
+  useEffect(() => {
+    if (hasInteracted) {
+      playUiSound('whoosh')
+    }
+  }, [currentPage, hasInteracted, playUiSound])
+
+  const handleNavigate = (page: Page) => {
+    setCurrentPage(page)
+    setIsSidebarOpen(false)
+  }
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-background">
+      <div className="h-screen flex items-center justify-center bg-background" onClick={handleInteraction}>
         <div className="text-center">
           <div className="relative w-16 h-16 mx-auto mb-6">
             <div className="absolute inset-0 rounded-full border border-primary/30 animate-spin-slow" />
@@ -47,18 +92,51 @@ function AppContent() {
   }
 
   if (!user) {
-    return <LandingPage />
+    return (
+      <div onClick={handleInteraction}>
+        <LandingPage />
+      </div>
+    )
   }
 
   const pageTitle = PAGE_TITLES[currentPage][lang]
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar currentPage={currentPage} onNavigate={(page) => setCurrentPage(page as Page)} />
+    <div className="flex h-screen overflow-hidden bg-background" onClick={handleInteraction}>
+      {isLandscapeOnMobile && (
+        <div className="fixed inset-0 z-[100] bg-background flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4 animate-bounce">
+            <Maximize2 className="w-8 h-8 text-primary rotate-90" />
+          </div>
+          <h2 className="text-xl font-cinzel font-bold mb-2">
+            {lang === 'ru' ? 'Поверните устройство' : 'Rotate Device'}
+          </h2>
+          <p className="text-muted-foreground text-sm max-w-[200px]">
+            {lang === 'ru' ? 'Пожалуйста, используйте портретный режим для лучшего опыта' : 'Please use portrait mode for the best experience'}
+          </p>
+        </div>
+      )}
+
+      {!isMobile && (
+        <Sidebar currentPage={currentPage} onNavigate={handleNavigate} />
+      )}
+
+      {isMobile && (
+        <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
+          <SheetContent side="left" className="p-0 w-64 bg-[hsl(var(--sidebar))] border-r border-border/40">
+            <Sidebar currentPage={currentPage} onNavigate={handleNavigate} />
+          </SheetContent>
+        </Sheet>
+      )}
+
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title={pageTitle} userName={user.displayName || user.email} />
+        <Header 
+          title={pageTitle} 
+          userName={user.displayName || user.email} 
+          onMenuClick={isMobile ? () => setIsSidebarOpen(true) : undefined}
+        />
         <main className={`flex-1 ${currentPage === 'altars' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
-          {currentPage === 'dashboard' && <Dashboard user={user} onNavigate={(p) => setCurrentPage(p as Page)} />}
+          {currentPage === 'dashboard' && <Dashboard user={user} onNavigate={(p) => handleNavigate(p as Page)} />}
           {currentPage === 'altars' && <Altars user={user} />}
           {currentPage === 'ai-mentor' && <AIMentor user={user} />}
           {currentPage === 'ritual-tracker' && <RitualTracker user={user} />}
@@ -179,7 +257,9 @@ function LandingPage() {
 function App() {
   return (
     <LanguageProvider>
-      <AppContent />
+      <AudioProvider>
+        <AppContent />
+      </AudioProvider>
     </LanguageProvider>
   )
 }

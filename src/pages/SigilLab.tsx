@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useLang } from '../contexts/LanguageContext'
+import { useAudio } from '../contexts/AudioContext'
 import { blink } from '../blink/client'
 import { generateSigilSVG } from '../utils/sigilGenerator'
 import { Sparkles, Download, Zap, Trash2 } from 'lucide-react'
@@ -20,6 +21,7 @@ interface SigilLabProps {
 
 export function SigilLab({ user }: SigilLabProps) {
   const { t, lang } = useLang()
+  const { playUiSound } = useAudio()
   const [intention, setIntention] = useState('')
   const [currentSigil, setCurrentSigil] = useState<string | null>(null)
   const [currentIntention, setCurrentIntention] = useState('')
@@ -43,6 +45,7 @@ export function SigilLab({ user }: SigilLabProps) {
 
   function generateSigil() {
     if (!intention.trim()) return
+    playUiSound('click')
     setGenerating(true)
     setChargeLevel(0)
     setCharging(false)
@@ -51,11 +54,13 @@ export function SigilLab({ user }: SigilLabProps) {
       setCurrentSigil(svg)
       setCurrentIntention(intention)
       setGenerating(false)
+      playUiSound('success')
     }, 800)
   }
 
   async function saveSigil() {
     if (!currentSigil || !currentIntention) return
+    playUiSound('click')
     try {
       const sigil = await blink.db.sigils.create({
         userId: user.id,
@@ -71,6 +76,7 @@ export function SigilLab({ user }: SigilLabProps) {
   }
 
   function startCharging() {
+    playUiSound('bell')
     setCharging(true)
     setChargeLevel(0)
     chargeInterval.current = setInterval(() => {
@@ -88,6 +94,7 @@ export function SigilLab({ user }: SigilLabProps) {
 
   function exportSigil() {
     if (!currentSigil) return
+    playUiSound('click')
     const blob = new Blob([currentSigil], { type: 'image/svg+xml' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -98,6 +105,7 @@ export function SigilLab({ user }: SigilLabProps) {
   }
 
   async function deleteSigil(id: string) {
+    playUiSound('click')
     await blink.db.sigils.delete(id)
     setSigils(prev => prev.filter(s => s.id !== id))
   }
@@ -209,7 +217,7 @@ export function SigilLab({ user }: SigilLabProps) {
             <p className="text-sm text-muted-foreground">{t.noSigils}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {sigils.map(sigil => (
               <div key={sigil.id} className="relative group rounded-xl bg-card border border-border/40 overflow-hidden hover:border-primary/30 transition-all">
                 <div
