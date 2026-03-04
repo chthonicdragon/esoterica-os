@@ -9,6 +9,7 @@ export const translations = {
     ritualTracker: 'Ritual Tracker',
     sigilLab: 'Sigil Lab',
     journal: 'Journal',
+    forum: 'Forum',
     marketplace: 'Marketplace',
     settings: 'Settings',
 
@@ -144,6 +145,7 @@ export const translations = {
     ritualTracker: 'Трекер Ритуалов',
     sigilLab: 'Лаборатория Сигил',
     journal: 'Журнал',
+    forum: 'Форум',
     marketplace: 'Маркетплейс',
     settings: 'Настройки',
 

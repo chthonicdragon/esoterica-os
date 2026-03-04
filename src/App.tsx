@@ -14,10 +14,11 @@ import { SigilLab } from './pages/SigilLab'
 import { Journal } from './pages/Journal'
 import { Marketplace } from './pages/Marketplace'
 import { Settings } from './pages/Settings'
+import { ForumPage } from './pages/forum/ForumPage'
 import { Maximize2 } from 'lucide-react'
 import { useIsMobile } from './hooks/use-mobile'
 
-type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'journal' | 'marketplace' | 'settings'
+type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'journal' | 'forum' | 'marketplace' | 'settings'
 
 const PAGE_TITLES: Record<Page, { en: string; ru: string }> = {
   dashboard: { en: 'Dashboard', ru: 'Главная' },
@@ -26,6 +27,7 @@ const PAGE_TITLES: Record<Page, { en: string; ru: string }> = {
   'ritual-tracker': { en: 'Ritual Tracker', ru: 'Трекер Ритуалов' },
   'sigil-lab': { en: 'Sigil Lab', ru: 'Лаборатория Сигил' },
   journal: { en: 'Dream Journal', ru: 'Журнал Снов' },
+  forum: { en: 'Forum', ru: 'Форум' },
   marketplace: { en: 'Marketplace', ru: 'Маркетплейс' },
   settings: { en: 'Settings', ru: 'Настройки' },
 }
@@ -118,13 +120,13 @@ function AppContent() {
       )}
 
       {!isMobile && (
-        <Sidebar currentPage={currentPage} onNavigate={handleNavigate} />
+        <Sidebar currentPage={currentPage} onNavigate={handleNavigate} userId={user.id} />
       )}
 
       {isMobile && (
         <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
           <SheetContent side="left" className="p-0 w-64 bg-[hsl(var(--sidebar))] border-r border-border/40">
-            <Sidebar currentPage={currentPage} onNavigate={handleNavigate} />
+            <Sidebar currentPage={currentPage} onNavigate={handleNavigate} userId={user.id} />
           </SheetContent>
         </Sheet>
       )}
@@ -135,13 +137,14 @@ function AppContent() {
           userName={user.displayName || user.email} 
           onMenuClick={isMobile ? () => setIsSidebarOpen(true) : undefined}
         />
-        <main className={`flex-1 ${currentPage === 'altars' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
+        <main className={`flex-1 ${currentPage === 'altars' || currentPage === 'forum' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
           {currentPage === 'dashboard' && <Dashboard user={user} onNavigate={(p) => handleNavigate(p as Page)} />}
           {currentPage === 'altars' && <Altars user={user} />}
           {currentPage === 'ai-mentor' && <AIMentor user={user} />}
           {currentPage === 'ritual-tracker' && <RitualTracker user={user} />}
           {currentPage === 'sigil-lab' && <SigilLab user={user} />}
           {currentPage === 'journal' && <Journal user={user} />}
+          {currentPage === 'forum' && <ForumPage user={user} />}
           {currentPage === 'marketplace' && <Marketplace />}
           {currentPage === 'settings' && <Settings user={user} />}
         </main>

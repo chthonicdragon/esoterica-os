@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
 import { getMoonPhase, moonEmoji, moonEnergy, moonEnergyRu } from '../utils/moonPhase'
 import { blink } from '../blink/client'
-import { FlameKindling, Sparkles, BookOpen, Moon, TrendingUp, Star, Zap } from 'lucide-react'
+import { FlameKindling, Sparkles, BookOpen, Moon, TrendingUp, Star, Zap, MessageSquare } from 'lucide-react'
 
 interface Profile {
   initiationLevel: number
@@ -87,6 +87,7 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
     { icon: BookOpen, label: t.newJournal, action: () => onNavigate('journal'), color: 'text-green-400' },
     { icon: Sparkles, label: t.generateSigil, action: () => onNavigate('sigil-lab'), color: 'text-yellow-400' },
     { icon: FlameKindling, label: t.openAltar, action: () => onNavigate('altars'), color: 'text-orange-400' },
+    { icon: MessageSquare, label: (t as any).forum || 'Forum', action: () => onNavigate('forum'), color: 'text-purple-400' },
   ]
 
   return (
@@ -148,7 +149,7 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
       {/* Quick Actions */}
       <div>
         <h3 className="text-sm font-medium text-muted-foreground mb-3">{t.quickActions}</h3>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {quickActions.map((action) => (
             <button
               key={action.label}

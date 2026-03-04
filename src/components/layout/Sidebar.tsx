@@ -1,23 +1,40 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useLang } from '../../contexts/LanguageContext'
 import { useAudio } from '../../contexts/AudioContext'
 import {
   LayoutDashboard, FlameKindling, Bot, Moon, Sparkles,
-  BookOpen, ShoppingBag, Settings, LogOut, Hexagon
+  BookOpen, ShoppingBag, Settings, LogOut, Hexagon, MessageSquare
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { blink } from '../../blink/client'
+import { getUnreadNotificationCount } from '../../pages/forum/ForumNotifications'
 
-type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'journal' | 'marketplace' | 'settings'
+type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'journal' | 'forum' | 'marketplace' | 'settings'
 
 interface SidebarProps {
   currentPage: Page
   onNavigate: (page: Page) => void
+  userId?: string
 }
 
-export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
+export function Sidebar({ currentPage, onNavigate, userId }: SidebarProps) {
   const { t } = useLang()
   const { playUiSound } = useAudio()
+  const [forumBadge, setForumBadge] = useState(0)
+
+  useEffect(() => {
+    if (!userId) return
+    getUnreadNotificationCount(userId).then(setForumBadge)
+    const interval = setInterval(() => {
+      getUnreadNotificationCount(userId).then(setForumBadge)
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [userId])
+
+  // Clear badge when visiting forum
+  useEffect(() => {
+    if (currentPage === 'forum') setForumBadge(0)
+  }, [currentPage])
 
   const navItems = [
     { id: 'dashboard' as Page, icon: LayoutDashboard, label: t.dashboard },
@@ -26,6 +43,7 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
     { id: 'ritual-tracker' as Page, icon: Moon, label: t.ritualTracker },
     { id: 'sigil-lab' as Page, icon: Sparkles, label: t.sigilLab },
     { id: 'journal' as Page, icon: BookOpen, label: t.journal },
+    { id: 'forum' as Page, icon: MessageSquare, label: (t as any).forum || 'Forum', badge: forumBadge },
     { id: 'marketplace' as Page, icon: ShoppingBag, label: t.marketplace },
   ]
 
@@ -64,9 +82,16 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
               >
                 <item.icon className={cn('w-4 h-4', currentPage === item.id ? 'text-primary' : '')} />
                 <span>{item.label}</span>
-                {currentPage === item.id && (
-                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_6px_hsl(var(--primary))]" />
-                )}
+                <div className="ml-auto flex items-center gap-1">
+                  {(item as any).badge > 0 && (
+                    <span className="min-w-[16px] h-4 px-1 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">
+                      {(item as any).badge > 9 ? '9+' : (item as any).badge}
+                    </span>
+                  )}
+                  {currentPage === item.id && !(item as any).badge && (
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_6px_hsl(var(--primary))]" />
+                  )}
+                </div>
               </button>
             </li>
           ))}
