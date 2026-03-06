@@ -3,6 +3,7 @@ import { blink } from '../../blink/client'
 import { useLang } from '../../contexts/LanguageContext'
 import { useAudio } from '../../contexts/AudioContext'
 import type { ForumCategory, ForumView } from '../../types/forum'
+import { STATIC_CATEGORIES } from './forumData'
 
 interface Props {
   user: { id: string; email: string; displayName?: string }
@@ -12,21 +13,42 @@ interface Props {
 export function ForumCategories({ onNavigate }: Props) {
   const { lang } = useLang()
   const { playUiSound } = useAudio()
-  const [categories, setCategories] = useState<ForumCategory[]>([])
-  const [loading, setLoading] = useState(true)
+  const [categories, setCategories] = useState<ForumCategory[]>(STATIC_CATEGORIES)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    loadCategories()
+    loadCounts()
   }, [])
 
-  async function loadCategories() {
+  async function loadCounts() {
+    // Fetch live topic counts per category from forum_topics (which has user_id)
     try {
-      const raw = await blink.db.forumCategories.list({ orderBy: { sortOrder: 'asc' } })
-      setCategories(raw as unknown as ForumCategory[])
+      const allTopics = await blink.db.forumTopics.list({ limit: 500 }) as Array<{ categoryId: string }>
+      const allPosts = await blink.db.forumPosts.list({ where: { isDeleted: '0' }, limit: 1000 }) as Array<{ topicId: string }>
+
+      const topicsByCategory: Record<string, number> = {}
+      for (const t of allTopics) {
+        topicsByCategory[t.categoryId] = (topicsByCategory[t.categoryId] || 0) + 1
+      }
+
+      // Map posts to categories via topics
+      const topicCategoryMap: Record<string, string> = {}
+      for (const t of allTopics as Array<{ id: string; categoryId: string }>) {
+        topicCategoryMap[t.id] = t.categoryId
+      }
+      const postsByCategory: Record<string, number> = {}
+      for (const p of allPosts as Array<{ topicId: string }>) {
+        const catId = topicCategoryMap[p.topicId]
+        if (catId) postsByCategory[catId] = (postsByCategory[catId] || 0) + 1
+      }
+
+      setCategories(prev => prev.map(cat => ({
+        ...cat,
+        topicCount: topicsByCategory[cat.id] || 0,
+        postCount: postsByCategory[cat.id] || 0,
+      })))
     } catch (e) {
-      console.error('Failed to load categories', e)
-    } finally {
-      setLoading(false)
+      // Counts stay at 0 — categories still render fine
     }
   }
 

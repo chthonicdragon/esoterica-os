@@ -72,15 +72,6 @@ export function ForumNewTopic({ user, categoryId, onNavigate, onSuccess }: Props
         createdAt: now,
       })
 
-      // Update category counts
-      const cat = await blink.db.forumCategories.get(categoryId).catch(() => null)
-      if (cat) {
-        await blink.db.forumCategories.update(categoryId, {
-          topicCount: (cat as any).topicCount + 1,
-          postCount: (cat as any).postCount + 1,
-        }).catch(() => {})
-      }
-
       playUiSound('success')
       toast.success(lang === 'ru' ? 'Тема создана!' : 'Topic created!')
       onSuccess(topicId)

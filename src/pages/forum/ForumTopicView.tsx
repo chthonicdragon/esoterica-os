@@ -109,16 +109,6 @@ export function ForumTopicView({ user, topicId, onNavigate }: Props) {
         lastPostUserId: user.id,
         updatedAt: new Date().toISOString(),
       })
-      // Update category post count
-      if (topic?.categoryId) {
-        const cat = await blink.db.forumCategories.get(topic.categoryId).catch(() => null)
-        if (cat) {
-          await blink.db.forumCategories.update(topic.categoryId, {
-            postCount: (cat as any).postCount + 1
-          }).catch(() => {})
-        }
-      }
-
       // Notify original topic author if different user
       if (replyingTo) {
         const parentPost = posts.find(p => p.id === replyingTo)

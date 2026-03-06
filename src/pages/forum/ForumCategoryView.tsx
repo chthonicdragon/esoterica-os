@@ -3,6 +3,7 @@ import { blink } from '../../blink/client'
 import { useLang } from '../../contexts/LanguageContext'
 import { useAudio } from '../../contexts/AudioContext'
 import type { ForumCategory, ForumTopic, ForumView } from '../../types/forum'
+import { getStaticCategory } from './forumData'
 import { formatDistanceToNow } from 'date-fns'
 
 interface Props {
@@ -27,16 +28,13 @@ export function ForumCategoryView({ user, categoryId, onNavigate }: Props) {
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const [cat, rawTopics] = await Promise.all([
-        blink.db.forumCategories.get(categoryId),
-        blink.db.forumTopics.list({
-          where: { categoryId },
-          orderBy: { createdAt: 'desc' },
-          limit: PAGE_SIZE,
-          offset: page * PAGE_SIZE,
-        }),
-      ])
-      setCategory(cat as unknown as ForumCategory)
+      const rawTopics = await blink.db.forumTopics.list({
+        where: { categoryId },
+        orderBy: { createdAt: 'desc' },
+        limit: PAGE_SIZE,
+        offset: page * PAGE_SIZE,
+      })
+      setCategory(getStaticCategory(categoryId))
 
       // Fetch author names
       const topicsWithAuthors = await Promise.all(
