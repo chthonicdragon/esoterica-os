@@ -429,6 +429,10 @@ Respond in English in 4 blocks:
           ))}
 
           {loading && (
+            // ...existing code...
+            // ...existing code...
+            }
+
             // Форматирование ответа наставника: превращает текст в HTML с абзацами и markdown
             function formatMentorMessage(text: string): string {
               // Преобразовать двойные переносы в <p>
