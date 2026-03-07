@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { Plus, Trash2, Settings2, Maximize2, Minimize2, List, ChevronLeft } from 'lucide-react'
+import { Plus, Trash2, Maximize2, Minimize2, List, ChevronLeft } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { cn } from '../lib/utils'
 import { useLang } from '../contexts/LanguageContext'
@@ -26,7 +26,6 @@ import {
 } from '../altar/altarStore'
 import type { AltarLayout, AltarTheme, AltarBaseId, PlacedObject, RitualSession, Progression } from '../altar/types'
 
-const ALTAR_THEMES_LIST: AltarTheme[] = ['stone', 'wood', 'obsidian', 'mystical']
 type AltarVisualPreset = 'soft' | 'cinematic'
 
 interface AltarsProps {
@@ -60,15 +59,33 @@ export function Altars({ user }: AltarsProps) {
   const [lastPoints, setLastPoints] = useState(0)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newName, setNewName] = useState('')
-  const [newTheme, setNewTheme] = useState<AltarTheme>('mystical')
+  const [newBaseId, setNewBaseId] = useState<AltarBaseId>('base_wooden_table')
   const [activeTab, setActiveTab] = useState<'objects' | 'bases' | 'ritual' | 'progress'>('objects')
   const [fullscreen, setFullscreen] = useState(false)
   const [showAltarList, setShowAltarList] = useState(false)
-  const [showThemeMenu, setShowThemeMenu] = useState(false)
   const [visualPreset, setVisualPreset] = useState<AltarVisualPreset>('cinematic')
   const [hydrated, setHydrated] = useState(false)
   const [safeRenderMode, setSafeRenderMode] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const unlockedBases = useMemo(
+    () => ALTAR_BASES.filter(base => base.unlockLevel <= progression.level),
+    [progression.level],
+  )
+
+  useEffect(() => {
+    if (!showCreateForm || unlockedBases.length === 0) return
+    if (!unlockedBases.some(base => base.id === newBaseId)) {
+      setNewBaseId(unlockedBases[0].id)
+    }
+  }, [showCreateForm, unlockedBases, newBaseId])
+
+  function getThemeForBase(baseId: AltarBaseId): AltarTheme {
+    if (baseId === 'base_stone_altar') return 'stone'
+    if (baseId === 'base_psx_wooden' || baseId === 'base_wooden_table') return 'wood'
+    if (baseId === 'base_sacrificial') return 'obsidian'
+    return 'mystical'
+  }
 
   const altarBackdropStyle = useMemo(() => ({
     backgroundImage: visualPreset === 'cinematic'
@@ -145,14 +162,20 @@ export function Altars({ user }: AltarsProps) {
 
   function createLayout() {
     if (!newName.trim()) return
+    const selectedBase = unlockedBases.find(base => base.id === newBaseId)
+    const fallbackBase = unlockedBases[0] || ALTAR_BASES[0]
+    const baseId = (selectedBase || fallbackBase).id
     playUiSound('success')
-    const layout = createDefaultLayout(newName.trim(), newTheme)
-    setLayouts(prev => [...prev, layout])
-    setActiveId(layout.id)
+    const layout = createDefaultLayout(newName.trim(), getThemeForBase(baseId))
+    const layoutWithBase: AltarLayout = { ...layout, baseId }
+    setLayouts(prev => [...prev, layoutWithBase])
+    setActiveId(layoutWithBase.id)
+    setActiveTab('bases')
     setProgression(prev => addProgressPoints(prev, ACTION_POINTS.createAltar, 'altar').progression)
     setShowCreateForm(false)
     setShowAltarList(false)
     setNewName('')
+    setNewBaseId(unlockedBases[0]?.id || 'base_wooden_table')
     toast.success(lang === 'ru' ? 'Алтарь создан' : 'Altar created')
   }
 
@@ -161,13 +184,6 @@ export function Altars({ user }: AltarsProps) {
     setLayouts(l => l.filter(x => x.id !== id))
     if (activeId === id) setActiveId(null)
     toast.success(lang === 'ru' ? 'Алтарь удалён' : 'Altar deleted')
-  }
-
-  function changeTheme(theme: AltarTheme) {
-    if (!activeLayout) return
-    playUiSound('success')
-    updateLayout({ ...activeLayout, theme })
-    setShowThemeMenu(false)
   }
 
   function changeBase(baseId: AltarBaseId) {
@@ -184,7 +200,7 @@ export function Altars({ user }: AltarsProps) {
     }
     if (activeLayout.baseId === baseId) return
     playUiSound('success')
-    updateLayout({ ...activeLayout, baseId })
+    updateLayout({ ...activeLayout, baseId, theme: getThemeForBase(baseId) })
     toast.success(lang === 'ru' ? 'База алтаря изменена' : 'Altar base changed')
   }
 
@@ -318,6 +334,7 @@ export function Altars({ user }: AltarsProps) {
     ritual:       lang === 'ru' ? 'Ритуал'                            : 'Ritual',
     progress:     lang === 'ru' ? 'Прогресс'                          : 'Progress',
     bases:        lang === 'ru' ? 'Базы'                              : 'Bases',
+    altarBase:    lang === 'ru' ? 'База алтаря'                       : 'Altar Base',
     clickToPlace: lang === 'ru' ? 'Нажмите на алтарь для размещения'  : 'Click altar to place',
     selected:     lang === 'ru' ? 'Выбрано:'                          : 'Selected:',
     delete:       lang === 'ru' ? 'Удалить'                           : 'Delete',
@@ -397,19 +414,20 @@ export function Altars({ user }: AltarsProps) {
           className="w-full px-3 py-2.5 rounded-xl border border-border/40 text-sm outline-none focus:border-primary/50 bg-white/5 transition-colors"
           autoFocus
         />
+        <p className="text-[11px] text-muted-foreground uppercase tracking-wider">{t.altarBase}</p>
         <div className="grid grid-cols-2 gap-2">
-          {ALTAR_THEMES_LIST.map(theme => (
+          {unlockedBases.map(base => (
             <button
-              key={theme}
-              onClick={() => setNewTheme(theme)}
+              key={base.id}
+              onClick={() => setNewBaseId(base.id)}
               className={cn(
                 'px-3 py-2 rounded-xl text-sm border transition-colors capitalize',
-                newTheme === theme
+                newBaseId === base.id
                   ? 'bg-primary/20 border-primary/50 text-primary'
                   : 'bg-white/5 border-border/30 text-muted-foreground hover:bg-primary/10',
               )}
             >
-              {theme}
+              {lang === 'ru' ? base.labelRu : base.label}
             </button>
           ))}
         </div>
@@ -557,34 +575,18 @@ export function Altars({ user }: AltarsProps) {
           </button>
         </div>
 
-        {/* Theme picker */}
-        <div className="relative">
-          <button
-            onClick={() => setShowThemeMenu(v => !v)}
-            className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-border/20 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <Settings2 className="w-3 h-3" />
-            {!isMobile && <span className="capitalize">{activeLayout!.theme}</span>}
-          </button>
-          {showThemeMenu && (
-            <div className="absolute top-full right-0 mt-1 z-50 bg-background border border-border/30 rounded-xl shadow-2xl p-1 min-w-[130px]">
-              {ALTAR_THEMES_LIST.map(th => (
-                <button
-                  key={th}
-                  onClick={() => changeTheme(th)}
-                  className={cn(
-                    'w-full px-3 py-2 rounded-lg text-xs text-left transition-colors capitalize',
-                    activeLayout!.theme === th
-                      ? 'bg-primary/15 text-primary'
-                      : 'hover:bg-white/5 text-foreground/80',
-                  )}
-                >
-                  {th}
-                </button>
-              ))}
-            </div>
+        <button
+          onClick={() => setActiveTab('bases')}
+          className={cn(
+            'px-2.5 py-1.5 rounded-lg text-xs border transition-colors',
+            activeTab === 'bases'
+              ? 'bg-primary/20 border-primary/40 text-primary'
+              : 'bg-white/5 border-border/20 text-muted-foreground hover:text-foreground',
           )}
-        </div>
+          title={lang === 'ru' ? 'Открыть вкладку баз алтаря' : 'Open altar bases tab'}
+        >
+          {t.bases}
+        </button>
 
         {/* Fullscreen toggle */}
         <button
