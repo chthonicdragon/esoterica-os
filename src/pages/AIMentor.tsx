@@ -437,7 +437,7 @@ Respond in English in 4 blocks:
                 <Loader2 className="w-4 h-4 text-primary animate-spin" />
               </div>
             </div>
-          )}
+          )
           )}
           <div ref={messagesEndRef} />
         </div>
