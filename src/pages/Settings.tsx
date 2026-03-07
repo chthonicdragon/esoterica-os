@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
-import { blink } from '../lib/supabaseCompat'
+import { db } from '../lib/platformClient'
 import toast from 'react-hot-toast'
 import { Globe, User, Sparkles, Layers } from 'lucide-react'
 import { cn } from '../lib/utils'
@@ -35,7 +35,7 @@ export function Settings({ user }: SettingsProps) {
 
   async function loadProfile() {
     try {
-      const profiles = await blink.db.userProfiles.list({ where: { userId: user.id } }) as Array<{ id: string; displayName?: string; archetype: string; tradition: string; language: string }>
+      const profiles = await db.userProfiles.list({ where: { userId: user.id } }) as Array<{ id: string; displayName?: string; archetype: string; tradition: string; language: string }>
       if (profiles.length > 0) {
         const p = profiles[0]
         setProfileId(p.id)
@@ -50,7 +50,7 @@ export function Settings({ user }: SettingsProps) {
   async function saveSettings() {
     try {
       if (profileId) {
-        await blink.db.userProfiles.update(profileId, {
+        await db.userProfiles.update(profileId, {
           displayName,
           archetype,
           tradition,
@@ -58,7 +58,7 @@ export function Settings({ user }: SettingsProps) {
           updatedAt: new Date().toISOString(),
         })
       } else {
-        const p = await blink.db.userProfiles.create({
+        const p = await db.userProfiles.create({
           userId: user.id,
           displayName,
           archetype,
@@ -181,3 +181,4 @@ export function Settings({ user }: SettingsProps) {
     </div>
   )
 }
+

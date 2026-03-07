@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { blink } from '../../lib/supabaseCompat'
+import { db } from '../../lib/platformClient'
 import { useLang } from '../../contexts/LanguageContext'
 import type { ForumNotification } from '../../types/forum'
 import { formatDistanceToNow } from 'date-fns'
@@ -21,7 +21,7 @@ export function ForumNotifications({ userId, onClose, onNavigateToTopic }: Props
 
   async function loadNotifications() {
     try {
-      const raw = await blink.db.forumNotifications.list({
+      const raw = await db.forumNotifications.list({
         where: { userId: { eq: userId } },
         orderBy: { createdAt: 'desc' },
         limit: 30,
@@ -32,7 +32,7 @@ export function ForumNotifications({ userId, onClose, onNavigateToTopic }: Props
         (raw as unknown as ForumNotification[]).map(async (n) => {
           try {
             if (n.fromUserId) {
-              const profiles = await blink.db.userProfiles.list({ where: { userId: { eq: n.fromUserId } }, limit: 1 })
+              const profiles = await db.userProfiles.list({ where: { userId: { eq: n.fromUserId } }, limit: 1 })
               const p = (profiles as any[])[0]
               return { ...n, fromUserName: p?.displayName || n.fromUserId.slice(0, 8) }
             }
@@ -47,7 +47,7 @@ export function ForumNotifications({ userId, onClose, onNavigateToTopic }: Props
       // Mark all as read
       const unread = enriched.filter(n => Number(n.isRead) === 0)
       await Promise.all(
-        unread.map(n => blink.db.forumNotifications.update(n.id, { isRead: 1 }).catch(() => {}))
+        unread.map(n => db.forumNotifications.update(n.id, { isRead: 1 }).catch(() => {}))
       )
     } catch (e) {
       console.error(e)
@@ -122,7 +122,7 @@ export function ForumNotifications({ userId, onClose, onNavigateToTopic }: Props
 
 export async function getUnreadNotificationCount(userId: string): Promise<number> {
   try {
-    const raw = await blink.db.forumNotifications.list({
+    const raw = await db.forumNotifications.list({
       where: { userId: { eq: userId }, isRead: { eq: '0' } },
       limit: 99,
     })
@@ -131,3 +131,4 @@ export async function getUnreadNotificationCount(userId: string): Promise<number
     return 0
   }
 }
+

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { blink } from '../../lib/supabaseCompat'
+import { db } from '../../lib/platformClient'
 import { useLang } from '../../contexts/LanguageContext'
 import { useAudio } from '../../contexts/AudioContext'
 import type { ForumView } from '../../types/forum'
@@ -45,7 +45,7 @@ export function ForumNewTopic({ user, categoryId, onNavigate, onSuccess }: Props
       const now = new Date().toISOString()
 
       // Create topic
-      await blink.db.forumTopics.create({
+      await db.forumTopics.create({
         id: topicId,
         categoryId,
         userId: user.id,
@@ -61,7 +61,7 @@ export function ForumNewTopic({ user, categoryId, onNavigate, onSuccess }: Props
       })
 
       // Create first post
-      await blink.db.forumPosts.create({
+      await db.forumPosts.create({
         id: postId,
         topicId,
         userId: user.id,
@@ -159,3 +159,4 @@ export function ForumNewTopic({ user, categoryId, onNavigate, onSuccess }: Props
     </div>
   )
 }
+

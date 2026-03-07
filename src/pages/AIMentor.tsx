@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useLang } from '../contexts/LanguageContext'
-// import { blink } from '../blink/client' // removed
+import { ai } from '../lib/platformClient'
 import { Send, Bot, User, Loader2 } from 'lucide-react'
 import { cn } from '../lib/utils'
 
@@ -72,7 +72,7 @@ export function AIMentor({ user }: AIMentorProps) {
       const langInstruction = lang === 'ru' ? ' IMPORTANT: Always respond in Russian.' : ' Always respond in English.'
       const prompt = `${archetype.systemPrompt}${langInstruction}\n\nConversation:\n${history}\n\n${archetypeInfo.name}:`
 
-      const { text } = await blink.ai.generateText({
+      const { text } = await ai.generateText({
         prompt,
         model: 'gpt-4.1-mini',
         maxTokens: 600,
@@ -214,3 +214,4 @@ export function AIMentor({ user }: AIMentorProps) {
     </div>
   )
 }
+

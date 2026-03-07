@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
 import { useAudio } from '../contexts/AudioContext'
-import { blink } from '../lib/supabaseCompat'
+import { db } from '../lib/platformClient'
 import { getMoonPhase, moonEmoji, moonEnergy, moonEnergyRu } from '../utils/moonPhase'
 import { Plus, Moon, Trash2, TrendingUp } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -60,7 +60,7 @@ export function RitualTracker({ user }: RitualTrackerProps) {
 
   async function loadRituals() {
     try {
-      const data = await blink.db.rituals.list({
+      const data = await db.rituals.list({
         where: { userId: user.id },
         orderBy: { createdAt: 'desc' },
         limit: 50,
@@ -73,7 +73,7 @@ export function RitualTracker({ user }: RitualTrackerProps) {
     if (!form.title.trim() || !form.intention.trim()) return
     playUiSound('click')
     try {
-      const ritual = await blink.db.rituals.create({
+      const ritual = await db.rituals.create({
         userId: user.id,
         title: form.title,
         type: form.type,
@@ -88,13 +88,13 @@ export function RitualTracker({ user }: RitualTrackerProps) {
 
       // Update profile stats
       try {
-        const profiles = await blink.db.userProfiles.list({ where: { userId: user.id } })
+        const profiles = await db.userProfiles.list({ where: { userId: user.id } })
         if (profiles.length > 0) {
           const p = profiles[0] as { id: string; totalRituals: number; practiceStreak: number; lastPracticeDate?: string }
           const today = new Date().toDateString()
           const lastDate = p.lastPracticeDate ? new Date(p.lastPracticeDate).toDateString() : null
           const newStreak = lastDate === today ? p.practiceStreak : p.practiceStreak + 1
-          await blink.db.userProfiles.update(p.id, {
+          await db.userProfiles.update(p.id, {
             totalRituals: (p.totalRituals || 0) + 1,
             practiceStreak: newStreak,
             lastPracticeDate: new Date().toISOString(),
@@ -112,7 +112,7 @@ export function RitualTracker({ user }: RitualTrackerProps) {
 
   async function deleteRitual(id: string) {
     playUiSound('click')
-    await blink.db.rituals.delete(id)
+    await db.rituals.delete(id)
     setRituals(prev => prev.filter(r => r.id !== id))
   }
 
@@ -270,3 +270,4 @@ export function RitualTracker({ user }: RitualTrackerProps) {
     </div>
   )
 }
+

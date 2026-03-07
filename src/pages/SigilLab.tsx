@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useLang } from '../contexts/LanguageContext'
 import { useAudio } from '../contexts/AudioContext'
-import { blink } from '../lib/supabaseCompat'
+import { db } from '../lib/platformClient'
 import { generateSigilSVG } from '../utils/sigilGenerator'
 import { Sparkles, Download, Zap, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -35,7 +35,7 @@ export function SigilLab({ user }: SigilLabProps) {
   useEffect(() => () => { if (chargeInterval.current) clearInterval(chargeInterval.current) }, [])
 
   async function loadSigils() {
-    const data = await blink.db.sigils.list({
+    const data = await db.sigils.list({
       where: { userId: user.id },
       orderBy: { createdAt: 'desc' },
       limit: 20,
@@ -62,7 +62,7 @@ export function SigilLab({ user }: SigilLabProps) {
     if (!currentSigil || !currentIntention) return
     playUiSound('click')
     try {
-      const sigil = await blink.db.sigils.create({
+      const sigil = await db.sigils.create({
         userId: user.id,
         intention: currentIntention,
         svgData: currentSigil,
@@ -106,7 +106,7 @@ export function SigilLab({ user }: SigilLabProps) {
 
   async function deleteSigil(id: string) {
     playUiSound('click')
-    await blink.db.sigils.delete(id)
+    await db.sigils.delete(id)
     setSigils(prev => prev.filter(s => s.id !== id))
   }
 

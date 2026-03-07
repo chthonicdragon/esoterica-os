@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
 import { getMoonPhase, moonEmoji, moonEnergy, moonEnergyRu } from '../utils/moonPhase'
-import { blink } from '../lib/supabaseCompat'
+import { db } from '../lib/platformClient'
 import { FlameKindling, Sparkles, BookOpen, Moon, TrendingUp, Star, Zap, MessageSquare } from 'lucide-react'
 
 interface Profile {
@@ -47,12 +47,12 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
 
   async function loadData() {
     try {
-      const profiles = await blink.db.userProfiles.list({ where: { userId: user.id } }) as Profile[]
+      const profiles = await db.userProfiles.list({ where: { userId: user.id } }) as Profile[]
       if (profiles.length > 0) {
         setProfile(profiles[0])
       } else {
         // Create default profile
-        const newProfile = await blink.db.userProfiles.create({
+        const newProfile = await db.userProfiles.create({
           userId: user.id,
           displayName: user.displayName || user.email?.split('@')[0] || 'Seeker',
           archetype: 'seeker',
@@ -67,7 +67,7 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
         setProfile(newProfile as Profile)
       }
 
-      const rituals = await blink.db.rituals.list({
+      const rituals = await db.rituals.list({
         where: { userId: user.id },
         orderBy: { createdAt: 'desc' },
         limit: 5,
@@ -189,3 +189,4 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
     </div>
   )
 }
+

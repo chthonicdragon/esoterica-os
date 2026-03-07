@@ -107,7 +107,6 @@ export function completeRitual(
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-// const db = blink.db as any // removed
 
 export async function syncProgressionToDb(userId: string, progression: Progression) {
   try {

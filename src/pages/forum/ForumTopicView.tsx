@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { blink } from '../../lib/supabaseCompat'
+import { db } from '../../lib/platformClient'
 import { useLang } from '../../contexts/LanguageContext'
 import { useAudio } from '../../contexts/AudioContext'
 import type { ForumPost, ForumTopic, ForumView } from '../../types/forum'
@@ -31,8 +31,8 @@ export function ForumTopicView({ user, topicId, onNavigate }: Props) {
     setLoading(true)
     try {
       const [rawTopic, rawPosts] = await Promise.all([
-        blink.db.forumTopics.get(topicId),
-        blink.db.forumPosts.list({
+        db.forumTopics.get(topicId),
+        db.forumPosts.list({
           where: { topicId: { eq: topicId }, isDeleted: { eq: '0' } },
           orderBy: { createdAt: 'asc' },
           limit: 100,
@@ -46,8 +46,8 @@ export function ForumTopicView({ user, topicId, onNavigate }: Props) {
         (rawPosts as unknown as ForumPost[]).map(async (post) => {
           try {
             const [profiles, likedByMe] = await Promise.all([
-              blink.db.userProfiles.list({ where: { userId: { eq: post.userId } }, limit: 1 }),
-              blink.db.forumLikes.list({ where: { postId: { eq: post.id }, userId: { eq: user.id } }, limit: 1 }),
+              db.userProfiles.list({ where: { userId: { eq: post.userId } }, limit: 1 }),
+              db.forumLikes.list({ where: { postId: { eq: post.id }, userId: { eq: user.id } }, limit: 1 }),
             ])
             const p = (profiles as any[])[0]
             return {
@@ -65,7 +65,7 @@ export function ForumTopicView({ user, topicId, onNavigate }: Props) {
       setPosts(enriched)
 
       // Increment view count
-      await blink.db.forumTopics.update(topicId, {
+      await db.forumTopics.update(topicId, {
         viewCount: (rawTopic as any).viewCount + 1
       }).catch(() => {})
     } catch (e) {
@@ -101,9 +101,9 @@ export function ForumTopicView({ user, topicId, onNavigate }: Props) {
         isEdited: 0,
         createdAt: new Date().toISOString(),
       }
-      await blink.db.forumPosts.create(newPost)
+      await db.forumPosts.create(newPost)
       // Update topic reply count + last post
-      await blink.db.forumTopics.update(topicId, {
+      await db.forumTopics.update(topicId, {
         replyCount: posts.length,
         lastPostAt: new Date().toISOString(),
         lastPostUserId: user.id,
@@ -113,7 +113,7 @@ export function ForumTopicView({ user, topicId, onNavigate }: Props) {
       if (replyingTo) {
         const parentPost = posts.find(p => p.id === replyingTo)
         if (parentPost && parentPost.userId !== user.id) {
-          await blink.db.forumNotifications.create({
+          await db.forumNotifications.create({
             id: `notif_${Date.now()}`,
             userId: parentPost.userId,
             type: 'reply',
@@ -143,22 +143,22 @@ export function ForumTopicView({ user, topicId, onNavigate }: Props) {
     playUiSound('click')
     try {
       if (post.isLikedByMe) {
-        const likes = await blink.db.forumLikes.list({ where: { postId: { eq: post.id }, userId: { eq: user.id } } })
+        const likes = await db.forumLikes.list({ where: { postId: { eq: post.id }, userId: { eq: user.id } } })
         if ((likes as any[]).length > 0) {
-          await blink.db.forumLikes.delete((likes as any[])[0].id)
-          await blink.db.forumPosts.update(post.id, { likeCount: Math.max(0, post.likeCount - 1) })
+          await db.forumLikes.delete((likes as any[])[0].id)
+          await db.forumPosts.update(post.id, { likeCount: Math.max(0, post.likeCount - 1) })
         }
       } else {
-        await blink.db.forumLikes.create({
+        await db.forumLikes.create({
           id: `like_${Date.now()}`,
           postId: post.id,
           userId: user.id,
           createdAt: new Date().toISOString(),
         })
-        await blink.db.forumPosts.update(post.id, { likeCount: post.likeCount + 1 })
+        await db.forumPosts.update(post.id, { likeCount: post.likeCount + 1 })
         // Notify post author
         if (post.userId !== user.id) {
-          await blink.db.forumNotifications.create({
+          await db.forumNotifications.create({
             id: `notif_like_${Date.now()}`,
             userId: post.userId,
             type: 'like',
@@ -181,7 +181,7 @@ export function ForumTopicView({ user, topicId, onNavigate }: Props) {
   const handleEdit = async (postId: string) => {
     if (!editContent.trim() || editContent.length > 2000) return
     try {
-      await blink.db.forumPosts.update(postId, {
+      await db.forumPosts.update(postId, {
         content: editContent.trim(),
         isEdited: 1,
         editedAt: new Date().toISOString(),
@@ -198,7 +198,7 @@ export function ForumTopicView({ user, topicId, onNavigate }: Props) {
   const handleDelete = async (postId: string) => {
     if (!confirm(lang === 'ru' ? 'Удалить сообщение?' : 'Delete this post?')) return
     try {
-      await blink.db.forumPosts.update(postId, { isDeleted: 1 })
+      await db.forumPosts.update(postId, { isDeleted: 1 })
       setPosts(ps => ps.filter(p => p.id !== postId))
       playUiSound('click')
       toast.success(lang === 'ru' ? 'Удалено' : 'Deleted')
@@ -210,7 +210,7 @@ export function ForumTopicView({ user, topicId, onNavigate }: Props) {
   const handleReport = async () => {
     if (!reportingPost || !reportReason.trim()) return
     try {
-      await blink.db.forumReports.create({
+      await db.forumReports.create({
         id: `report_${Date.now()}`,
         postId: reportingPost,
         userId: user.id,
@@ -487,3 +487,4 @@ const LEVEL_LABELS: Record<string, string> = {
 const ARCHETYPE_ICONS: Record<string, string> = {
   seeker: '🔍', mage: '🔮', healer: '🌿', warrior: '⚔️', hermit: '🕯️', eclectic: '✨', hecate: '🌙', hermes: '☿', morrigan: '🦅', odin: '⚡', lilith: '🌹'
 }
+

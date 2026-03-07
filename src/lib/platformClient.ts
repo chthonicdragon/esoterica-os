@@ -95,7 +95,7 @@ async function remove(entity: string, id: string) {
   return true
 }
 
-const db = new Proxy(
+export const db = new Proxy(
   {},
   {
     get: (_target, entity: string) => ({
@@ -108,7 +108,7 @@ const db = new Proxy(
   }
 )
 
-const auth = {
+export const auth = {
   logout: async () => {
     await supabase.auth.signOut()
   },
@@ -127,4 +127,36 @@ const auth = {
   },
 }
 
-export const blink = { db, auth }
+export const ai = {
+  generateText: async ({ prompt, model = 'gpt-4.1-mini', maxTokens = 600 }: { prompt: string; model?: string; maxTokens?: number }) => {
+    const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY
+    if (!apiKey) {
+      throw new Error('Missing VITE_OPENROUTER_API_KEY')
+    }
+
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: maxTokens,
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`OpenRouter request failed: ${response.status}`)
+    }
+
+    const data = await response.json()
+    const text = data?.choices?.[0]?.message?.content
+    if (!text || typeof text !== 'string') {
+      throw new Error('Empty OpenRouter response')
+    }
+
+    return { text }
+  },
+}

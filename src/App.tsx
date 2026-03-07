@@ -231,7 +231,6 @@ function LandingPage() {
 
         {/* CTA */}
         <button
-          // onClick={() => blink.auth.login()} // removed
           className="group relative px-10 py-4 rounded-2xl bg-gradient-to-r from-primary to-[hsl(267,60%,45%)] text-white font-semibold text-sm tracking-wider hover:opacity-90 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_30px_hsl(var(--primary)/0.4)]"
         >
           <span className="relative z-10 font-cinzel tracking-widest">

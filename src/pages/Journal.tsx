@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
 import { useAudio } from '../contexts/AudioContext'
 import { useIsMobile } from '../hooks/use-mobile'
-import { blink } from '../lib/supabaseCompat'
+import { db } from '../lib/platformClient'
 import { Plus, BookOpen, Trash2, ChevronLeft } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { cn } from '../lib/utils'
@@ -36,7 +36,7 @@ export function Journal({ user }: JournalProps) {
 
   async function loadEntries() {
     try {
-      const data = await blink.db.journals.list({
+      const data = await db.journals.list({
         where: { userId: user.id },
         orderBy: { createdAt: 'desc' },
         limit: 50,
@@ -49,7 +49,7 @@ export function Journal({ user }: JournalProps) {
     if (!form.title.trim() || !form.content.trim()) return
     playUiSound('click')
     try {
-      const entry = await blink.db.journals.create({
+      const entry = await db.journals.create({
         userId: user.id,
         title: form.title,
         content: form.content,
@@ -69,7 +69,7 @@ export function Journal({ user }: JournalProps) {
 
   async function deleteEntry(id: string) {
     playUiSound('click')
-    await blink.db.journals.delete(id)
+    await db.journals.delete(id)
     setEntries(prev => prev.filter(e => e.id !== id))
     if (selectedEntry?.id === id) setSelectedEntry(null)
   }

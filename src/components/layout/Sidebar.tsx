@@ -6,7 +6,7 @@ import {
   BookOpen, ShoppingBag, Settings, LogOut, Hexagon, MessageSquare
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
-import { blink } from '../../lib/supabaseCompat'
+import { auth } from '../../lib/platformClient'
 import { getUnreadNotificationCount } from '../../pages/forum/ForumNotifications'
 
 type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'journal' | 'forum' | 'marketplace' | 'settings'
@@ -113,7 +113,7 @@ export function Sidebar({ currentPage, onNavigate, userId }: SidebarProps) {
           <span>{t.settings}</span>
         </button>
         <button
-          onClick={() => { blink.auth.logout(); playUiSound('click') }}
+          onClick={() => { auth.logout(); playUiSound('click') }}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all duration-200"
         >
           <LogOut className="w-4 h-4" />
@@ -123,3 +123,4 @@ export function Sidebar({ currentPage, onNavigate, userId }: SidebarProps) {
     </aside>
   )
 }
+

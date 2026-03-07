@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { blink } from '../../lib/supabaseCompat'
+import { db } from '../../lib/platformClient'
 import { useLang } from '../../contexts/LanguageContext'
 import { useAudio } from '../../contexts/AudioContext'
 import type { ForumPost, ForumTopic, ForumView } from '../../types/forum'
@@ -31,7 +31,7 @@ export function ForumSearch({ onNavigate, initialQuery = '' }: Props) {
     setSearched(true)
     try {
       // Search in posts content
-      const allPosts = await blink.db.forumPosts.list({
+      const allPosts = await db.forumPosts.list({
         where: { isDeleted: { eq: '0' } },
         limit: 200,
       })
@@ -42,7 +42,7 @@ export function ForumSearch({ onNavigate, initialQuery = '' }: Props) {
         .slice(0, 20)
 
       // Also search topic titles
-      const allTopics = await blink.db.forumTopics.list({ limit: 200 })
+      const allTopics = await db.forumTopics.list({ limit: 200 })
       const matchingTopicIds = new Set<string>(
         (allTopics as unknown as ForumTopic[])
           .filter(t => t.title.toLowerCase().includes(lowerQ))
@@ -183,3 +183,4 @@ export function ForumSearch({ onNavigate, initialQuery = '' }: Props) {
     </div>
   )
 }
+
