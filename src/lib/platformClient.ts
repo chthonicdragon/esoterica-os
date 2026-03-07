@@ -55,6 +55,8 @@ function getTableCandidates(entity: string): string[] {
   const fallback = TABLE_FALLBACK_MAP[entity]
   const unique = [primary, fallback].filter((v, i, arr): v is string => !!v && arr.indexOf(v) === i)
   const filtered = unique.filter((table) => !TABLE_MISSING_CACHE.has(`${entity}:${table}`))
+
+  // If both candidates were marked missing in this runtime, retry the unique set once.
   return filtered.length ? filtered : unique
 }
 
