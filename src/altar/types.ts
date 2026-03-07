@@ -21,6 +21,9 @@ export interface CatalogItem {
   modelUrl?: string
   scale: [number, number, number]
   effect?: 'flicker' | 'glow' | 'smoke' | 'sparkle'
+  placementYOffset?: number
+  placementRotationX?: number
+  placementRotationZ?: number
   unlockLevel: number
   points: number
 }
@@ -29,7 +32,9 @@ export interface PlacedObject {
   id: string
   catalogId: string
   position: [number, number, number]
+  rotationX?: number
   rotationY: number
+  rotationZ?: number
   scale: number
 }
 

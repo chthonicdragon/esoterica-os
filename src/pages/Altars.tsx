@@ -27,6 +27,7 @@ import {
 import type { AltarLayout, AltarTheme, AltarBaseId, PlacedObject, RitualSession, Progression } from '../altar/types'
 
 type AltarVisualPreset = 'soft' | 'cinematic'
+const WORK_SURFACE_Y = 0.12
 
 interface AltarsProps {
   user: { id: string; displayName?: string | null; email?: string }
@@ -221,10 +222,12 @@ export function Altars({ user }: AltarsProps) {
       catalogId: pendingDrop,
       position: [
         Math.max(-0.85, Math.min(0.85, pos[0])),
-        0.05,
+        WORK_SURFACE_Y + (cat?.placementYOffset || 0),
         Math.max(-0.5, Math.min(0.5, pos[2])),
       ],
+      rotationX: cat?.placementRotationX || 0,
       rotationY: Math.random() * Math.PI * 2,
+      rotationZ: cat?.placementRotationZ || 0,
       scale: 1,
     }
     playUiSound('bell')
@@ -660,6 +663,7 @@ export function Altars({ user }: AltarsProps) {
           <AltarScene3D
             layout={activeLayout!}
             visualPreset={visualPreset}
+            workSurfaceY={WORK_SURFACE_Y}
             renderQuality={autoSafeRender ? 'safe' : 'high'}
             selectedId={selectedObjId}
             ritualActive={session.active}

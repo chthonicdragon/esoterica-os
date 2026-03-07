@@ -44,6 +44,49 @@ export function ObjectPanel({ lang, unlockedLevel, pendingDrop, onSelectForDrop 
     })
   }, [activeCategory])
 
+  const sectionLabel = {
+    symbolic: lang === 'ru' ? 'Символические (базовые формы)' : 'Symbolic (Basic Shapes)',
+    detailed: lang === 'ru' ? 'Детализированные 3D' : 'Detailed 3D',
+    modelCandles: lang === 'ru' ? 'Свечи и свет' : 'Candles & Light',
+    modelTools: lang === 'ru' ? 'Ритуальные инструменты' : 'Ritual Tools',
+    modelMythic: lang === 'ru' ? 'Мифологические статуи' : 'Mythic Statues',
+    modelDecor: lang === 'ru' ? 'Декор и прочее' : 'Decor & Other',
+  }
+
+  const sections = useMemo(() => {
+    if (activeCategory === 'models') {
+      const sectionForModel = (id: string, label: string) => {
+        const key = `${id} ${label}`.toLowerCase()
+        if (/(candle|candles|holder|bowl)/.test(key)) return 'modelCandles'
+        if (/(knife|book|ball|table|cloth|incense|cauldron)/.test(key)) return 'modelTools'
+        if (/(zeus|veles|perun|mercur|arachne|falcon|persephone|statuette|artemis|venus|hecate)/.test(key)) return 'modelMythic'
+        return 'modelDecor'
+      }
+
+      const grouped: Record<string, typeof items> = {
+        modelCandles: [],
+        modelTools: [],
+        modelMythic: [],
+        modelDecor: [],
+      }
+
+      items.forEach(item => {
+        grouped[sectionForModel(item.id, item.label)].push(item)
+      })
+
+      return (Object.keys(grouped) as Array<keyof typeof grouped>)
+        .filter(key => grouped[key].length > 0)
+        .map(key => ({ key, title: sectionLabel[key], items: grouped[key] }))
+    }
+
+    const symbolic = items.filter(item => item.geometry !== 'custom')
+    const detailed = items.filter(item => item.geometry === 'custom')
+    const result = [] as Array<{ key: string; title: string; items: typeof items }>
+    if (symbolic.length > 0) result.push({ key: 'symbolic', title: sectionLabel.symbolic, items: symbolic })
+    if (detailed.length > 0) result.push({ key: 'detailed', title: sectionLabel.detailed, items: detailed })
+    return result
+  }, [activeCategory, items, lang])
+
   return (
     <div className="flex flex-col h-full">
       {/* Category tabs */}
@@ -73,8 +116,12 @@ export function ObjectPanel({ lang, unlockedLevel, pendingDrop, onSelectForDrop 
       </p>
 
       {/* Items grid */}
-      <div className="grid grid-cols-2 gap-1.5 overflow-y-auto flex-1 pr-1">
-        {items.map(item => {
+      <div className="overflow-y-auto flex-1 pr-1 space-y-2">
+        {sections.map(section => (
+          <div key={section.key} className="space-y-1.5">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground/80 px-0.5">{section.title}</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {section.items.map(item => {
           const locked = item.unlockLevel > unlockedLevel
           const isSelected = pendingDrop === item.id
 
@@ -120,7 +167,10 @@ export function ObjectPanel({ lang, unlockedLevel, pendingDrop, onSelectForDrop 
               )}
             </button>
           )
-        })}
+              })}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )

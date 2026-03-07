@@ -82,12 +82,18 @@ function AltarBaseMesh({
 }
 
 // The altar table surface
-function AltarTable({ themeKey, baseId }: { themeKey: string; baseId: AltarLayout['baseId'] }) {
+function AltarTable({
+  themeKey,
+  baseId,
+  workSurfaceY,
+}: {
+  themeKey: string
+  baseId: AltarLayout['baseId']
+  workSurfaceY: number
+}) {
   const theme = ALTAR_THEMES[themeKey as keyof typeof ALTAR_THEMES]
   const altarBase = ALTAR_BASES.find(base => base.id === baseId)
   if (!theme) return null
-
-  const placementY = 0.05
 
   return (
     <group>
@@ -96,7 +102,7 @@ function AltarTable({ themeKey, baseId }: { themeKey: string; baseId: AltarLayou
           modelUrl={altarBase.modelUrl}
           tint={altarBase.tint}
           targetSpan={altarBase.targetSpan}
-          targetTopY={placementY}
+          targetTopY={workSurfaceY}
         />
       ) : (
         <>
@@ -220,14 +226,14 @@ function AltarGroundContact({
 }
 
 // Drop target plane (invisible, catches pointer events for placement)
-function DropPlane({ onDrop }: { onDrop: (pos: [number, number, number]) => void }) {
+function DropPlane({ onDrop, workSurfaceY }: { onDrop: (pos: [number, number, number]) => void; workSurfaceY: number }) {
   return (
     <mesh
-      position={[0, 0.05, 0]}
+      position={[0, workSurfaceY, 0]}
       rotation={[-Math.PI / 2, 0, 0]}
       onPointerDown={(e) => {
         e.stopPropagation()
-        onDrop([e.point.x, 0.05, e.point.z])
+        onDrop([e.point.x, workSurfaceY, e.point.z])
       }}
     >
       <planeGeometry args={[2.0, 1.2]} />
@@ -300,7 +306,7 @@ function ResponsiveCamera() {
   return null
 }
 
-function SceneControls({ ritualActive }: { ritualActive: boolean }) {
+function SceneControls({ ritualActive, workSurfaceY }: { ritualActive: boolean; workSurfaceY: number }) {
   const { size } = useThree()
   const isPortrait = size.width < size.height
   const controlsRef = useRef<any>(null)
@@ -308,7 +314,7 @@ function SceneControls({ ritualActive }: { ritualActive: boolean }) {
   return (
     <OrbitControls
       ref={controlsRef}
-      target={[0, 0.05, 0]}
+      target={[0, workSurfaceY, 0]}
       enablePan={isPortrait && !ritualActive}
       enableZoom={true}
       minDistance={isPortrait ? 1.6 : 1.1}
@@ -323,7 +329,7 @@ function SceneControls({ ritualActive }: { ritualActive: boolean }) {
         if (!isPortrait || !controlsRef.current) return
         const t = controlsRef.current.target
         t.x = THREE.MathUtils.clamp(t.x, -0.4, 0.4)
-        t.y = 0.05
+        t.y = workSurfaceY
         t.z = 0
       }}
     />
@@ -333,6 +339,7 @@ function SceneControls({ ritualActive }: { ritualActive: boolean }) {
 interface AltarScene3DProps {
   layout: AltarLayout
   visualPreset: AltarVisualPreset
+  workSurfaceY?: number
   renderQuality?: 'high' | 'safe'
   selectedId: string | null
   ritualActive: boolean
@@ -347,6 +354,7 @@ interface AltarScene3DProps {
 export function AltarScene3D({
   layout,
   visualPreset,
+  workSurfaceY = 0.12,
   renderQuality = 'high',
   selectedId,
   ritualActive,
@@ -401,7 +409,7 @@ export function AltarScene3D({
 
   return (
     <Canvas
-      shadows={!isSafeQuality && THREE.PCFShadowMap}
+      shadows={isSafeQuality ? false : 'soft'}
       dpr={isSafeQuality ? [1, 1] : [1, 1.2]}
       gl={{ alpha: true, antialias: false, powerPreference: 'high-performance' }}
       camera={{ near: 0.1, far: 50 }}
@@ -443,43 +451,43 @@ export function AltarScene3D({
 
       {/* Altar */}
       <Suspense fallback={null}>
-        <AltarTable themeKey={layout.theme} baseId={layout.baseId} />
-        {!hasModelBase && <AltarCloth themeKey={layout.theme} />}
-        <AltarGroundContact
-          themeKey={layout.theme}
-          ritualActive={ritualActive}
-          candleGlowStrength={candleGlowStrength}
-        />
-
-        {/* Ambient mist */}
-        {!isSafeQuality && <AmbientMist active={ritualActive} />}
-
-        {/* Ritual progress ring */}
-        <RitualRing progress={ritualProgress} active={ritualActive} />
-
-        {/* Placed objects */}
-        {layout.objects.map(placed => {
-          const cat = catalogMap[placed.catalogId]
-          if (!cat) return null
-          return (
-            <AltarObject3D
-              key={placed.id}
-              placed={placed}
-              catalog={cat}
-              selected={selectedId === placed.id}
-              ritualActive={ritualActive}
-              onSelect={onSelect}
-              onPositionChange={onObjectMoved}
-            />
-          )
-        })}
-
-        {/* Drop target */}
-        {pendingDrop && <DropPlane onDrop={onDropPlaced} />}
+        <AltarTable themeKey={layout.theme} baseId={layout.baseId} workSurfaceY={workSurfaceY} />
       </Suspense>
+      {!hasModelBase && <AltarCloth themeKey={layout.theme} />}
+      <AltarGroundContact
+        themeKey={layout.theme}
+        ritualActive={ritualActive}
+        candleGlowStrength={candleGlowStrength}
+      />
+
+      {/* Ambient mist */}
+      {!isSafeQuality && <AmbientMist active={ritualActive} />}
+
+      {/* Ritual progress ring */}
+      <RitualRing progress={ritualProgress} active={ritualActive} />
+
+      {/* Placed objects */}
+      {layout.objects.map(placed => {
+        const cat = catalogMap[placed.catalogId]
+        if (!cat) return null
+        return (
+          <AltarObject3D
+            key={placed.id}
+            placed={placed}
+            catalog={cat}
+            selected={selectedId === placed.id}
+            ritualActive={ritualActive}
+            onSelect={onSelect}
+            onPositionChange={onObjectMoved}
+          />
+        )
+      })}
+
+      {/* Drop target */}
+      {pendingDrop && <DropPlane onDrop={onDropPlaced} workSurfaceY={workSurfaceY} />}
 
       {/* Camera controls */}
-      <SceneControls ritualActive={ritualActive} />
+      <SceneControls ritualActive={ritualActive} workSurfaceY={workSurfaceY} />
       <ResponsiveCamera />
     </Canvas>
   )
