@@ -66,6 +66,7 @@ export function Altars({ user }: AltarsProps) {
   const [showThemeMenu, setShowThemeMenu] = useState(false)
   const [visualPreset, setVisualPreset] = useState<AltarVisualPreset>('cinematic')
   const [hydrated, setHydrated] = useState(false)
+  const [safeRenderMode, setSafeRenderMode] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const altarBackdropStyle = useMemo(() => ({
@@ -128,6 +129,13 @@ export function Altars({ user }: AltarsProps) {
   const selectedObj = activeLayout?.objects.find(o => o.id === selectedObjId)
   const selectedCatalog = selectedObj ? CATALOG.find(c => c.id === selectedObj.catalogId) : null
   const ritualProgress = session.active ? session.elapsed / (session.durationMinutes * 60) : 0
+  const objectCount = activeLayout?.objects.length || 0
+  const autoSafeRender = isMobile || objectCount >= 14 || safeRenderMode
+
+  const handleSceneContextLost = useCallback(() => {
+    setSafeRenderMode(true)
+    toast.error(lang === 'ru' ? 'Включен облегченный режим алтаря' : 'Switched altar to safe render mode')
+  }, [lang])
 
   // ── Layout mutations ────────────────────────────────────────────────────────
   function updateLayout(updated: AltarLayout) {
@@ -583,6 +591,7 @@ export function Altars({ user }: AltarsProps) {
           <AltarScene3D
             layout={activeLayout!}
             visualPreset={visualPreset}
+            renderQuality={autoSafeRender ? 'safe' : 'high'}
             selectedId={selectedObjId}
             ritualActive={session.active}
             ritualProgress={ritualProgress}
@@ -590,6 +599,7 @@ export function Altars({ user }: AltarsProps) {
             onSelect={setSelectedObjId}
             onObjectMoved={handleObjectMoved}
             onDropPlaced={handleDropPlaced}
+            onContextLost={handleSceneContextLost}
           />
         </div>
       </div>

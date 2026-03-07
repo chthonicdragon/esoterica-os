@@ -271,6 +271,7 @@ function SceneControls({ ritualActive }: { ritualActive: boolean }) {
 interface AltarScene3DProps {
   layout: AltarLayout
   visualPreset: AltarVisualPreset
+  renderQuality?: 'high' | 'safe'
   selectedId: string | null
   ritualActive: boolean
   ritualProgress: number
@@ -278,11 +279,13 @@ interface AltarScene3DProps {
   onSelect: (id: string | null) => void
   onObjectMoved: (id: string, pos: [number, number, number]) => void
   onDropPlaced: (pos: [number, number, number]) => void
+  onContextLost?: () => void
 }
 
 export function AltarScene3D({
   layout,
   visualPreset,
+  renderQuality = 'high',
   selectedId,
   ritualActive,
   ritualProgress,
@@ -290,7 +293,9 @@ export function AltarScene3D({
   onSelect,
   onObjectMoved,
   onDropPlaced,
+  onContextLost,
 }: AltarScene3DProps) {
+  const isSafeQuality = renderQuality === 'safe'
   const theme = ALTAR_THEMES[layout.theme]
   const catalogMap = Object.fromEntries(CATALOG.map(c => [c.id, c]))
   const candleCount = layout.objects.reduce((acc, placed) => {
@@ -333,8 +338,8 @@ export function AltarScene3D({
 
   return (
     <Canvas
-      shadows={THREE.PCFShadowMap}
-      dpr={[1, 1.35]}
+      shadows={!isSafeQuality && THREE.PCFShadowMap}
+      dpr={isSafeQuality ? [1, 1] : [1, 1.2]}
       gl={{ alpha: true, antialias: false, powerPreference: 'high-performance' }}
       camera={{ near: 0.1, far: 50 }}
       style={{ background: 'transparent' }}
@@ -344,6 +349,7 @@ export function AltarScene3D({
         gl.domElement.addEventListener('webglcontextlost', (event) => {
           event.preventDefault()
           console.warn('WebGL context lost; trying to recover renderer context.')
+          onContextLost?.()
         })
       }}
       onPointerMissed={() => onSelect(null)}
@@ -355,7 +361,7 @@ export function AltarScene3D({
         color={lighting.keyColor}
         intensity={lighting.keyIntensity}
         castShadow
-        shadow-mapSize={[512, 512]}
+        shadow-mapSize={isSafeQuality ? [256, 256] : [512, 512]}
         shadow-camera-near={0.5}
         shadow-camera-far={9}
         shadow-camera-left={-1.8}
@@ -383,7 +389,7 @@ export function AltarScene3D({
         />
 
         {/* Ambient mist */}
-        <AmbientMist active={ritualActive} />
+        {!isSafeQuality && <AmbientMist active={ritualActive} />}
 
         {/* Ritual progress ring */}
         <RitualRing progress={ritualProgress} active={ritualActive} />

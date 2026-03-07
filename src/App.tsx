@@ -6,6 +6,7 @@ import { useAuth } from './hooks/useAuth'
 import { Sidebar } from './components/layout/Sidebar'
 import { Header } from './components/layout/Header'
 import { Sheet, SheetContent } from './components/ui/sheet'
+import { RouteErrorBoundary } from './components/RouteErrorBoundary'
 import * as Pages from './pages'
 import { PageLoader } from './components/PageLoader'
 import { Maximize2 } from 'lucide-react'
@@ -54,6 +55,11 @@ const isAuthCallbackInProgress = () => {
   )
 }
 
+const isSafeModeRequested = () => {
+  if (typeof window === 'undefined') return false
+  return new URLSearchParams(window.location.search).get('safe') === '1'
+}
+
 const PAGE_TITLES: Record<Page, { en: string; ru: string }> = {
   dashboard: { en: 'Dashboard', ru: 'Главная' },
   altars: { en: 'Altars', ru: 'Алтари' },
@@ -72,7 +78,9 @@ function AppContent() {
   const { lang } = useLang()
   const isMobile = useIsMobile()
   const { isMuted, setIsMuted, playAmbient, playUiSound } = useAudio()
+  const safeModeRequested = isSafeModeRequested()
   const [currentPage, setCurrentPage] = useState<Page>(() => {
+    if (isSafeModeRequested()) return 'dashboard'
     const pageFromHash = getPageFromHash()
     if (pageFromHash) return pageFromHash
     if (typeof window !== 'undefined') {
@@ -84,6 +92,15 @@ function AppContent() {
   const [hasInteracted, setHasInteracted] = useState(false)
   const [isLandscapeOnMobile, setIsLandscapeOnMobile] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !safeModeRequested) return
+    window.localStorage.setItem(PAGE_STORAGE_KEY, 'dashboard')
+    if (currentPage !== 'dashboard') setCurrentPage('dashboard')
+    if (window.location.hash !== '#/dashboard') {
+      window.history.replaceState(null, '', '#/dashboard')
+    }
+  }, [safeModeRequested, currentPage])
 
   // Check orientation
   useEffect(() => {
@@ -143,6 +160,16 @@ function AppContent() {
 
   const handleNavigate = (page: Page) => {
     setCurrentPage(page)
+    setIsSidebarOpen(false)
+  }
+
+  const recoverFromAltarCrash = () => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('esoterica_altar_v2')
+      window.localStorage.setItem(PAGE_STORAGE_KEY, 'dashboard')
+      window.history.replaceState(null, '', '#/dashboard')
+    }
+    setCurrentPage('dashboard')
     setIsSidebarOpen(false)
   }
 
@@ -210,7 +237,46 @@ function AppContent() {
         <main className={`flex-1 ${currentPage === 'altars' || currentPage === 'forum' || currentPage === 'knowledge-graph' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
           <Suspense fallback={<PageLoader />}>
             {currentPage === 'dashboard' && <Pages.Dashboard user={user} onNavigate={(p) => handleNavigate(p as Page)} />}
-            {currentPage === 'altars' && <Pages.Altars user={user} />}
+            {currentPage === 'altars' && (
+              <RouteErrorBoundary
+                fallback={({ reset }) => (
+                  <div className="flex-1 flex items-center justify-center p-6">
+                    <div className="w-full max-w-md rounded-2xl border border-destructive/30 bg-card p-5 space-y-3">
+                      <h3 className="text-sm font-semibold text-foreground">
+                        {lang === 'ru' ? 'Алтарь временно недоступен' : 'Altar temporarily unavailable'}
+                      </h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        {lang === 'ru'
+                          ? 'Похоже, 3D-сцена перегрузила устройство. Вы можете восстановиться и вернуться на главную.'
+                          : 'The 3D scene appears overloaded on this device. You can recover and return to dashboard.'}
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            reset()
+                            recoverFromAltarCrash()
+                          }}
+                          className="flex-1 rounded-xl bg-primary/15 border border-primary/30 text-primary px-3 py-2 text-xs font-medium hover:bg-primary/20 transition-colors"
+                        >
+                          {lang === 'ru' ? 'Сбросить алтарь и выйти' : 'Reset altar and exit'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            reset()
+                            handleNavigate('dashboard')
+                          }}
+                          className="flex-1 rounded-xl border border-border/40 text-foreground px-3 py-2 text-xs font-medium hover:bg-white/5 transition-colors"
+                        >
+                          {lang === 'ru' ? 'На главную' : 'Go dashboard'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              >
+                <Pages.Altars user={user} />
+              </RouteErrorBoundary>
+            )}
             {currentPage === 'ai-mentor' && <Pages.AIMentor user={user} />}
             {currentPage === 'ritual-tracker' && <Pages.RitualTracker user={user} />}
             {currentPage === 'sigil-lab' && <Pages.SigilLab user={user} />}
