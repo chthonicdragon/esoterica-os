@@ -51,8 +51,8 @@ const TRADITIONS_RU: Record<string, string> = {
   arcane: 'Арканическая',
   'lunar-magic': 'Лунная магия',
   'light-magic': 'Светлая магия',
-  'dark-lunar': 'Тёмная лунная магия (legacy)',
-  angelic: 'Светлая / Ангельская (legacy)',
+  'dark-lunar': 'Тёмная / Лунная',
+  angelic: 'Ангельская / Светлая',
   draconian: 'Драконианская',
 }
 const TRADITIONS_EN: Record<string, string> = {
@@ -61,7 +61,7 @@ const TRADITIONS_EN: Record<string, string> = {
   hermetic: 'Hermetic', kabbalistic: 'Kabbalistic', druidic: 'Druidic',
   eastern: 'Eastern', shamanic: 'Shamanic', arcane: 'Arcane',
   'lunar-magic': 'Lunar Magic', 'light-magic': 'Light Magic',
-  'dark-lunar': 'Dark Lunar (legacy)', angelic: 'Angelic / Light (legacy)', draconian: 'Draconian',
+  'dark-lunar': 'Dark / Lunar', angelic: 'Angelic / Light', draconian: 'Draconian',
 }
 
 interface SettingsProps {
