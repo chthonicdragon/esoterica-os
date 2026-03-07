@@ -10,7 +10,7 @@ import { ObjectPanel } from '../altar/ObjectPanel'
 import { BasePanel } from '../altar/BasePanel'
 import { RitualPanel } from '../altar/RitualPanel'
 import { ProgressionPanel } from '../altar/ProgressionPanel'
-import { CATALOG, ALTAR_BASES } from '../altar/catalog'
+import { CATALOG, ALTAR_BASES, getRequiredBaseUnlockLevel, getRequiredUnlockLevel, isCatalogItemUnlocked } from '../altar/catalog'
 import {
   loadLocalState,
   saveLocalState,
@@ -21,6 +21,7 @@ import {
   completeRitual,
   addProgressPoints,
   ACTION_POINTS,
+  recalculateProgressionLevel,
   syncProgressionToDb,
   loadProgressionFromDb,
 } from '../altar/altarStore'
@@ -71,7 +72,7 @@ export function Altars({ user }: AltarsProps) {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const unlockedBases = useMemo(
-    () => ALTAR_BASES.filter(base => base.unlockLevel <= progression.level),
+    () => ALTAR_BASES.filter(base => getRequiredBaseUnlockLevel(base.id) <= progression.level),
     [progression.level],
   )
 
@@ -107,14 +108,14 @@ export function Altars({ user }: AltarsProps) {
     const local = loadLocalState()
     setLayouts(local.layouts)
     setActiveId(local.activeLayoutId)
-    setProgression(local.progression)
+    setProgression(recalculateProgressionLevel(local.progression))
     loadProgressionFromDb(user.id).then(dbProg => {
       if (dbProg) {
         setProgression(prev => {
           const points = Math.max(prev.points, dbProg.points)
-          return {
+          return recalculateProgressionLevel({
             points,
-            level: Math.max(prev.level, dbProg.level),
+            level: 1,
             streak: Math.max(prev.streak, dbProg.streak),
             lastPracticeDate: prev.lastPracticeDate || dbProg.lastPracticeDate,
             totalRituals: Math.max(prev.totalRituals, dbProg.totalRituals),
@@ -122,7 +123,7 @@ export function Altars({ user }: AltarsProps) {
             journalXp: Math.max(prev.journalXp, dbProg.journalXp),
             knowledgeXp: Math.max(prev.knowledgeXp, dbProg.knowledgeXp),
             altarXp: Math.max(prev.altarXp, dbProg.altarXp),
-          }
+          })
         })
       }
     })
@@ -168,6 +169,23 @@ export function Altars({ user }: AltarsProps) {
     setLayouts(l => l.map(x => x.id === updated.id ? updated : x))
   }
 
+  function getMinObjectY(
+    obj: PlacedObject,
+    catalogItem: typeof CATALOG[number] | undefined,
+    rotationX = obj.rotationX || 0,
+    rotationZ = obj.rotationZ || 0,
+  ) {
+    const baseY = WORK_SURFACE_Y + (catalogItem?.placementYOffset || 0)
+    if (!catalogItem) return baseY
+
+    // Approximate lift needed when tilting object so its lower side does not sink into the table.
+    const tiltStrength = Math.max(Math.abs(Math.sin(rotationX)), Math.abs(Math.sin(rotationZ)))
+    const maxDimension = Math.max(catalogItem.scale[0], catalogItem.scale[1], catalogItem.scale[2]) * obj.scale
+    const tiltLift = tiltStrength * maxDimension * 0.45
+
+    return baseY + tiltLift
+  }
+
   function createLayout() {
     if (!newName.trim()) return
     const selectedBase = unlockedBases.find(base => base.id === newBaseId)
@@ -198,11 +216,11 @@ export function Altars({ user }: AltarsProps) {
     if (!activeLayout) return
     const base = ALTAR_BASES.find(x => x.id === baseId)
     if (!base) return
-    if (base.unlockLevel > progression.level) {
+    if (getRequiredBaseUnlockLevel(baseId) > progression.level) {
       toast.error(
         lang === 'ru'
-          ? `Нужен уровень ${base.unlockLevel}`
-          : `Requires level ${base.unlockLevel}`
+          ? `Нужен уровень ${getRequiredBaseUnlockLevel(baseId)}`
+          : `Requires level ${getRequiredBaseUnlockLevel(baseId)}`
       )
       return
     }
@@ -216,6 +234,18 @@ export function Altars({ user }: AltarsProps) {
   function handleDropPlaced(pos: [number, number, number]) {
     if (!pendingDrop || !activeLayout) return
     const cat = CATALOG.find(c => c.id === pendingDrop)
+    if (!cat) return
+    if (!isCatalogItemUnlocked(cat, progression.level)) {
+      const requiredLevel = getRequiredUnlockLevel(cat)
+      playUiSound('error')
+      toast.error(
+        lang === 'ru'
+          ? `Этот предмет откроется позже (уровень ${requiredLevel})`
+          : `This item unlocks later (level ${requiredLevel})`
+      )
+      setPendingDrop(null)
+      return
+    }
     const isFirstObject = activeLayout.objects.length === 0
     const placed: PlacedObject = {
       id: `placed_${Date.now()}`,
@@ -244,7 +274,14 @@ export function Altars({ user }: AltarsProps) {
     if (!activeLayout) return
     const obj = activeLayout.objects.find(o => o.id === id)
     if (!obj) return
-    updateLayout(updateObjectInLayout(activeLayout, { ...obj, position: newPos }))
+    const cat = CATALOG.find(c => c.id === obj.catalogId)
+    const minY = getMinObjectY(obj, cat)
+    const clampedPos: [number, number, number] = [
+      Math.max(-0.85, Math.min(0.85, newPos[0])),
+      Math.max(minY, newPos[1]),
+      Math.max(-0.5, Math.min(0.5, newPos[2])),
+    ]
+    updateLayout(updateObjectInLayout(activeLayout, { ...obj, position: clampedPos }))
   }
 
   function handleDeleteSelected() {
@@ -256,12 +293,42 @@ export function Altars({ user }: AltarsProps) {
     toast.success(lang === 'ru' ? 'Объект удалён' : 'Object removed', { duration: 1200 })
   }
 
-  function rotateSelected() {
+  function rotateSelected(axis: 'x' | 'y' | 'z' = 'y') {
     if (!activeLayout || !selectedObjId) return
     const obj = activeLayout.objects.find(o => o.id === selectedObjId)
     if (!obj) return
+    const cat = CATALOG.find(c => c.id === obj.catalogId)
+    const nextRotationX = axis === 'x' ? (obj.rotationX || 0) + Math.PI / 10 : (obj.rotationX || 0)
+    const nextRotationY = axis === 'y' ? obj.rotationY + Math.PI / 8 : obj.rotationY
+    const nextRotationZ = axis === 'z' ? (obj.rotationZ || 0) + Math.PI / 10 : (obj.rotationZ || 0)
+    const minY = getMinObjectY(obj, cat, nextRotationX, nextRotationZ)
+
     playUiSound('hover')
-    updateLayout(updateObjectInLayout(activeLayout, { ...obj, rotationY: obj.rotationY + Math.PI / 4 }))
+    updateLayout(updateObjectInLayout(activeLayout, {
+      ...obj,
+      rotationX: nextRotationX,
+      rotationY: nextRotationY,
+      rotationZ: nextRotationZ,
+      // Keep object constrained to altar surface when adding tilt.
+      position: [obj.position[0], Math.max(minY, obj.position[1]), obj.position[2]],
+    }))
+  }
+
+  function moveSelected(dx: number, dy: number, dz: number) {
+    if (!activeLayout || !selectedObjId) return
+    const obj = activeLayout.objects.find(o => o.id === selectedObjId)
+    if (!obj) return
+    const cat = CATALOG.find(c => c.id === obj.catalogId)
+    const minY = getMinObjectY(obj, cat)
+
+    const moved: [number, number, number] = [
+      Math.max(-0.85, Math.min(0.85, obj.position[0] + dx)),
+      Math.max(minY, obj.position[1] + dy),
+      Math.max(-0.5, Math.min(0.5, obj.position[2] + dz)),
+    ]
+
+    playUiSound('hover')
+    updateLayout(updateObjectInLayout(activeLayout, { ...obj, position: moved }))
   }
 
   function scaleSelected(delta: number) {
@@ -349,6 +416,10 @@ export function Altars({ user }: AltarsProps) {
     selected:     lang === 'ru' ? 'Выбрано:'                          : 'Selected:',
     delete:       lang === 'ru' ? 'Удалить'                           : 'Delete',
     rotate:       lang === 'ru' ? 'Повернуть'                         : 'Rotate',
+    rotateRoll:   lang === 'ru' ? 'Вращ. ось'                         : 'Roll axis',
+    move:         lang === 'ru' ? 'Сдвиг'                             : 'Move',
+    up:           lang === 'ru' ? 'Вверх'                             : 'Up',
+    down:         lang === 'ru' ? 'Вниз'                              : 'Down',
     scaleUp:      lang === 'ru' ? 'Больше'                            : 'Bigger',
     scaleDown:    lang === 'ru' ? 'Меньше'                            : 'Smaller',
     list:         lang === 'ru' ? 'Список'                            : 'List',
@@ -645,9 +716,18 @@ export function Altars({ user }: AltarsProps) {
           <span className="text-xs text-muted-foreground">{t.selected}</span>
           <span className="text-xs font-medium text-foreground">{selectedCatalog?.label ?? ''}</span>
           <div className="w-px h-4 bg-border/40 mx-0.5" />
-          <button onClick={rotateSelected}           className="px-2 py-1 rounded-lg text-xs bg-white/5 hover:bg-white/10 text-foreground/80 transition-colors">{t.rotate}</button>
+          <button onClick={() => rotateSelected('y')} className="px-2 py-1 rounded-lg text-xs bg-white/5 hover:bg-white/10 text-foreground/80 transition-colors">{t.rotate}</button>
+          <button onClick={() => rotateSelected('z')} className="px-2 py-1 rounded-lg text-xs bg-white/5 hover:bg-white/10 text-foreground/80 transition-colors">{t.rotateRoll}</button>
           <button onClick={() => scaleSelected(0.1)}  className="px-2 py-1 rounded-lg text-xs bg-white/5 hover:bg-white/10 text-foreground/80 transition-colors">{t.scaleUp}</button>
           <button onClick={() => scaleSelected(-0.1)} className="px-2 py-1 rounded-lg text-xs bg-white/5 hover:bg-white/10 text-foreground/80 transition-colors">{t.scaleDown}</button>
+          <div className="w-px h-4 bg-border/40 mx-0.5" />
+          <span className="text-[11px] text-muted-foreground">{t.move}</span>
+          <button onClick={() => moveSelected(-0.05, 0, 0)} className="px-2 py-1 rounded-lg text-xs bg-white/5 hover:bg-white/10 text-foreground/80 transition-colors" title={lang === 'ru' ? 'Влево' : 'Left'}>←</button>
+          <button onClick={() => moveSelected(0.05, 0, 0)} className="px-2 py-1 rounded-lg text-xs bg-white/5 hover:bg-white/10 text-foreground/80 transition-colors" title={lang === 'ru' ? 'Вправо' : 'Right'}>→</button>
+          <button onClick={() => moveSelected(0, 0, -0.05)} className="px-2 py-1 rounded-lg text-xs bg-white/5 hover:bg-white/10 text-foreground/80 transition-colors" title={lang === 'ru' ? 'Вперёд' : 'Forward'}>↑</button>
+          <button onClick={() => moveSelected(0, 0, 0.05)} className="px-2 py-1 rounded-lg text-xs bg-white/5 hover:bg-white/10 text-foreground/80 transition-colors" title={lang === 'ru' ? 'Назад' : 'Back'}>↓</button>
+          <button onClick={() => moveSelected(0, 0.025, 0)} className="px-2 py-1 rounded-lg text-xs bg-white/5 hover:bg-white/10 text-foreground/80 transition-colors" title={t.up}>+Y</button>
+          <button onClick={() => moveSelected(0, -0.025, 0)} className="px-2 py-1 rounded-lg text-xs bg-white/5 hover:bg-white/10 text-foreground/80 transition-colors" title={t.down}>-Y</button>
           <div className="w-px h-4 bg-border/40 mx-0.5" />
           <button onClick={handleDeleteSelected} className="px-2 py-1 rounded-lg text-xs bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors">{t.delete}</button>
         </div>

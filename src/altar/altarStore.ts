@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabaseClient'
 import type { AltarLayout, PlacedObject, Progression, AltarTheme, AltarBaseId } from './types'
-import { getLevelFromPoints, getStreakBonus, POINTS_PER_RITUAL } from './types'
+import { getEffectiveLevel, getStreakBonus, POINTS_PER_RITUAL } from './types'
 
 const STORAGE_KEY = 'esoterica_altar_v2'
 export type ProgressSource = 'ritual' | 'journal' | 'knowledge' | 'altar'
@@ -40,7 +40,7 @@ function normalizeLayout(raw: Partial<AltarLayout>): AltarLayout | null {
 
 function normalizeProgression(raw?: Partial<Progression>): Progression {
   if (!raw || typeof raw !== 'object') return DEFAULT_PROGRESSION
-  return {
+  const normalized: Progression = {
     points: Number(raw.points || 0),
     level: Number(raw.level || 1),
     streak: Number(raw.streak || 0),
@@ -50,6 +50,17 @@ function normalizeProgression(raw?: Partial<Progression>): Progression {
     journalXp: Number(raw.journalXp || 0),
     knowledgeXp: Number(raw.knowledgeXp || 0),
     altarXp: Number(raw.altarXp || 0),
+  }
+  return {
+    ...normalized,
+    level: getEffectiveLevel(normalized),
+  }
+}
+
+export function recalculateProgressionLevel(progression: Progression): Progression {
+  return {
+    ...progression,
+    level: getEffectiveLevel(progression),
   }
 }
 
@@ -62,13 +73,13 @@ function withSourceXp(progression: Progression, source: ProgressSource, pointsEa
 }
 
 export const ACTION_POINTS = {
-  createAltar: 30,
-  placeFirstObject: 14,
-  placeObjectBase: 6,
-  deleteObject: 2,
-  journalEntryBase: 8,
+  createAltar: 18,
+  placeFirstObject: 8,
+  placeObjectBase: 3,
+  deleteObject: 1,
+  journalEntryBase: 7,
   dreamEntryBonus: 4,
-  knowledgeWeaveBase: 6,
+  knowledgeWeaveBase: 5,
 } as const
 
 export function loadLocalState(): AltarStoreState {
@@ -150,11 +161,11 @@ export function completeRitual(
   streakMultiplier: number
   modeMultiplier: number
 } {
-  const base = POINTS_PER_RITUAL[durationMinutes] || Math.round(durationMinutes * 4)
+  const base = POINTS_PER_RITUAL[durationMinutes] || Math.round(durationMinutes * 3.1)
   const longSession = durationMinutes >= 30
   const modeMultiplier = mode === 'strict' ? 1.2 : 1
   // Short sessions keep momentum but do not drive major progression.
-  const streakMultiplier = longSession ? getStreakBonus(progression.streak) : 0.35
+  const streakMultiplier = longSession ? getStreakBonus(progression.streak) : 0.4
   const multiplier = streakMultiplier * modeMultiplier
   const pointsEarned = Math.round(base * multiplier)
 
@@ -174,17 +185,18 @@ export function completeRitual(
   }
 
   const newPoints = progression.points + pointsEarned
-  const newLevel = getLevelFromPoints(newPoints)
+
+  const progressed = {
+    ...withSourceXp(progression, 'ritual', pointsEarned),
+    points: newPoints,
+    streak: newStreak,
+    lastPracticeDate: today,
+    totalRituals: progression.totalRituals + 1,
+  }
+  const leveled = recalculateProgressionLevel(progressed)
 
   return {
-    progression: {
-      ...withSourceXp(progression, 'ritual', pointsEarned),
-      points: newPoints,
-      level: newLevel,
-      streak: newStreak,
-      lastPracticeDate: today,
-      totalRituals: progression.totalRituals + 1,
-    },
+    progression: leveled,
     pointsEarned,
     bonusMultiplier: multiplier,
     basePoints: base,
@@ -200,15 +212,14 @@ export function addProgressPoints(
 ): { progression: Progression; pointsEarned: number } {
   const pointsEarned = Math.max(0, Math.round(rawPoints))
   const newPoints = progression.points + pointsEarned
-  const newLevel = getLevelFromPoints(newPoints)
   const withSource = withSourceXp(progression, source, pointsEarned)
+  const leveled = recalculateProgressionLevel({
+    ...withSource,
+    points: newPoints,
+  })
 
   return {
-    progression: {
-      ...withSource,
-      points: newPoints,
-      level: newLevel,
-    },
+    progression: leveled,
     pointsEarned,
   }
 }
@@ -263,15 +274,16 @@ export async function loadProgressionFromDb(userId: string): Promise<Progression
       .limit(1)
     if (profiles && profiles.length > 0) {
       const p = profiles[0] as Record<string, unknown>
-      return {
+      const merged: Progression = {
         ...DEFAULT_PROGRESSION,
-        points: (p.totalRituals as number || 0) * 50,
+        points: Math.round((p.totalRituals as number || 0) * 28),
         level: (p.initiationLevel as number) || 1,
         streak: (p.practiceStreak as number) || 0,
         lastPracticeDate: (p.lastPracticeDate as string) || null,
         totalRituals: (p.totalRituals as number) || 0,
-        ritualXp: (p.totalRituals as number || 0) * 50,
+        ritualXp: Math.round((p.totalRituals as number || 0) * 28),
       }
+      return recalculateProgressionLevel(merged)
     }
   } catch {}
   return null

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { CATALOG, CATEGORY_LABELS } from './catalog'
+import { CATALOG, CATEGORY_LABELS, getRequiredUnlockLevel, isCatalogItemUnlocked } from './catalog'
 import type { ObjectCategory } from './types'
 import { cn } from '../lib/utils'
 import { useAudio } from '../contexts/AudioContext'
@@ -75,7 +75,8 @@ export function ObjectPanel({ lang, unlockedLevel, pendingDrop, onSelectForDrop 
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground/80 px-0.5">{section.title}</p>
             <div className="grid grid-cols-2 gap-1.5">
               {section.items.map(item => {
-          const locked = item.unlockLevel > unlockedLevel
+          const requiredLevel = getRequiredUnlockLevel(item)
+          const locked = !isCatalogItemUnlocked(item, unlockedLevel)
           const isSelected = pendingDrop === item.id
 
           return (
@@ -112,7 +113,7 @@ export function ObjectPanel({ lang, unlockedLevel, pendingDrop, onSelectForDrop 
               </span>
               {locked && (
                 <div className="absolute top-1 right-1 text-[8px] text-muted-foreground/60 bg-background/80 rounded px-0.5">
-                  Lv{item.unlockLevel}
+                  Lv{requiredLevel}
                 </div>
               )}
               {isSelected && (

@@ -145,7 +145,7 @@ export const CATALOG: CatalogItem[] = [
   { id: 'model_triple_moon', category: 'coins', label: 'Triple Moon Emblem', labelRu: 'Тройная Луна', color: '#cfd4ef', emissive: '#7f94ff', emissiveIntensity: 0.25, geometry: 'custom', modelUrl: '/models/triple_moon_emblem.glb', scale: [0.2, 0.2, 0.2], effect: 'glow', unlockLevel: 2, points: 17 },
 
   { id: 'model_spell_book', category: 'tools', label: 'Spell Book', labelRu: 'Книга заклинаний', color: '#4d3a2a', emissive: '#6f4e37', emissiveIntensity: 0.2, geometry: 'custom', modelUrl: '/models/spell_book.glb', scale: [0.2, 0.2, 0.2], placementYOffset: -0.015, placementRotationX: 0, placementRotationZ: 0, unlockLevel: 3, points: 18 },
-  { id: 'model_obsidian_knife', category: 'tools', label: 'Obsidian Knife', labelRu: 'Обсидиановый нож', color: '#15161d', emissive: '#2c2f3d', emissiveIntensity: 0.18, geometry: 'custom', modelUrl: '/models/obsidian_knife.glb', scale: [0.2, 0.2, 0.2], placementYOffset: -0.02, placementRotationX: 0, placementRotationZ: Math.PI / 2, unlockLevel: 4, points: 21 },
+  { id: 'model_obsidian_knife', category: 'tools', label: 'Obsidian Knife', labelRu: 'Обсидиановый нож', color: '#15161d', emissive: '#2c2f3d', emissiveIntensity: 0.18, geometry: 'custom', modelUrl: '/models/obsidian_knife.glb', scale: [0.2, 0.2, 0.2], placementYOffset: 0.018, placementRotationX: 0, placementRotationZ: Math.PI / 2, unlockLevel: 4, points: 21 },
 ]
 
 export const CATEGORY_LABELS: Record<string, { en: string; ru: string; emoji: string }> = {
@@ -158,6 +158,25 @@ export const CATEGORY_LABELS: Record<string, { en: string; ru: string; emoji: st
   coins:    { en: 'Coins',    ru: 'Монеты',     emoji: '🪙' },
   tools:    { en: 'Tools',    ru: 'Инструменты', emoji: '🗡️' },
   decor:    { en: 'Decor',    ru: 'Декор',      emoji: '🏺' },
+}
+
+export function getRequiredUnlockLevel(item: CatalogItem): number {
+  // Detailed GLB models and very high-value artifacts unlock slightly later.
+  const detailedBias = item.geometry === 'custom' ? 1 : 0
+  const rarityBias = item.points >= 24 ? 1 : 0
+  return Math.min(10, item.unlockLevel + detailedBias + rarityBias)
+}
+
+export function isCatalogItemUnlocked(item: CatalogItem, userLevel: number): boolean {
+  return userLevel >= getRequiredUnlockLevel(item)
+}
+
+export function getRequiredBaseUnlockLevel(baseId: AltarBaseId): number {
+  const base = ALTAR_BASES.find(x => x.id === baseId)
+  if (!base) return 1
+  // Keep grand/large altar bases for deeper progression.
+  if (base.id === 'base_diana') return Math.min(10, base.unlockLevel + 1)
+  return base.unlockLevel
 }
 
 export interface ThemeConfig {
