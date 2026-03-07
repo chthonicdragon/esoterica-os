@@ -24,7 +24,7 @@ const PAGE_TITLES: Record<Page, { en: string; ru: string }> = {
   forum: { en: 'Forum', ru: 'Форум' },
   marketplace: { en: 'Marketplace', ru: 'Маркетплейс' },
   settings: { en: 'Settings', ru: 'Настройки' },
-  'knowledge-graph': { en: 'Knowledge Graph', ru: 'Граф Знаний' },
+  'knowledge-graph': { en: 'Knowledge Graph', ru: 'Паутина знаний' },
 }
 
 function AppContent() {

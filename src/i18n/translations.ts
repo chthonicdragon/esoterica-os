@@ -147,7 +147,7 @@ export const translations = {
     sigilLab: 'Лаборатория Сигил',
     journal: 'Журнал',
     forum: 'Форум',
-    knowledgeGraph: 'Граф Знаний',
+    knowledgeGraph: 'Паутина знаний',
     marketplace: 'Маркетплейс',
     settings: 'Настройки',
 
