@@ -553,6 +553,15 @@ export function KnowledgeGraph({ user }: Props) {
     return visibleTypes
   }, [visibleTypes, showRitualsOnly])
 
+  const nodeNameById = useMemo(() => {
+    return new Map(graphData.nodes.map(node => [node.id, node.name]))
+  }, [graphData.nodes])
+
+  const getLinkEndpointLabel = useCallback((endpoint: string | Node) => {
+    if (typeof endpoint === 'object' && endpoint?.name) return endpoint.name
+    return nodeNameById.get(endpoint as string) ?? (endpoint as string)
+  }, [nodeNameById])
+
   const ritualDetails = useMemo(() => {
     if (!selectedNode || selectedNode.type !== 'ritual') {
       return { relatedNodes: [] as Node[], relatedLinks: [] as Link[] }
@@ -1007,9 +1016,9 @@ export function KnowledgeGraph({ user }: Props) {
                       </button>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
-                      <span className="text-foreground font-medium truncate">{typeof selectedLink.source === 'string' ? selectedLink.source : (selectedLink.source as any).name}</span>
+                      <span className="text-foreground font-medium truncate">{getLinkEndpointLabel(selectedLink.source as string | Node)}</span>
                       <span className="text-primary/60 text-[10px] px-2 py-0.5 bg-primary/10 rounded-full border border-primary/20 shrink-0">{getRelationLabel(selectedLink.relation, lang as 'en' | 'ru')}</span>
-                      <span className="text-foreground font-medium truncate">{typeof selectedLink.target === 'string' ? selectedLink.target : (selectedLink.target as any).name}</span>
+                      <span className="text-foreground font-medium truncate">{getLinkEndpointLabel(selectedLink.target as string | Node)}</span>
                     </div>
                   </motion.div>
                 )}
