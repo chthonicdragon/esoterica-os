@@ -447,6 +447,55 @@ CRITICAL: Return ONLY a valid JSON object — no markdown, no code fences, no ex
 Schema: { "nodes": [{ "id": string, "name": string, "type": string, "description"?: string }], "links": [{ "source": string, "target": string, "relation": string }] }
 `;
 
+function slugifyId(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9а-яё\s_-]/gi, "")
+    .trim()
+    .replace(/\s+/g, "_")
+    .replace(/_+/g, "_")
+    .slice(0, 48) || `ritual_${Date.now().toString(36)}`;
+}
+
+function ensureRitualNode(graph: GraphData, fullText: string, ritualName?: string): GraphData {
+  const cloned: GraphData = {
+    nodes: [...graph.nodes],
+    links: [...graph.links],
+  };
+
+  const requestedName = ritualName?.trim() || "Ritual";
+  let ritualNode = cloned.nodes.find((n) => n.type === "ritual");
+
+  if (!ritualNode) {
+    ritualNode = {
+      id: slugifyId(`ritual_${requestedName}_${Date.now().toString(36)}`),
+      name: requestedName,
+      type: "ritual",
+      description: fullText.trim(),
+    };
+    cloned.nodes.push(ritualNode);
+  } else {
+    if (ritualName?.trim()) ritualNode.name = ritualName.trim();
+    ritualNode.description = fullText.trim();
+  }
+
+  const existing = new Set(cloned.links.map((l) => `${l.source}|${l.target}|${l.relation}`));
+  cloned.nodes.forEach((node) => {
+    if (node.id === ritualNode!.id) return;
+    const key = `${node.id}|${ritualNode!.id}|appears_in`;
+    if (!existing.has(key)) {
+      cloned.links.push({
+        source: node.id,
+        target: ritualNode!.id,
+        relation: "appears_in",
+      });
+      existing.add(key);
+    }
+  });
+
+  return cloned;
+}
+
 export async function extractGraph(
   text: string,
   language: "en" | "ru" = "en",
@@ -465,7 +514,7 @@ export async function extractGraph(
       : "";
 
   const ritualInstruction = isRitual
-    ? `The text describes a ritual named "${ritualName || "Unknown Ritual"}". Create a central "ritual" node. Link all other entities TO it via "appears_in" or "associated_with". Store the full text in the ritual node's "description".`
+    ? `The text describes a ritual named "${ritualName || "Unknown Ritual"}". Extract only primary ritual tags (deities, spirits, symbols, places, artifacts, concepts, spells, creatures) and one central "ritual" node. Keep extraction concise and high-signal. Link discovered entities to the ritual node using "appears_in" or "associated_with". Store the FULL original ritual text in the ritual node's "description".`
     : "Extract general entities and relations.";
 
   const systemPrompt = [SYSTEM_INSTRUCTION, langInstruction, ritualInstruction, existingNodesContext]
@@ -503,7 +552,7 @@ export async function extractGraph(
       }
     }
 
-    return parsed;
+    return isRitual ? ensureRitualNode(parsed, text, ritualName) : parsed;
   } catch (err) {
     console.error("[Groq] Failed to parse JSON:", jsonStr);
     throw new Error(`[Groq] Invalid JSON: ${err}`);

@@ -651,8 +651,8 @@ export function KnowledgeGraph({ user }: Props) {
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleExtract() }}
               placeholder={t.inputPlaceholder}
-              rows={4}
-              className={`w-full bg-white/5 border rounded-2xl p-4 text-sm resize-none focus:outline-none transition-colors placeholder:text-muted-foreground/50 text-foreground ${isRitualMode ? 'border-purple-500/30 focus:border-purple-500/50' : 'border-white/10 focus:border-primary/50'}`}
+              rows={8}
+              className={`w-full min-h-[190px] bg-white/5 border rounded-2xl p-4 text-sm resize-y focus:outline-none transition-colors placeholder:text-muted-foreground/50 text-foreground ${isRitualMode ? 'border-purple-500/30 focus:border-purple-500/50' : 'border-white/10 focus:border-primary/50'}`}
             />
             <div className="absolute bottom-3 right-3">
               <button
@@ -823,7 +823,7 @@ export function KnowledgeGraph({ user }: Props) {
                                 <Sparkles className="w-2.5 h-2.5 text-purple-400" />
                                 <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground/50">{t.ritualText}</span>
                               </div>
-                              <p className="text-xs text-muted-foreground leading-relaxed">{selectedNode.description}</p>
+                              <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap break-words">{selectedNode.description}</p>
                             </div>
                           )}
                           {selectedNode.type === 'ritual' && (
