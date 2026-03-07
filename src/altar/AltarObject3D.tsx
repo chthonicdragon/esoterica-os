@@ -1,4 +1,4 @@
-import { useRef, useMemo, useState, useEffect } from 'react'
+import React, { useRef, useMemo, useState, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
@@ -11,6 +11,26 @@ interface AltarObject3DProps {
   ritualActive: boolean
   onSelect: (id: string) => void
   onPositionChange: (id: string, pos: [number, number, number]) => void
+}
+
+class ModelErrorBoundary extends React.Component<{
+  fallback: React.ReactNode
+  children: React.ReactNode
+}, { hasError: boolean }> {
+  state = { hasError: false }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: Error) {
+    console.warn('Model failed to load, rendering fallback geometry:', error)
+  }
+
+  render() {
+    if (this.state.hasError) return this.props.fallback
+    return this.props.children
+  }
 }
 
 function ModelMesh({ modelUrl, color }: { modelUrl: string; color: string }) {
@@ -206,9 +226,20 @@ export function AltarObject3D({
       onPointerOut={() => setHovered(false)}
     >
       {isModel && catalog.modelUrl ? (
-        <group scale={catalog.scale}>
-          <ModelMesh modelUrl={catalog.modelUrl} color={catalog.color} />
-        </group>
+        <ModelErrorBoundary
+          fallback={
+            <mesh
+              geometry={geometry}
+              material={material}
+              castShadow
+              receiveShadow
+            />
+          }
+        >
+          <group scale={catalog.scale}>
+            <ModelMesh modelUrl={catalog.modelUrl} color={catalog.color} />
+          </group>
+        </ModelErrorBoundary>
       ) : (
         <mesh
           geometry={geometry}
