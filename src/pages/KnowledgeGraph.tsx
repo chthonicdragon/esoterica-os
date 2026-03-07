@@ -5,7 +5,7 @@ import {
   Fingerprint, Tag, Layers, Download, Trash2, Search,
   Filter, Eye, EyeOff, Link as LinkIcon, Activity,
   FileJson, FileSpreadsheet, Image as ImageIcon, Upload,
-  Zap, ChevronDown, Maximize2, Minimize2
+  Zap, ChevronDown, Maximize2, Minimize2, RotateCcw
 } from 'lucide-react'
 import { extractGraph, GraphData, Node, Link } from '../services/openRouterService'
 import GraphVisualization from '../components/GraphVisualization'
@@ -13,6 +13,7 @@ import AnalyticsPanel from '../components/AnalyticsPanel'
 import KnowledgeWebGuideModal from '../components/KnowledgeWebGuideModal'
 import { useLang } from '../contexts/LanguageContext'
 import { getKnowledgeWeavePoints, grantProgressionPoints, syncProgressionToDb } from '../altar/altarStore'
+import { mapAiErrorMessage } from '../lib/aiErrorMessages'
 
 const STORAGE_KEY = 'esoteric_knowledge_web_v1'
 const ALL_TYPES = ['deity', 'spirit', 'ritual', 'symbol', 'concept', 'place', 'creature', 'artifact', 'spell']
@@ -121,41 +122,15 @@ interface Props {
   user: any
 }
 
+interface WeaveAttempt {
+  input: string
+  ritualMode: boolean
+  ritualName: string
+}
+
 export function KnowledgeGraph({ user }: Props) {
   const { lang } = useLang()
   const t = translations[lang as 'en' | 'ru'] ?? translations.en
-  const mapKnowledgeError = useCallback((err: unknown) => {
-    const reason = err instanceof Error ? err.message : String(err ?? '')
-    const lower = reason.toLowerCase()
-
-    if (lower.includes('missing api key')) {
-      return lang === 'ru'
-        ? 'ИИ для Паутины не настроен: отсутствует API ключ. Сообщите администратору проекта.'
-        : 'Knowledge Web AI is not configured: API key is missing. Please contact the project admin.'
-    }
-    if (lower.includes('circuit breaker open')) {
-      return lang === 'ru'
-        ? 'ИИ временно перегружен. Подождите около минуты и повторите попытку.'
-        : 'AI is temporarily overloaded. Please wait about a minute and retry.'
-    }
-    if (lower.includes('429') || lower.includes('all models unavailable')) {
-      return lang === 'ru'
-        ? 'Лимит запросов временно исчерпан. Подождите 20-60 секунд и повторите.'
-        : 'Rate limit reached. Wait 20-60 seconds and try again.'
-    }
-    if (lower.includes('timeout') || lower.includes('failed to fetch') || lower.includes('network')) {
-      return lang === 'ru'
-        ? 'Сетевая ошибка или таймаут. Проверьте соединение и попробуйте снова.'
-        : 'Network error or timeout. Check your connection and retry.'
-    }
-    if (lower.includes('invalid json') || lower.includes('unable to recover valid graph json')) {
-      return lang === 'ru'
-        ? 'ИИ вернул поврежденный ответ. Повторите запрос с более коротким описанием.'
-        : 'AI returned malformed data. Retry with a shorter, more specific prompt.'
-    }
-
-    return t.error
-  }, [lang, t.error])
   const getTypeLabel = useCallback((type: string) => {
     const labels = TYPE_LABELS[type]
     if (!labels) return type
@@ -186,6 +161,7 @@ export function KnowledgeGraph({ user }: Props) {
   const [showVizSettings, setShowVizSettings] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const [showGuide, setShowGuide] = useState(false)
+  const [lastAttempt, setLastAttempt] = useState<WeaveAttempt | null>(null)
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(graphData))
@@ -279,14 +255,13 @@ export function KnowledgeGraph({ user }: Props) {
     })
   }, [])
 
-  const handleExtract = async () => {
-    if (!inputText.trim()) return
+  const runExtract = useCallback(async (attempt: WeaveAttempt) => {
     setIsLoading(true)
     setError(null)
     try {
-      const data = await extractGraph(inputText, lang as 'en' | 'ru', isRitualMode, ritualNameInput, graphData.nodes)
+      const data = await extractGraph(attempt.input, lang as 'en' | 'ru', attempt.ritualMode, attempt.ritualName, graphData.nodes)
       mergeGraphData(data)
-      const rawPoints = getKnowledgeWeavePoints(data.nodes.length, data.links.length, isRitualMode)
+      const rawPoints = getKnowledgeWeavePoints(data.nodes.length, data.links.length, attempt.ritualMode)
       const { pointsEarned, progression } = grantProgressionPoints(rawPoints, 'knowledge')
       syncProgressionToDb(user.id, progression)
       setSuccessMsg(t.xpEarned.replace('{xp}', pointsEarned.toString()))
@@ -295,10 +270,27 @@ export function KnowledgeGraph({ user }: Props) {
       setIsRitualMode(false)
     } catch (err) {
       console.error(err)
-      setError(mapKnowledgeError(err))
+      const reason = err instanceof Error ? err.message : String(err ?? '')
+      setError(mapAiErrorMessage(reason, lang as 'en' | 'ru', 'knowledge', t.error))
     } finally {
       setIsLoading(false)
     }
+  }, [graphData.nodes, lang, mergeGraphData, t.error, t.xpEarned, user.id])
+
+  const handleExtract = async () => {
+    if (!inputText.trim()) return
+    const attempt: WeaveAttempt = {
+      input: inputText,
+      ritualMode: isRitualMode,
+      ritualName: ritualNameInput,
+    }
+    setLastAttempt(attempt)
+    await runExtract(attempt)
+  }
+
+  const handleRetryLastAttempt = async () => {
+    if (!lastAttempt || isLoading) return
+    await runExtract(lastAttempt)
   }
 
   const handleDownload = () => {
@@ -518,9 +510,21 @@ export function KnowledgeGraph({ user }: Props) {
         <AnimatePresence>
           {error && (
             <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              className="p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-destructive text-xs flex items-center gap-2">
+              className="p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-destructive text-xs flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
               <X className="w-3 h-3 shrink-0" />
-              {error}
+                <span className="truncate">{error}</span>
+              </div>
+              {lastAttempt && (
+                <button
+                  onClick={handleRetryLastAttempt}
+                  disabled={isLoading}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-destructive/40 bg-destructive/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-destructive hover:bg-destructive/20 disabled:opacity-50"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  {lang === 'ru' ? 'Повторить' : 'Retry'}
+                </button>
+              )}
             </motion.div>
           )}
           {successMsg && (

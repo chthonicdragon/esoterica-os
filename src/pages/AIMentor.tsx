@@ -3,6 +3,7 @@ import { useLang } from '../contexts/LanguageContext'
 import { Send, User, Loader2 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { askOpenRouter } from '../services/openRouterService'
+import { mapAiErrorMessage } from '../lib/aiErrorMessages'
 
 const ARCHETYPES = {
   hecate: {
@@ -82,26 +83,7 @@ export function AIMentor({ user }: AIMentorProps) {
       setMessages(prev => [...prev, assistantMsg])
     } catch (e: any) {
       const reason = typeof e?.message === 'string' ? e.message : ''
-      const fallback = lang === 'ru'
-        ? 'ИИ наставник временно недоступен. Проверьте подключение и попробуйте еще раз через 10-20 секунд.'
-        : 'AI Mentor is temporarily unavailable. Check your connection and try again in 10-20 seconds.'
-      const detailed = reason.includes('Missing API key')
-        ? (lang === 'ru'
-          ? 'ИИ не настроен: отсутствует API ключ. Сообщите администратору проекта.'
-          : 'AI is not configured: API key is missing. Please contact the project admin.')
-        : reason.includes('Circuit breaker open')
-          ? (lang === 'ru'
-            ? 'ИИ временно перегружен. Подождите около минуты и повторите запрос.'
-            : 'AI is temporarily overloaded. Please wait about a minute and retry.')
-        : reason.includes('timeout')
-          ? (lang === 'ru'
-            ? 'ИИ не успел ответить вовремя. Попробуйте еще раз или сократите запрос.'
-            : 'AI request timed out. Please retry or shorten your prompt.')
-        : reason.includes('All models unavailable') || reason.includes('429')
-          ? (lang === 'ru'
-            ? 'Лимит моделей временно исчерпан. Подождите немного и повторите запрос.'
-            : 'Model rate limit was reached. Please wait a bit and retry.')
-          : fallback
+      const detailed = mapAiErrorMessage(reason, lang as 'en' | 'ru', 'mentor')
 
       setMessages(prev => [...prev, { role: 'assistant', content: detailed }])
     } finally {
