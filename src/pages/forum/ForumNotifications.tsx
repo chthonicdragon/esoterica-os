@@ -4,6 +4,13 @@ import { useLang } from '../../contexts/LanguageContext'
 import type { ForumNotification } from '../../types/forum'
 import { formatDistanceToNow } from 'date-fns'
 
+let notificationsTableUnavailable = false
+
+function isMissingTableError(error: any): boolean {
+  const msg = String(error?.message || '').toLowerCase()
+  return msg.includes('could not find the table') || msg.includes('does not exist') || error?.status === 404
+}
+
 interface Props {
   userId: string
   onClose: () => void
@@ -20,6 +27,12 @@ export function ForumNotifications({ userId, onClose, onNavigateToTopic }: Props
   }, [userId])
 
   async function loadNotifications() {
+    if (notificationsTableUnavailable) {
+      setNotifications([])
+      setLoading(false)
+      return
+    }
+
     try {
       const raw = await db.forumNotifications.list({
         where: { userId: { eq: userId } },
@@ -50,8 +63,9 @@ export function ForumNotifications({ userId, onClose, onNavigateToTopic }: Props
         unread.map(n => db.forumNotifications.update(n.id, { isRead: 1 }).catch(() => {}))
       )
     } catch (e: any) {
-      const msg = String(e?.message || '')
-      if (!msg.includes('could not find the table') && !msg.includes('does not exist')) {
+      if (isMissingTableError(e)) {
+        notificationsTableUnavailable = true
+      } else {
         console.error(e)
       }
     } finally {
@@ -124,13 +138,18 @@ export function ForumNotifications({ userId, onClose, onNavigateToTopic }: Props
 }
 
 export async function getUnreadNotificationCount(userId: string): Promise<number> {
+  if (notificationsTableUnavailable) return 0
+
   try {
     const raw = await db.forumNotifications.list({
       where: { userId: { eq: userId }, isRead: { eq: '0' } },
       limit: 99,
     })
     return (raw as any[]).length
-  } catch {
+  } catch (e) {
+    if (isMissingTableError(e)) {
+      notificationsTableUnavailable = true
+    }
     return 0
   }
 }
