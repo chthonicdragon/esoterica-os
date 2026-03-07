@@ -72,11 +72,11 @@ export function Altars({ user }: AltarsProps) {
   const altarBackdropStyle = useMemo(() => ({
     backgroundImage: visualPreset === 'cinematic'
       ? (isMobile
-        ? "radial-gradient(120% 70% at 50% 35%, rgba(116, 88, 202, 0.18) 0%, rgba(5, 8, 24, 0) 58%), linear-gradient(180deg, rgba(4, 7, 22, 0.38) 0%, rgba(4, 7, 22, 0.62) 62%, rgba(4, 7, 22, 0.84) 100%), url('/altar-background.jpg.png')"
-        : "radial-gradient(100% 68% at 50% 32%, rgba(118, 92, 208, 0.14) 0%, rgba(5, 7, 22, 0) 60%), linear-gradient(rgba(3, 6, 20, 0.38), rgba(3, 6, 20, 0.68)), url('/altar-background.jpg.png')")
+        ? "radial-gradient(120% 70% at 50% 35%, rgba(116, 88, 202, 0.18) 0%, rgba(5, 8, 24, 0) 58%), linear-gradient(180deg, rgba(4, 7, 22, 0.38) 0%, rgba(4, 7, 22, 0.62) 62%, rgba(4, 7, 22, 0.84) 100%), url('/altar-bg-mobile.png')"
+        : "radial-gradient(100% 68% at 50% 32%, rgba(118, 92, 208, 0.14) 0%, rgba(5, 7, 22, 0) 60%), linear-gradient(rgba(3, 6, 20, 0.38), rgba(3, 6, 20, 0.68)), url('/altar-bg-desktop.png')")
       : (isMobile
-        ? "radial-gradient(110% 66% at 50% 32%, rgba(96, 146, 220, 0.12) 0%, rgba(5, 8, 24, 0) 62%), linear-gradient(180deg, rgba(5, 8, 22, 0.3) 0%, rgba(5, 8, 22, 0.54) 64%, rgba(5, 8, 22, 0.74) 100%), url('/altar-background.jpg.png')"
-        : "radial-gradient(96% 62% at 50% 30%, rgba(96, 146, 220, 0.1) 0%, rgba(5, 8, 24, 0) 64%), linear-gradient(rgba(4, 7, 20, 0.3), rgba(4, 7, 20, 0.58)), url('/altar-background.jpg.png')"),
+        ? "radial-gradient(110% 66% at 50% 32%, rgba(96, 146, 220, 0.12) 0%, rgba(5, 8, 24, 0) 62%), linear-gradient(180deg, rgba(5, 8, 22, 0.3) 0%, rgba(5, 8, 22, 0.54) 64%, rgba(5, 8, 22, 0.74) 100%), url('/altar-bg-mobile.png')"
+        : "radial-gradient(96% 62% at 50% 30%, rgba(96, 146, 220, 0.1) 0%, rgba(5, 8, 24, 0) 64%), linear-gradient(rgba(4, 7, 20, 0.3), rgba(4, 7, 20, 0.58)), url('/altar-bg-desktop.png')"),
     backgroundSize: isMobile ? '170% auto' : '122% auto',
     backgroundPosition: isMobile ? '50% 20%' : '50% 16%',
     backgroundRepeat: 'no-repeat',
