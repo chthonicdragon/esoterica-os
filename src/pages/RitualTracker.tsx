@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
 import { useAudio } from '../contexts/AudioContext'
 import { db } from '../lib/platformClient'
 import { getMoonPhase, moonEmoji, moonEnergy, moonEnergyRu } from '../utils/moonPhase'
 import { Plus, Moon, Trash2, TrendingUp, X } from 'lucide-react'
+import SunCalc from 'suncalc'
 import toast from 'react-hot-toast'
 import { cn } from '../lib/utils'
 
@@ -27,6 +28,66 @@ interface FestivalDay {
   emoji: string
   infoRu: string
   infoEn: string
+}
+
+type PlanetKey = 'sun' | 'moon' | 'mars' | 'mercury' | 'jupiter' | 'venus' | 'saturn'
+
+interface PlanetaryHour {
+  planet: PlanetKey
+  start: Date
+  end: Date
+  isDay: boolean
+}
+
+const CHALDEAN_ORDER: PlanetKey[] = ['saturn', 'jupiter', 'mars', 'sun', 'venus', 'mercury', 'moon']
+
+const WEEKDAY_RULER: Record<number, PlanetKey> = {
+  0: 'sun',
+  1: 'moon',
+  2: 'mars',
+  3: 'mercury',
+  4: 'jupiter',
+  5: 'venus',
+  6: 'saturn',
+}
+
+const PLANET_META: Record<PlanetKey, { symbol: string; en: string; ru: string; focusEn: string[]; focusRu: string[] }> = {
+  sun: { symbol: '☉', en: 'Sun', ru: 'Солнце', focusEn: ['success', 'authority', 'vitality', 'clarity'], focusRu: ['успех', 'авторитет', 'жизненная сила', 'ясность'] },
+  moon: { symbol: '☽', en: 'Moon', ru: 'Луна', focusEn: ['intuition', 'dreams', 'emotions', 'ancestral work'], focusRu: ['интуиция', 'сны', 'эмоции', 'работа с предками'] },
+  mars: { symbol: '♂', en: 'Mars', ru: 'Марс', focusEn: ['courage', 'protection', 'discipline', 'boundaries'], focusRu: ['смелость', 'защита', 'дисциплина', 'границы'] },
+  mercury: { symbol: '☿', en: 'Mercury', ru: 'Меркурий', focusEn: ['learning', 'communication', 'divination', 'logic'], focusRu: ['обучение', 'коммуникация', 'дивинация', 'логика'] },
+  jupiter: { symbol: '♃', en: 'Jupiter', ru: 'Юпитер', focusEn: ['growth', 'luck', 'leadership', 'expansion'], focusRu: ['рост', 'удача', 'лидерство', 'экспансия'] },
+  venus: { symbol: '♀', en: 'Venus', ru: 'Венера', focusEn: ['love', 'harmony', 'art', 'money magnetism'], focusRu: ['любовь', 'гармония', 'искусство', 'денежный магнетизм'] },
+  saturn: { symbol: '♄', en: 'Saturn', ru: 'Сатурн', focusEn: ['structure', 'karma', 'endurance', 'banishing'], focusRu: ['структура', 'карма', 'выносливость', 'очищение'] },
+}
+
+function generatePlanetaryHours(sunrise: Date, sunset: Date, nextSunrise: Date): PlanetaryHour[] {
+  const dayLength = sunset.getTime() - sunrise.getTime()
+  const nightLength = nextSunrise.getTime() - sunset.getTime()
+  if (dayLength <= 0 || nightLength <= 0) return []
+
+  const dayHour = dayLength / 12
+  const nightHour = nightLength / 12
+  const dayRuler = WEEKDAY_RULER[sunrise.getDay()]
+  const firstIndex = CHALDEAN_ORDER.indexOf(dayRuler)
+
+  const result: PlanetaryHour[] = []
+
+  for (let i = 0; i < 12; i++) {
+    const start = new Date(sunrise.getTime() + dayHour * i)
+    const end = new Date(sunrise.getTime() + dayHour * (i + 1))
+    const planet = CHALDEAN_ORDER[(firstIndex + i) % CHALDEAN_ORDER.length]
+    result.push({ planet, start, end, isDay: true })
+  }
+
+  for (let i = 0; i < 12; i++) {
+    const start = new Date(sunset.getTime() + nightHour * i)
+    const end = new Date(sunset.getTime() + nightHour * (i + 1))
+    const planet = CHALDEAN_ORDER[(firstIndex + 12 + i) % CHALDEAN_ORDER.length]
+    result.push({ planet, start, end, isDay: false })
+  }
+
+  return result
 }
 
 const RITUAL_TYPES = ['banishing', 'invocation', 'manifestation', 'divination', 'healing', 'protection', 'gratitude', 'shadow-work']
@@ -224,6 +285,10 @@ export function RitualTracker({ user }: RitualTrackerProps) {
   const [loading, setLoading] = useState(true)
   const [activeWheel, setActiveWheel] = useState<'slavic' | 'neopagan' | 'hellenic'>('slavic')
   const [selectedFestival, setSelectedFestival] = useState<FestivalDay | null>(null)
+  const [planetaryHours, setPlanetaryHours] = useState<PlanetaryHour[]>([])
+  const [planetaryLoading, setPlanetaryLoading] = useState(true)
+  const [planetaryError, setPlanetaryError] = useState<string | null>(null)
+  const [coords, setCoords] = useState<{ lat: number; lng: number }>({ lat: 42.7, lng: 23.3 })
   const moonPhase = getMoonPhase()
   const energy = lang === 'ru' ? moonEnergyRu[moonPhase] : moonEnergy[moonPhase]
 
@@ -238,6 +303,95 @@ export function RitualTracker({ user }: RitualTrackerProps) {
     : activeWheel === 'neopagan'
       ? WHEEL_NEOPAGAN
       : WHEEL_HELLENIC
+
+  useEffect(() => {
+    const saved = localStorage.getItem('esoterica_geo_coords')
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        if (typeof parsed?.lat === 'number' && typeof parsed?.lng === 'number') {
+          setCoords({ lat: parsed.lat, lng: parsed.lng })
+        }
+      } catch {
+        // ignore invalid cache
+      }
+      return
+    }
+
+    if (!navigator.geolocation) return
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const nextCoords = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        }
+        setCoords(nextCoords)
+        localStorage.setItem('esoterica_geo_coords', JSON.stringify(nextCoords))
+      },
+      () => {
+        // Keep default coordinates when denied.
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 3600_000 }
+    )
+  }, [])
+
+  useEffect(() => {
+    const fetchPlanetaryHours = async () => {
+      setPlanetaryLoading(true)
+      setPlanetaryError(null)
+
+      try {
+        const today = new Date()
+        const tomorrow = new Date(today)
+        tomorrow.setDate(today.getDate() + 1)
+
+        const todayTimes = SunCalc.getTimes(today, coords.lat, coords.lng)
+        const tomorrowTimes = SunCalc.getTimes(tomorrow, coords.lat, coords.lng)
+
+        const sunrise = todayTimes.sunrise
+        const sunset = todayTimes.sunset
+        const nextSunrise = tomorrowTimes.sunrise
+
+        if (!(sunrise instanceof Date) || !(sunset instanceof Date) || !(nextSunrise instanceof Date)) {
+          throw new Error('sun_calc_invalid_times')
+        }
+
+        const hours = generatePlanetaryHours(sunrise, sunset, nextSunrise)
+
+        if (!hours.length) {
+          throw new Error('planetary_calc_error')
+        }
+
+        setPlanetaryHours(hours)
+      } catch (error) {
+        console.error('Planetary hours failed:', error)
+        setPlanetaryError(lang === 'ru' ? 'Не удалось рассчитать планетарные часы' : 'Failed to calculate planetary hours')
+        setPlanetaryHours([])
+      } finally {
+        setPlanetaryLoading(false)
+      }
+    }
+
+    void fetchPlanetaryHours()
+  }, [coords.lat, coords.lng, lang])
+
+  const activePlanetaryInfo = useMemo(() => {
+    if (!planetaryHours.length) return null
+
+    const now = Date.now()
+    const activeIndex = planetaryHours.findIndex(h => now >= h.start.getTime() && now < h.end.getTime())
+    const safeIndex = activeIndex >= 0 ? activeIndex : 0
+    const current = planetaryHours[safeIndex]
+    const next = planetaryHours[(safeIndex + 1) % planetaryHours.length]
+    const minutesToNext = Math.max(0, Math.round((next.start.getTime() - now) / 60000))
+
+    return { current, next, minutesToNext }
+  }, [planetaryHours])
+
+  const formatHour = (date: Date) => {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
 
   const [form, setForm] = useState({
     title: '', type: 'manifestation', intention: '',
@@ -318,6 +472,69 @@ export function RitualTracker({ user }: RitualTrackerProps) {
             <p className="text-sm text-muted-foreground italic mt-1">{energy}</p>
           </div>
         </div>
+      </div>
+
+      {/* Planetary Hours */}
+      <div className="rounded-2xl bg-card border border-border/40 p-5 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs text-muted-foreground">
+            {lang === 'ru' ? 'Луна и время силы' : 'Moon & Time of Power'}
+          </p>
+          <p className="text-[10px] text-muted-foreground/70">
+            {lang === 'ru' ? `коорд.: ${coords.lat.toFixed(2)}, ${coords.lng.toFixed(2)}` : `coords: ${coords.lat.toFixed(2)}, ${coords.lng.toFixed(2)}`}
+          </p>
+        </div>
+
+        {planetaryLoading && (
+          <p className="text-xs text-muted-foreground">{lang === 'ru' ? 'Расчет планетарных часов...' : 'Calculating planetary hours...'}</p>
+        )}
+
+        {!planetaryLoading && planetaryError && (
+          <p className="text-xs text-destructive">{planetaryError}</p>
+        )}
+
+        {!planetaryLoading && !planetaryError && activePlanetaryInfo && (
+          <>
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                {lang === 'ru' ? 'Сейчас активен' : 'Active Now'}
+              </p>
+              <p className="text-sm font-semibold text-foreground">
+                {PLANET_META[activePlanetaryInfo.current.planet].symbol} {lang === 'ru' ? PLANET_META[activePlanetaryInfo.current.planet].ru : PLANET_META[activePlanetaryInfo.current.planet].en}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {formatHour(activePlanetaryInfo.current.start)} - {formatHour(activePlanetaryInfo.current.end)}
+              </p>
+              <p className="text-[11px] text-primary mt-1">
+                {lang === 'ru'
+                  ? `Следующий час через ${activePlanetaryInfo.minutesToNext} мин.`
+                  : `Next hour in ${activePlanetaryInfo.minutesToNext} min.`}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-border/40 bg-background/30 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                {lang === 'ru' ? 'Подходит для' : 'Good For'}
+              </p>
+              <p className="text-xs text-foreground/90 leading-relaxed">
+                {(lang === 'ru' ? PLANET_META[activePlanetaryInfo.current.planet].focusRu : PLANET_META[activePlanetaryInfo.current.planet].focusEn).join(' • ')}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {planetaryHours.slice(0, 8).map((hour, idx) => (
+                <div key={`${hour.planet}-${idx}`} className="rounded-lg border border-border/40 bg-background/20 p-2">
+                  <p className="text-[11px] text-foreground font-medium truncate">
+                    {PLANET_META[hour.planet].symbol} {lang === 'ru' ? PLANET_META[hour.planet].ru : PLANET_META[hour.planet].en}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    {formatHour(hour.start)} - {formatHour(hour.end)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Wheel of Year */}
