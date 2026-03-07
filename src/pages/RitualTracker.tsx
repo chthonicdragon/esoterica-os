@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
 import { useAudio } from '../contexts/AudioContext'
 import { db } from '../lib/platformClient'
@@ -11,12 +11,22 @@ import { cn } from '../lib/utils'
 interface Ritual {
   id: string
   title: string
-  type: string
-  intention: string
+  type?: string
+  description?: string
+  deity?: string
+  date?: string
+  intention?: string
   moonPhase?: string
+  moon_phase?: string
+  planetary_hour?: string
+  tools?: string
   outcome?: string
   energyLevel: number
   notes?: string
+  result_rating?: number
+  emotional_state?: string
+  sensations_during?: string
+  outcome_later?: string
   createdAt: string
 }
 
@@ -39,6 +49,23 @@ interface PlanetaryHour {
   isDay: boolean
 }
 
+interface HecateDay {
+  id: 'deipnon' | 'noumenia' | 'agathos-daimon'
+  icon: string
+  date: Date
+  titleRu: string
+  titleEn: string
+  meaningRu: string
+  meaningEn: string
+}
+
+interface MagicalHoliday {
+  name: string
+  date: string // MM-DD
+  description: string
+  descriptionRu: string
+}
+
 const CHALDEAN_ORDER: PlanetKey[] = ['saturn', 'jupiter', 'mars', 'sun', 'venus', 'mercury', 'moon']
 
 const WEEKDAY_RULER: Record<number, PlanetKey> = {
@@ -59,6 +86,62 @@ const PLANET_META: Record<PlanetKey, { symbol: string; en: string; ru: string; f
   jupiter: { symbol: '♃', en: 'Jupiter', ru: 'Юпитер', focusEn: ['growth', 'luck', 'leadership', 'expansion'], focusRu: ['рост', 'удача', 'лидерство', 'экспансия'] },
   venus: { symbol: '♀', en: 'Venus', ru: 'Венера', focusEn: ['love', 'harmony', 'art', 'money magnetism'], focusRu: ['любовь', 'гармония', 'искусство', 'денежный магнетизм'] },
   saturn: { symbol: '♄', en: 'Saturn', ru: 'Сатурн', focusEn: ['structure', 'karma', 'endurance', 'banishing'], focusRu: ['структура', 'карма', 'выносливость', 'очищение'] },
+}
+
+const PLANET_ALERT_COPY: Record<PlanetKey, { ru: string; en: string }> = {
+  sun: {
+    ru: 'Этот час подходит для: власти, успеха и энергетических практик.',
+    en: 'This hour is ideal for authority, success, and vitality workings.',
+  },
+  moon: {
+    ru: 'Этот час подходит для: интуиции, снов и психической работы.',
+    en: 'This hour supports intuition, dreams, and psychic work.',
+  },
+  mars: {
+    ru: 'Этот час подходит для: силы, защиты и активных действий.',
+    en: 'This hour supports strength, protection, and active operations.',
+  },
+  mercury: {
+    ru: 'Этот час подходит для: знаний, магии и коммуникации.',
+    en: 'This hour favors study, magic craft, and communication.',
+  },
+  jupiter: {
+    ru: 'Этот час подходит для: денег, роста и удачи.',
+    en: 'This hour favors money magic, growth, and luck.',
+  },
+  venus: {
+    ru: 'Этот час подходит для: любви, гармонии, красоты и денежных практик.',
+    en: 'This hour is ideal for love, harmony, beauty, and prosperity rites.',
+  },
+  saturn: {
+    ru: 'Этот час подходит для: очищения, границ и завершения циклов.',
+    en: 'This hour is good for cleansing, boundaries, and completion work.',
+  },
+}
+
+const MAGICAL_HOLIDAYS: MagicalHoliday[] = [
+  { name: 'Samhain', date: '10-31', description: 'festival of spirits and ancestors', descriptionRu: 'праздник духов и предков' },
+  { name: 'Beltane', date: '05-01', description: 'festival of life force and union', descriptionRu: 'праздник жизненной силы и союза' },
+  { name: 'Imbolc', date: '02-01', description: 'festival of purification and sacred fire', descriptionRu: 'праздник очищения и священного огня' },
+  { name: 'Lughnasadh', date: '08-01', description: 'first harvest and gratitude festival', descriptionRu: 'праздник первого урожая и благодарности' },
+]
+
+const RITUAL_META_STORAGE_KEY = 'esoterica_ritual_meta_v2'
+
+const RESULT_LABELS_RU: Record<number, string> = {
+  1: '1 - не сработал',
+  2: '2 - слабый эффект',
+  3: '3 - средний результат',
+  4: '4 - сильный результат',
+  5: '5 - очень мощный результат',
+}
+
+const RESULT_LABELS_EN: Record<number, string> = {
+  1: '1 - no effect',
+  2: '2 - weak effect',
+  3: '3 - moderate result',
+  4: '4 - strong result',
+  5: '5 - very powerful result',
 }
 
 function generatePlanetaryHours(sunrise: Date, sunset: Date, nextSunrise: Date): PlanetaryHour[] {
@@ -88,6 +171,86 @@ function generatePlanetaryHours(sunrise: Date, sunset: Date, nextSunrise: Date):
   }
 
   return result
+}
+
+function startOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+}
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date)
+  next.setDate(next.getDate() + days)
+  return next
+}
+
+function getHecateDays(baseDate: Date): HecateDay[] {
+  // Find nearest new moon by scanning around current date and minimizing illumination phase distance.
+  let bestDate = startOfDay(baseDate)
+  let bestDistance = Number.POSITIVE_INFINITY
+
+  for (let i = -16; i <= 16; i++) {
+    const candidate = addDays(baseDate, i)
+    const phase = SunCalc.getMoonIllumination(candidate).phase
+    const distanceToNewMoon = Math.min(phase, 1 - phase)
+    if (distanceToNewMoon < bestDistance) {
+      bestDistance = distanceToNewMoon
+      bestDate = startOfDay(candidate)
+    }
+  }
+
+  return [
+    {
+      id: 'deipnon',
+      icon: '🗝',
+      date: addDays(bestDate, -1),
+      titleRu: 'Deipnon',
+      titleEn: 'Deipnon',
+      meaningRu: 'Очищение, подношения, закрытие циклов',
+      meaningEn: 'Cleansing, offerings, and cycle closure',
+    },
+    {
+      id: 'noumenia',
+      icon: '✨',
+      date: addDays(bestDate, 1),
+      titleRu: 'Noumenia',
+      titleEn: 'Noumenia',
+      meaningRu: 'Новые начала',
+      meaningEn: 'New beginnings',
+    },
+    {
+      id: 'agathos-daimon',
+      icon: '🜂',
+      date: addDays(bestDate, 2),
+      titleRu: 'Agathos Daimon',
+      titleEn: 'Agathos Daimon',
+      meaningRu: 'Благословение и защита',
+      meaningEn: 'Blessing and protection',
+    },
+  ]
+}
+
+function getUpcomingHolidayDate(mmdd: string, now: Date): Date {
+  const [mm, dd] = mmdd.split('-').map(Number)
+  const thisYear = new Date(now.getFullYear(), mm - 1, dd)
+  if (thisYear.getTime() >= now.getTime()) return thisYear
+  return new Date(now.getFullYear() + 1, mm - 1, dd)
+}
+
+function readRitualMetaMap(): Record<string, Partial<Ritual>> {
+  try {
+    const raw = localStorage.getItem(RITUAL_META_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return typeof parsed === 'object' && parsed ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeRitualMeta(id: string, meta: Partial<Ritual>) {
+  const current = readRitualMetaMap()
+  current[id] = { ...(current[id] || {}), ...meta }
+  localStorage.setItem(RITUAL_META_STORAGE_KEY, JSON.stringify(current))
 }
 
 const RITUAL_TYPES = ['banishing', 'invocation', 'manifestation', 'divination', 'healing', 'protection', 'gratitude', 'shadow-work']
@@ -289,6 +452,7 @@ export function RitualTracker({ user }: RitualTrackerProps) {
   const [planetaryLoading, setPlanetaryLoading] = useState(true)
   const [planetaryError, setPlanetaryError] = useState<string | null>(null)
   const [coords, setCoords] = useState<{ lat: number; lng: number }>({ lat: 42.7, lng: 23.3 })
+  const notifiedRef = useRef<Set<string>>(new Set())
   const moonPhase = getMoonPhase()
   const energy = lang === 'ru' ? moonEnergyRu[moonPhase] : moonEnergy[moonPhase]
 
@@ -337,7 +501,7 @@ export function RitualTracker({ user }: RitualTrackerProps) {
   }, [])
 
   useEffect(() => {
-    const fetchPlanetaryHours = async () => {
+    const recalcPlanetaryHours = () => {
       setPlanetaryLoading(true)
       setPlanetaryError(null)
 
@@ -358,7 +522,6 @@ export function RitualTracker({ user }: RitualTrackerProps) {
         }
 
         const hours = generatePlanetaryHours(sunrise, sunset, nextSunrise)
-
         if (!hours.length) {
           throw new Error('planetary_calc_error')
         }
@@ -373,7 +536,9 @@ export function RitualTracker({ user }: RitualTrackerProps) {
       }
     }
 
-    void fetchPlanetaryHours()
+    recalcPlanetaryHours()
+    const timer = setInterval(recalcPlanetaryHours, 10 * 60 * 1000)
+    return () => clearInterval(timer)
   }, [coords.lat, coords.lng, lang])
 
   const activePlanetaryInfo = useMemo(() => {
@@ -393,9 +558,85 @@ export function RitualTracker({ user }: RitualTrackerProps) {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
 
+  const hecateDays = useMemo(() => getHecateDays(new Date()), [])
+
+  const upcomingHolidays = useMemo(() => {
+    const now = new Date()
+    return MAGICAL_HOLIDAYS
+      .map((h) => ({ ...h, nextDate: getUpcomingHolidayDate(h.date, now) }))
+      .sort((a, b) => a.nextDate.getTime() - b.nextDate.getTime())
+  }, [])
+
+  const todayDayKey = startOfDay(new Date()).toDateString()
+
+  useEffect(() => {
+    if (!planetaryHours.length) return
+
+    const ensurePermission = async () => {
+      if (!('Notification' in window)) return
+      if (Notification.permission === 'default') {
+        try { await Notification.requestPermission() } catch {}
+      }
+    }
+    void ensurePermission()
+
+    const tick = () => {
+      const now = Date.now()
+      const activeIdx = planetaryHours.findIndex(h => now >= h.start.getTime() && now < h.end.getTime())
+      if (activeIdx < 0) return
+
+      const current = planetaryHours[activeIdx]
+      const next = planetaryHours[(activeIdx + 1) % planetaryHours.length]
+      const currentStartKey = `start:${current.start.toISOString()}`
+      const preFiveKey = `pre5:${next.start.toISOString()}`
+
+      if (!notifiedRef.current.has(currentStartKey)) {
+        notifiedRef.current.add(currentStartKey)
+        const title = lang === 'ru'
+          ? `Начался час ${PLANET_META[current.planet].ru}`
+          : `${PLANET_META[current.planet].en} hour has started`
+        const body = lang === 'ru' ? PLANET_ALERT_COPY[current.planet].ru : PLANET_ALERT_COPY[current.planet].en
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification(title, { body })
+        }
+        toast.success(`${title}. ${body}`)
+      }
+
+      const minToNext = (next.start.getTime() - now) / 60000
+      if (minToNext <= 5 && minToNext > 0 && !notifiedRef.current.has(preFiveKey)) {
+        notifiedRef.current.add(preFiveKey)
+        const title = lang === 'ru'
+          ? `Через 5 минут: час ${PLANET_META[next.planet].ru}`
+          : `In ~5 minutes: ${PLANET_META[next.planet].en} hour`
+        const body = lang === 'ru' ? PLANET_ALERT_COPY[next.planet].ru : PLANET_ALERT_COPY[next.planet].en
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification(title, { body })
+        }
+        toast(title)
+      }
+    }
+
+    tick()
+    const timer = setInterval(tick, 15 * 1000)
+    return () => clearInterval(timer)
+  }, [planetaryHours, lang])
+
   const [form, setForm] = useState({
-    title: '', type: 'manifestation', intention: '',
-    energyLevel: 7, outcome: '', notes: '',
+    title: '',
+    description: '',
+    deity: '',
+    type: 'manifestation',
+    intention: '',
+    tools: '',
+    notes: '',
+    energyLevel: 7,
+    planetaryHour: '',
+    moonPhaseForRitual: moonPhase,
+    emotionalState: '',
+    sensationsDuring: '',
+    outcome: '',
+    outcomeLater: '',
+    resultRating: 3,
   })
 
   useEffect(() => { loadRituals() }, [user.id])
@@ -407,26 +648,57 @@ export function RitualTracker({ user }: RitualTrackerProps) {
         orderBy: { createdAt: 'desc' },
         limit: 50,
       }) as Ritual[]
-      setRituals(data)
+      const metaMap = readRitualMetaMap()
+      const merged = data.map((ritual) => ({ ...metaMap[ritual.id], ...ritual }))
+      setRituals(merged)
     } catch (e) { console.error(e) } finally { setLoading(false) }
   }
 
   async function saveRitual() {
-    if (!form.title.trim() || !form.intention.trim()) return
+    if (!form.title.trim() || (!form.intention.trim() && !form.description.trim())) return
     playUiSound('click')
     try {
       const ritual = await db.rituals.create({
         userId: user.id,
         title: form.title,
         type: form.type,
-        intention: form.intention,
+        intention: form.intention || form.description,
         moonPhase: moonPhase,
         energyLevel: form.energyLevel,
         outcome: form.outcome || null,
         notes: form.notes || null,
         createdAt: new Date().toISOString(),
       }) as Ritual
-      setRituals(prev => [ritual, ...prev])
+
+      const enrichedRitual: Ritual = {
+        ...ritual,
+        description: form.description,
+        deity: form.deity,
+        moon_phase: form.moonPhaseForRitual,
+        planetary_hour: form.planetaryHour,
+        tools: form.tools,
+        notes: form.notes,
+        result_rating: form.resultRating,
+        emotional_state: form.emotionalState,
+        sensations_during: form.sensationsDuring,
+        outcome: form.outcome,
+        outcome_later: form.outcomeLater,
+      }
+
+      writeRitualMeta(ritual.id, {
+        description: form.description,
+        deity: form.deity,
+        moon_phase: form.moonPhaseForRitual,
+        planetary_hour: form.planetaryHour,
+        tools: form.tools,
+        notes: form.notes,
+        result_rating: form.resultRating,
+        emotional_state: form.emotionalState,
+        sensations_during: form.sensationsDuring,
+        outcome_later: form.outcomeLater,
+      })
+
+      setRituals(prev => [enrichedRitual, ...prev])
 
       // Update profile stats
       try {
@@ -446,7 +718,23 @@ export function RitualTracker({ user }: RitualTrackerProps) {
       } catch (_) {}
 
       setShowForm(false)
-      setForm({ title: '', type: 'manifestation', intention: '', energyLevel: 7, outcome: '', notes: '' })
+      setForm({
+        title: '',
+        description: '',
+        deity: '',
+        type: 'manifestation',
+        intention: '',
+        tools: '',
+        notes: '',
+        energyLevel: 7,
+        planetaryHour: '',
+        moonPhaseForRitual: moonPhase,
+        emotionalState: '',
+        sensationsDuring: '',
+        outcome: '',
+        outcomeLater: '',
+        resultRating: 3,
+      })
       playUiSound('success')
       toast.success(lang === 'ru' ? 'Ритуал записан' : 'Ritual logged')
     } catch (e) { toast.error(t.error) }
@@ -455,10 +743,56 @@ export function RitualTracker({ user }: RitualTrackerProps) {
   async function deleteRitual(id: string) {
     playUiSound('click')
     await db.rituals.delete(id)
+    const map = readRitualMetaMap()
+    if (map[id]) {
+      delete map[id]
+      localStorage.setItem(RITUAL_META_STORAGE_KEY, JSON.stringify(map))
+    }
     setRituals(prev => prev.filter(r => r.id !== id))
   }
 
   const avgEnergy = rituals.length ? Math.round(rituals.reduce((s, r) => s + Number(r.energyLevel), 0) / rituals.length) : 0
+
+  const analytics = useMemo(() => {
+    const rated = rituals.filter(r => typeof r.result_rating === 'number')
+
+    const byMoon: Record<string, { total: number; count: number }> = {}
+    const byHour: Record<string, { total: number; count: number }> = {}
+    const byDeity: Record<string, number> = {}
+
+    rated.forEach((r) => {
+      const rating = Number(r.result_rating)
+      const moon = r.moon_phase || r.moonPhase || 'unknown'
+      const hour = r.planetary_hour || 'unknown'
+
+      if (!byMoon[moon]) byMoon[moon] = { total: 0, count: 0 }
+      byMoon[moon].total += rating
+      byMoon[moon].count += 1
+
+      if (!byHour[hour]) byHour[hour] = { total: 0, count: 0 }
+      byHour[hour].total += rating
+      byHour[hour].count += 1
+
+      if (r.deity?.trim()) {
+        const key = r.deity.trim()
+        byDeity[key] = (byDeity[key] || 0) + 1
+      }
+    })
+
+    const topMoon = Object.entries(byMoon)
+      .map(([key, v]) => ({ key, avg: v.total / v.count, count: v.count }))
+      .sort((a, b) => b.avg - a.avg)[0]
+
+    const topHour = Object.entries(byHour)
+      .map(([key, v]) => ({ key, avg: v.total / v.count, count: v.count }))
+      .sort((a, b) => b.avg - a.avg)[0]
+
+    const topDeities = Object.entries(byDeity)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+
+    return { topMoon, topHour, topDeities, ratedCount: rated.length }
+  }, [rituals])
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -471,6 +805,34 @@ export function RitualTracker({ user }: RitualTrackerProps) {
             <p className="text-lg font-semibold text-foreground">{t.moonPhases[moonPhase]}</p>
             <p className="text-sm text-muted-foreground italic mt-1">{energy}</p>
           </div>
+        </div>
+      </div>
+
+      {/* Hecate Days */}
+      <div className="rounded-2xl bg-card border border-border/40 p-5">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs text-muted-foreground">{lang === 'ru' ? 'Дни Гекаты' : 'Hecate Days'}</p>
+          <span className="text-[11px] text-muted-foreground">🌑 🗝 ✨ 🜂</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {hecateDays.map((day) => {
+            const isToday = startOfDay(day.date).toDateString() === todayDayKey
+            return (
+              <div
+                key={day.id}
+                className={cn(
+                  'rounded-xl border p-3 transition-colors',
+                  isToday ? 'border-primary/40 bg-primary/10' : 'border-border/40 bg-background/20'
+                )}
+              >
+                <p className="text-sm font-semibold text-foreground">{day.icon} {lang === 'ru' ? day.titleRu : day.titleEn}</p>
+                <p className="text-[11px] text-muted-foreground mt-1">{day.date.toLocaleDateString()}</p>
+                <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                  {lang === 'ru' ? day.meaningRu : day.meaningEn}
+                </p>
+              </div>
+            )
+          })}
         </div>
       </div>
 
@@ -575,6 +937,24 @@ export function RitualTracker({ user }: RitualTrackerProps) {
         </div>
       </div>
 
+      {/* Magical Holidays */}
+      <div className="rounded-2xl bg-card border border-border/40 p-5">
+        <p className="text-xs text-muted-foreground mb-3">{lang === 'ru' ? 'Календарь магических праздников' : 'Magical Holidays Calendar'}</p>
+        <div className="space-y-2">
+          {upcomingHolidays.map((holiday) => (
+            <div key={`${holiday.name}-${holiday.date}`} className="rounded-xl border border-border/40 bg-background/20 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-foreground">{holiday.name}</p>
+                <p className="text-[11px] text-primary">{holiday.nextDate.toLocaleDateString()}</p>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {lang === 'ru' ? holiday.descriptionRu : holiday.description}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {selectedFestival && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-sm rounded-2xl bg-card border border-primary/20 shadow-2xl p-4 animate-fade-in">
@@ -616,6 +996,47 @@ export function RitualTracker({ user }: RitualTrackerProps) {
         </div>
       </div>
 
+      {/* Ritual Analytics */}
+      <div className="rounded-2xl bg-card border border-border/40 p-5 space-y-3">
+        <p className="text-xs text-muted-foreground">{lang === 'ru' ? 'Аналитика ритуалов' : 'Ritual Analytics'}</p>
+        {analytics.ratedCount === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            {lang === 'ru'
+              ? 'Добавьте оценки ритуалов, чтобы увидеть статистику по фазам луны и планетарным часам.'
+              : 'Add ritual result ratings to see moon phase and planetary hour performance analytics.'}
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="rounded-xl border border-border/40 bg-background/20 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                {lang === 'ru' ? 'Лучшая фаза луны' : 'Best Moon Phase'}
+              </p>
+              <p className="text-sm text-foreground mt-1 font-semibold">
+                {analytics.topMoon ? `${analytics.topMoon.key} (${analytics.topMoon.avg.toFixed(1)}/5)` : '-'}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border/40 bg-background/20 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                {lang === 'ru' ? 'Лучший планетарный час' : 'Best Planetary Hour'}
+              </p>
+              <p className="text-sm text-foreground mt-1 font-semibold">
+                {analytics.topHour ? `${analytics.topHour.key} (${analytics.topHour.avg.toFixed(1)}/5)` : '-'}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border/40 bg-background/20 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                {lang === 'ru' ? 'Часто используемые силы' : 'Most Used Forces'}
+              </p>
+              <p className="text-sm text-foreground mt-1 font-semibold">
+                {analytics.topDeities.length > 0
+                  ? analytics.topDeities.map(([name, count]) => `${name} (${count})`).join(', ')
+                  : '-'}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Log ritual button */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">{t.ritualHistory}</h3>
@@ -637,6 +1058,20 @@ export function RitualTracker({ user }: RitualTrackerProps) {
             placeholder={t.ritualTitle}
             className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary/50"
           />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <input
+              value={form.deity}
+              onChange={e => setForm(p => ({ ...p, deity: e.target.value }))}
+              placeholder={lang === 'ru' ? 'Божество / сила' : 'Deity / force'}
+              className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary/50"
+            />
+            <input
+              value={form.tools}
+              onChange={e => setForm(p => ({ ...p, tools: e.target.value }))}
+              placeholder={lang === 'ru' ? 'Инструменты (через запятую)' : 'Tools (comma separated)'}
+              className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary/50"
+            />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <select
               value={form.type}
@@ -657,10 +1092,73 @@ export function RitualTracker({ user }: RitualTrackerProps) {
               <span className="text-sm text-primary font-bold w-4">{form.energyLevel}</span>
             </div>
           </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <select
+              value={form.moonPhaseForRitual}
+              onChange={e => setForm(p => ({ ...p, moonPhaseForRitual: e.target.value }))}
+              className="bg-background border border-border rounded-xl px-4 py-2.5 text-sm outline-none"
+            >
+              {Object.entries(t.moonPhases).map(([key, label]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </select>
+            <select
+              value={form.planetaryHour}
+              onChange={e => setForm(p => ({ ...p, planetaryHour: e.target.value }))}
+              className="bg-background border border-border rounded-xl px-4 py-2.5 text-sm outline-none"
+            >
+              <option value="">{lang === 'ru' ? 'Планетарный час (опц.)' : 'Planetary hour (optional)'}</option>
+              {planetaryHours.map((hour, idx) => (
+                <option key={`${hour.planet}-${idx}`} value={hour.planet}>
+                  {PLANET_META[hour.planet].symbol} {lang === 'ru' ? PLANET_META[hour.planet].ru : PLANET_META[hour.planet].en} ({formatHour(hour.start)})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">{lang === 'ru' ? 'Текст ритуала (вставка или загрузка файла)' : 'Ritual text (paste or upload file)'}</p>
+            <textarea
+              value={form.description}
+              onChange={e => setForm(p => ({ ...p, description: e.target.value, intention: p.intention || e.target.value }))}
+              placeholder={lang === 'ru' ? 'Полный текст ритуала...' : 'Full ritual text...'}
+              className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary/50 resize-none"
+              rows={4}
+            />
+            <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-border/40 bg-background/30 text-xs text-muted-foreground hover:text-foreground cursor-pointer">
+              {lang === 'ru' ? 'Загрузить текст ритуала' : 'Upload ritual text'}
+              <input
+                type="file"
+                accept=".txt,.md,.rtf"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  const text = await file.text()
+                  setForm(p => ({ ...p, description: text, intention: p.intention || text }))
+                }}
+              />
+            </label>
+          </div>
+
           <textarea
             value={form.intention}
             onChange={e => setForm(p => ({ ...p, intention: e.target.value }))}
             placeholder={t.intention}
+            className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary/50 resize-none"
+            rows={2}
+          />
+          <input
+            value={form.emotionalState}
+            onChange={e => setForm(p => ({ ...p, emotionalState: e.target.value }))}
+            placeholder={lang === 'ru' ? 'Эмоциональное состояние перед ритуалом' : 'Emotional state before ritual'}
+            className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary/50"
+          />
+          <textarea
+            value={form.sensationsDuring}
+            onChange={e => setForm(p => ({ ...p, sensationsDuring: e.target.value }))}
+            placeholder={lang === 'ru' ? 'Ощущения во время ритуала' : 'Sensations during ritual'}
             className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary/50 resize-none"
             rows={2}
           />
@@ -671,6 +1169,34 @@ export function RitualTracker({ user }: RitualTrackerProps) {
             className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary/50 resize-none"
             rows={2}
           />
+          <textarea
+            value={form.outcomeLater}
+            onChange={e => setForm(p => ({ ...p, outcomeLater: e.target.value }))}
+            placeholder={lang === 'ru' ? 'Результат через время' : 'Outcome after time'}
+            className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary/50 resize-none"
+            rows={2}
+          />
+
+          <div className="rounded-xl border border-border/40 p-3">
+            <p className="text-xs text-muted-foreground mb-2">{lang === 'ru' ? 'Оценка ритуала' : 'Ritual result rating'}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-1.5">
+              {[1, 2, 3, 4, 5].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setForm(p => ({ ...p, resultRating: value }))}
+                  className={cn(
+                    'px-2 py-1.5 rounded-lg border text-[11px] transition-colors',
+                    form.resultRating === value
+                      ? 'bg-primary/15 border-primary/40 text-primary'
+                      : 'border-border/40 text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {lang === 'ru' ? RESULT_LABELS_RU[value] : RESULT_LABELS_EN[value]}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="flex gap-2">
             <button onClick={() => { saveRitual(); playUiSound('click') }} className="flex-1 bg-primary text-primary-foreground rounded-xl py-2.5 text-sm font-medium hover:bg-primary/90 transition-colors">{t.save}</button>
             <button onClick={() => { setShowForm(false); playUiSound('click') }} className="px-4 rounded-xl border border-border text-muted-foreground hover:text-foreground text-sm transition-colors">{t.cancel}</button>
@@ -693,15 +1219,30 @@ export function RitualTracker({ user }: RitualTrackerProps) {
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm">{moonEmoji[ritual.moonPhase as keyof typeof moonEmoji] || '🌑'}</span>
+                    <span className="text-sm">{moonEmoji[(ritual.moon_phase || ritual.moonPhase || 'new') as keyof typeof moonEmoji] || '🌑'}</span>
                     <p className="font-medium text-sm text-foreground truncate">{ritual.title}</p>
-                    <span className={cn('text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary')}>
-                      {lang === 'ru' ? RITUAL_TYPES_RU[ritual.type] || ritual.type : ritual.type}
-                    </span>
+                    {ritual.type && (
+                      <span className={cn('text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary')}>
+                        {lang === 'ru' ? RITUAL_TYPES_RU[ritual.type] || ritual.type : ritual.type}
+                      </span>
+                    )}
+                    {typeof ritual.result_rating === 'number' && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                        {lang === 'ru' ? `Оценка ${ritual.result_rating}/5` : `Rating ${ritual.result_rating}/5`}
+                      </span>
+                    )}
                   </div>
-                  <p className="text-xs text-muted-foreground line-clamp-1">{ritual.intention}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-1">{ritual.description || ritual.intention}</p>
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
+                    {ritual.deity && <span className="text-[10px] text-purple-300">{lang === 'ru' ? 'Сила:' : 'Force:'} {ritual.deity}</span>}
+                    {ritual.planetary_hour && <span className="text-[10px] text-amber-300">{lang === 'ru' ? 'Час:' : 'Hour:'} {ritual.planetary_hour}</span>}
+                    {ritual.emotional_state && <span className="text-[10px] text-cyan-300">{lang === 'ru' ? 'Состояние:' : 'State:'} {ritual.emotional_state}</span>}
+                  </div>
                   {ritual.outcome && (
                     <p className="text-xs text-green-400/80 mt-1 line-clamp-1">→ {ritual.outcome}</p>
+                  )}
+                  {ritual.outcome_later && (
+                    <p className="text-xs text-blue-300/80 mt-1 line-clamp-1">⏳ {ritual.outcome_later}</p>
                   )}
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
