@@ -322,7 +322,7 @@ async function fetchWithFallback(body: object, modelIndex = 0): Promise<string> 
 
 // ── AI Mentor ─────────────────────────────────────────────────────────────────
 
-export async function askOpenRouter(prompt: string): Promise<string | null> {
+export async function askOpenRouter(prompt: string): Promise<string> {
   try {
     return await fetchWithFallback({
       messages: [{ role: "user", content: prompt }],
@@ -330,8 +330,9 @@ export async function askOpenRouter(prompt: string): Promise<string | null> {
       max_tokens: 800,
     });
   } catch (error: any) {
-    console.error("[AI] askOpenRouter failed:", error?.message ?? error);
-    return null;
+    const message = error?.message ?? "Unknown AI error";
+    console.error("[AI] askOpenRouter failed:", message);
+    throw new Error(message);
   }
 }
 

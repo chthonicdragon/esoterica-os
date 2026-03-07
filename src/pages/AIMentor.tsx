@@ -72,12 +72,30 @@ export function AIMentor({ user }: AIMentorProps) {
       const langInstruction = lang === 'ru' ? ' IMPORTANT: Always respond in Russian.' : ' Always respond in English.'
       const prompt = `${archetype.systemPrompt}${langInstruction}\n\nConversation:\n${history}\n\n${archetypeInfo.name}:`
 
-      const text = await askOpenRouter(prompt) ?? ''
+      const text = await askOpenRouter(prompt)
+      const cleaned = text.trim()
+      if (!cleaned) {
+        throw new Error('empty_ai_response')
+      }
 
-      const assistantMsg: Message = { role: 'assistant', content: text }
+      const assistantMsg: Message = { role: 'assistant', content: cleaned }
       setMessages(prev => [...prev, assistantMsg])
-    } catch (e) {
-      setMessages(prev => [...prev, { role: 'assistant', content: t.error }])
+    } catch (e: any) {
+      const reason = typeof e?.message === 'string' ? e.message : ''
+      const fallback = lang === 'ru'
+        ? 'ИИ наставник временно недоступен. Проверьте подключение и попробуйте еще раз через 10-20 секунд.'
+        : 'AI Mentor is temporarily unavailable. Check your connection and try again in 10-20 seconds.'
+      const detailed = reason.includes('Missing API key')
+        ? (lang === 'ru'
+          ? 'ИИ не настроен: отсутствует API ключ. Сообщите администратору проекта.'
+          : 'AI is not configured: API key is missing. Please contact the project admin.')
+        : reason.includes('All models unavailable') || reason.includes('429')
+          ? (lang === 'ru'
+            ? 'Лимит моделей временно исчерпан. Подождите немного и повторите запрос.'
+            : 'Model rate limit was reached. Please wait a bit and retry.')
+          : fallback
+
+      setMessages(prev => [...prev, { role: 'assistant', content: detailed }])
     } finally {
       setLoading(false)
     }
