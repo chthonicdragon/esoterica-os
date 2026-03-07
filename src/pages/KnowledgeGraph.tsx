@@ -492,7 +492,7 @@ export function KnowledgeGraph({ user }: Props) {
 
   return (
     <>
-    <div className="flex flex-col lg:flex-row gap-4 h-full w-full overflow-hidden p-1">
+    <div className="flex flex-col lg:flex-row gap-4 h-full w-full overflow-y-auto lg:overflow-hidden p-1">
       {/* Left Column: Controls */}
       <div className={`${isExpanded ? 'hidden' : 'flex'} flex-col gap-4 w-full lg:w-[360px] shrink-0 overflow-y-auto pr-1`}
         style={{ scrollbarWidth: 'thin' }}
