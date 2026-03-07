@@ -13,6 +13,9 @@ import { Maximize2 } from 'lucide-react'
 import { useIsMobile } from './hooks/use-mobile'
 import { supabase } from './lib/supabaseClient'
 import { registerFeatureOpened } from './lib/unlockNotifications'
+import { initAchievementListener } from './lib/achievements'
+import { eventBus } from './lib/eventBus'
+import toast from 'react-hot-toast'
 
 type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'journal' | 'forum' | 'marketplace' | 'settings' | 'knowledge-graph'
 const PAGE_STORAGE_KEY = 'esoterica_current_page_v1'
@@ -126,6 +129,28 @@ function AppContent() {
       playUiSound('success')
     }
   }, [hasInteracted, setIsMuted, playAmbient, playUiSound])
+
+  // Initialize achievement system and sync Knowledge Graph when user is logged in
+  useEffect(() => {
+    if (!user) return
+    // Sync Knowledge Graph from Supabase
+    import('./services/knowledgeGraphSync').then(({ syncGraph }) => {
+      syncGraph(user.id).catch(() => {})
+    })
+    // Achievements
+    const cleanup = initAchievementListener(user.id)
+    const unsubAchievement = eventBus.on('achievement:unlocked', (payload) => {
+      toast.success(
+        `🏆 ${lang === 'ru' ? payload.titleRu : payload.title}`,
+        { duration: 4000 }
+      )
+      playUiSound('bell')
+    })
+    return () => {
+      cleanup()
+      unsubAchievement()
+    }
+  }, [user?.id, lang, playUiSound])
 
   // Effect to handle navigation sounds
   useEffect(() => {

@@ -2,12 +2,14 @@ import React, { useEffect, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
 import { getMoonPhase, moonEmoji, moonEnergy, moonEnergyRu } from '../utils/moonPhase'
 import { db } from '../lib/platformClient'
-import { FlameKindling, Sparkles, BookOpen, Moon, TrendingUp, Star, Zap, MessageSquare, ChevronUp, ChevronDown, Activity, Bell, X } from 'lucide-react'
+import { FlameKindling, Sparkles, BookOpen, Moon, TrendingUp, Star, Zap, MessageSquare, ChevronUp, ChevronDown, Activity, Bell, X, Trophy, Compass } from 'lucide-react'
 import { SpiderWebIcon } from '../components/icons/SpiderWebIcon'
 import { ProgressionPanel } from '../altar/ProgressionPanel'
 import { loadLocalState } from '../altar/altarStore'
 import { supabase } from '../lib/supabaseClient'
 import { loadGraph } from '../services/knowledgeGraphBridge'
+import { ACHIEVEMENTS, getUnlockedAchievements } from '../lib/achievements'
+import { eventBus } from '../lib/eventBus'
 import {
   clearUnlockNotifications,
   getUnlockNotifications,
@@ -76,6 +78,8 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
   const [showNotifications, setShowNotifications] = useState(false)
   const [notificationFilter, setNotificationFilter] = useState<'all' | 'feature' | 'item' | 'base'>('all')
   const [showProgression, setShowProgression] = useState(false)
+  const [showAchievements, setShowAchievements] = useState(false)
+  const [unlockedAchievementIds, setUnlockedAchievementIds] = useState<string[]>([])
   const moonPhase = getMoonPhase()
   const energy = lang === 'ru' ? moonEnergyRu[moonPhase] : moonEnergy[moonPhase]
   const altarState = loadLocalState()
@@ -84,6 +88,15 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
   useEffect(() => {
     loadData()
     refreshNotifications()
+    setUnlockedAchievementIds(getUnlockedAchievements(user.id))
+  }, [user.id])
+
+  // Listen for achievement unlocks to refresh badge display
+  useEffect(() => {
+    const unsub = eventBus.on('achievement:unlocked', () => {
+      setUnlockedAchievementIds(getUnlockedAchievements(user.id))
+    })
+    return unsub
   }, [user.id])
 
   useEffect(() => {
@@ -423,6 +436,54 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
         </div>
       </div>
 
+      {/* Daily Practice Suggestion */}
+      <DailyPracticeSuggestion moonPhase={moonPhase} lang={lang} progression={progression} onNavigate={onNavigate} />
+
+      {/* Achievements */}
+      <div className="rounded-xl bg-card border border-border/40 p-4">
+        <button
+          onClick={() => setShowAchievements(prev => !prev)}
+          className="w-full flex items-center justify-between group"
+        >
+          <div className="flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-yellow-400" />
+            <div className="text-left">
+              <span className="text-sm font-medium text-foreground">
+                {lang === 'ru' ? 'Достижения' : 'Achievements'}
+              </span>
+              <p className="text-[10px] text-muted-foreground">
+                {unlockedAchievementIds.length}/{ACHIEVEMENTS.length} {lang === 'ru' ? 'открыто' : 'unlocked'}
+              </p>
+            </div>
+          </div>
+          {showAchievements
+            ? <ChevronUp className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+            : <ChevronDown className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+          }
+        </button>
+        {showAchievements && (
+          <div className="mt-4 border-t border-border/30 pt-4 grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {ACHIEVEMENTS.map(a => {
+              const unlocked = unlockedAchievementIds.includes(a.id)
+              return (
+                <div
+                  key={a.id}
+                  className={`rounded-xl border p-3 text-center transition-all ${
+                    unlocked
+                      ? 'border-primary/30 bg-primary/5'
+                      : 'border-border/20 bg-background/30 opacity-50 grayscale'
+                  }`}
+                >
+                  <span className="text-2xl block mb-1">{a.icon}</span>
+                  <p className="text-xs font-medium text-foreground truncate">{lang === 'ru' ? a.titleRu : a.title}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{lang === 'ru' ? a.descriptionRu : a.description}</p>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
       {/* Activity Feed */}
       <div>
         <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
@@ -453,3 +514,63 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
   )
 }
 
+/** Daily Practice Suggestion — context-aware recommendations based on moon phase, XP sources, and streak */
+interface DailyPracticeSuggestionProps {
+  moonPhase: string
+  lang: 'en' | 'ru'
+  progression: { ritualXp: number; journalXp: number; knowledgeXp: number; altarXp: number; streak: number; lastPracticeDate: string | null }
+  onNavigate: (page: string) => void
+}
+
+function DailyPracticeSuggestion({ moonPhase, lang, progression, onNavigate }: DailyPracticeSuggestionProps) {
+  // Determine which practice area the user has neglected most
+  const sources = [
+    { key: 'ritual-tracker', xp: progression.ritualXp, en: 'Log a ritual to deepen your practice', ru: 'Запишите ритуал для углубления практики', icon: '🌙' },
+    { key: 'journal', xp: progression.journalXp, en: 'Write a journal entry — dreams reveal hidden truths', ru: 'Напишите в журнал — сны раскрывают скрытые истины', icon: '📖' },
+    { key: 'knowledge-graph', xp: progression.knowledgeXp, en: 'Expand your Knowledge Web with new entities', ru: 'Расширьте Паутину знаний новыми сущностями', icon: '🕸' },
+    { key: 'altars', xp: progression.altarXp, en: 'Refine your altar — sacred space amplifies intent', ru: 'Украсьте алтарь — священное пространство усиливает намерение', icon: '🔥' },
+  ]
+
+  // Sort by least XP → suggest the weakest area
+  sources.sort((a, b) => a.xp - b.xp)
+
+  // Moon-phase-aware suggestion
+  const moonTip = (() => {
+    if (moonPhase === 'new') return lang === 'ru' ? 'Новолуние — время для постановки намерений и начала новых практик.' : 'New Moon — set intentions and begin new practices.'
+    if (moonPhase === 'full') return lang === 'ru' ? 'Полнолуние — энергия на пике. Идеальное время для мощных ритуалов и зарядки сигил.' : 'Full Moon — peak energy. Perfect for powerful rituals and sigil charging.'
+    if (moonPhase === 'waxing') return lang === 'ru' ? 'Растущая луна — наращивайте силу. Привлекающие ритуалы, рост знаний.' : 'Waxing Moon — build momentum. Attraction rituals, growth, and learning.'
+    return lang === 'ru' ? 'Убывающая луна — отпускайте старое. Очищение, защита, завершение.' : 'Waning Moon — release and let go. Cleansing, protection, closure.'
+  })()
+
+  const today = new Date().toDateString()
+  const practicedToday = progression.lastPracticeDate === today
+
+  return (
+    <div className="rounded-xl bg-gradient-to-r from-[hsl(280,60%,12%)] to-card border border-primary/20 p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Compass className="w-5 h-5 text-primary" />
+        <h3 className="text-sm font-medium text-foreground">
+          {lang === 'ru' ? 'Практика дня' : 'Daily Practice'}
+        </h3>
+        {practicedToday && (
+          <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-green-500/15 border border-green-500/30 text-green-400">
+            {lang === 'ru' ? '✓ Практика сегодня' : '✓ Practiced today'}
+          </span>
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground italic">{moonTip}</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {sources.slice(0, 2).map(s => (
+          <button
+            key={s.key}
+            onClick={() => onNavigate(s.key)}
+            className="flex items-center gap-2 p-3 rounded-xl border border-border/40 bg-background/40 hover:border-primary/30 hover:bg-primary/5 transition-all text-left"
+          >
+            <span className="text-lg">{s.icon}</span>
+            <span className="text-xs text-foreground">{lang === 'ru' ? s.ru : s.en}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}

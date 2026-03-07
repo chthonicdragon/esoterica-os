@@ -8,6 +8,8 @@ import { Plus, Moon, Trash2, TrendingUp, X } from 'lucide-react'
 import SunCalc from 'suncalc'
 import toast from 'react-hot-toast'
 import { cn } from '../lib/utils'
+import { extractAndMerge } from '../services/knowledgeGraphBridge'
+import { eventBus } from '../lib/eventBus'
 
 interface Ritual {
   id: string
@@ -747,6 +749,37 @@ export function RitualTracker({ user }: RitualTrackerProps) {
       })
       playUiSound('success')
       toast.success(lang === 'ru' ? 'Ритуал записан' : 'Ritual logged')
+
+      // Background: extract ritual entities into Knowledge Graph
+      const ritualText = [
+        form.title,
+        form.description,
+        form.intention,
+        form.deity ? `Deity: ${form.deity}` : '',
+        form.tools ? `Tools: ${form.tools}` : '',
+        form.outcome || '',
+      ].filter(Boolean).join('. ')
+
+      if (ritualText.length > 10) {
+        extractAndMerge(ritualText, lang as 'en' | 'ru', 'ritual', user.id).then(result => {
+          if (result && result.added > 0) {
+            toast.success(
+              lang === 'ru'
+                ? `🕸 Паутина: +${result.added} из ритуала`
+                : `🕸 Web: +${result.added} from ritual`,
+              { duration: 3000 }
+            )
+            eventBus.emit('knowledge:updated', { userId: user.id, addedNodes: result.added, source: 'ritual' })
+          }
+        })
+      }
+
+      eventBus.emit('ritual:completed', {
+        userId: user.id,
+        title: form.title,
+        description: ritualText,
+        pointsEarned: 0,
+      })
     } catch (e) { toast.error(t.error) }
   }
 

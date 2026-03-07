@@ -412,18 +412,39 @@ Respond in English in 4 blocks:
               )}>
                 {msg.role === 'user' ? <User className="w-4 h-4 text-primary" /> : archetypeInfo.emoji}
               </div>
-              <div className={cn(
-                'rounded-2xl px-4 py-3 max-w-[88%] md:max-w-lg text-sm leading-relaxed',
-                msg.role === 'user'
-                  ? 'rounded-tr-none bg-primary/15 border border-primary/20 text-foreground'
-                  : 'rounded-tl-none bg-card border border-border/40 text-foreground'
-              )}>
-                {msg.content}
+              <div
+                className={cn(
+                  'rounded-2xl px-4 py-3 max-w-[88%] md:max-w-lg text-sm leading-relaxed',
+                  msg.role === 'user'
+                    ? 'rounded-tr-none bg-primary/15 border border-primary/20 text-foreground'
+                    : 'rounded-tl-none bg-card border border-border/40 text-foreground'
+                )}
+                {...(msg.role === 'assistant' ? {
+                  dangerouslySetInnerHTML: { __html: formatMentorMessage(msg.content) }
+                } : {})}
+              >
+                {msg.role === 'user' ? msg.content : null}
               </div>
             </div>
           ))}
 
           {loading && (
+            // Форматирование ответа наставника: превращает текст в HTML с абзацами и markdown
+            function formatMentorMessage(text: string): string {
+              // Преобразовать двойные переносы в <p>
+              let html = text
+                .replace(/\n{2,}/g, '</p><p>')
+                .replace(/\n/g, '<br>')
+                .replace(/^/g, '<p>')
+                .replace(/$/g, '</p>')
+              // Преобразовать **жирный**
+              html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+              // Преобразовать - списки
+              html = html.replace(/- (.+)/g, '<li>$1</li>')
+              // Обернуть списки в <ul>
+              html = html.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
+              return html
+            }
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-full bg-card border border-border/40 flex items-center justify-center text-sm flex-shrink-0">
                 {archetypeInfo.emoji}
