@@ -39,32 +39,50 @@ export function useAuth() {
   useEffect(() => {
     let mounted = true
 
-    supabase.auth.getSession().then(async ({ data, error }) => {
-      if (!mounted) return
-      if (error) {
-        console.error('Failed to get Supabase session:', error)
-      }
-      const authUser = data.session?.user
-      if (!authUser) {
-        setUser(null)
-        setLoading(false)
-        return
-      }
-
-      const meta = await loadProfileMeta(authUser.id)
-
-      setUser({
-        id: authUser.id,
-        email: authUser.email,
-        displayName:
-          authUser.user_metadata?.display_name ||
-          authUser.user_metadata?.full_name ||
-          authUser.email?.split('@')[0],
-        archetype: meta.archetype,
-        tradition: meta.tradition,
-      })
-      setLoading(false)
+    const buildBaseUser = (authUser: any): User => ({
+      id: authUser.id,
+      email: authUser.email,
+      displayName:
+        authUser.user_metadata?.display_name ||
+        authUser.user_metadata?.full_name ||
+        authUser.email?.split('@')[0],
     })
+
+    const enrichWithProfileMeta = async (baseUser: User) => {
+      const meta = await loadProfileMeta(baseUser.id)
+      if (!mounted) return
+      setUser({ ...baseUser, archetype: meta.archetype, tradition: meta.tradition })
+    }
+
+    const initAuth = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession()
+        if (!mounted) return
+
+        if (error) {
+          console.error('Failed to get Supabase session:', error)
+          setUser(null)
+          return
+        }
+
+        const authUser = data.session?.user
+        if (!authUser) {
+          setUser(null)
+          return
+        }
+
+        const baseUser = buildBaseUser(authUser)
+        setUser(baseUser)
+        void enrichWithProfileMeta(baseUser)
+      } catch (error) {
+        console.error('Auth init failed:', error)
+        if (mounted) setUser(null)
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+
+    void initAuth()
 
     const {
       data: { subscription },
@@ -76,17 +94,9 @@ export function useAuth() {
         return
       }
 
-      const meta = await loadProfileMeta(authUser.id)
-      setUser({
-        id: authUser.id,
-        email: authUser.email,
-        displayName:
-          authUser.user_metadata?.display_name ||
-          authUser.user_metadata?.full_name ||
-          authUser.email?.split('@')[0],
-        archetype: meta.archetype,
-        tradition: meta.tradition,
-      })
+      const baseUser = buildBaseUser(authUser)
+      setUser(baseUser)
+      void enrichWithProfileMeta(baseUser)
       setLoading(false)
     })
 
