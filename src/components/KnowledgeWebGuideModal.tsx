@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { BookOpen, X } from 'lucide-react'
 
@@ -75,7 +76,9 @@ const CONTENT = {
 export default function KnowledgeWebGuideModal({ open, lang, onClose }: KnowledgeWebGuideModalProps) {
   const text = CONTENT[lang]
 
-  return (
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
     <AnimatePresence>
       {open && (
         <>
@@ -83,14 +86,14 @@ export default function KnowledgeWebGuideModal({ open, lang, onClose }: Knowledg
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+            className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm"
             onClick={onClose}
           />
           <motion.div
             initial={{ opacity: 0, y: 18, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 18, scale: 0.98 }}
-            className="fixed left-1/2 top-1/2 z-[60] flex h-[90vh] w-[95%] max-w-[920px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-white/15 bg-[hsl(var(--sidebar))]/97 shadow-2xl"
+            className="fixed left-1/2 top-1/2 z-[90] flex h-[90dvh] max-h-[900px] w-[96vw] max-w-[920px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-white/15 bg-[hsl(var(--sidebar))]/97 shadow-2xl sm:w-[95vw]"
           >
             <div className="sticky top-0 z-10 border-b border-white/10 bg-[hsl(var(--sidebar))]/95 px-4 py-3 sm:px-6 sm:py-4">
               <div className="flex items-start justify-between gap-4">
@@ -171,5 +174,7 @@ export default function KnowledgeWebGuideModal({ open, lang, onClose }: Knowledg
         </>
       )}
     </AnimatePresence>
+    ,
+    document.body
   )
 }
