@@ -849,7 +849,7 @@ export function KnowledgeGraph({ user }: Props) {
                       exit={selectedNode.type === 'ritual' ? { opacity: 0, scale: 0.9, y: 20 } : { x: 280, opacity: 0 }}
                       className={`${selectedNode.type === 'ritual'
                         ? 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[480px] max-h-[80vh] overflow-y-auto z-50'
-                        : 'fixed top-16 left-1/2 -translate-x-1/2 w-[92vw] max-w-[340px] max-h-[72vh] overflow-y-auto z-50 sm:top-4 sm:left-auto sm:right-4 sm:translate-x-0 sm:w-[min(340px,calc(100vw-1rem))]'
+                        : 'fixed inset-x-2 top-16 max-h-[72vh] overflow-y-auto z-50 sm:inset-x-auto sm:top-4 sm:right-4 sm:w-[340px] sm:max-w-[calc(100vw-1rem)]'
                       } bg-[hsl(var(--sidebar))]/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl`}
                     >
                       <div className="p-5">
