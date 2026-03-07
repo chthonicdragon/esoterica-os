@@ -5,19 +5,143 @@ import toast from 'react-hot-toast'
 import { Globe, User, Sparkles, Layers } from 'lucide-react'
 import { cn } from '../lib/utils'
 
-const ARCHETYPES = ['seeker', 'witch', 'mage', 'shaman', 'alchemist', 'mystic', 'daemon-worker', 'spirit-worker']
+const ARCHETYPES = [
+  'seeker',
+  'esotericist',
+  'witch',
+  'mage',
+  'light-mage',
+  'shaman',
+  'healer',
+  'seer',
+  'oracle',
+  'necromancer',
+  'totemist',
+  'dreamwalker',
+  'enchanter',
+  'knowledge-keeper',
+  'invoker',
+  'alchemist',
+  'mystic',
+  'daemon-worker',
+  'spirit-worker',
+]
+
+const ARCHETYPES_EN: Record<string, string> = {
+  seeker: 'Seeker',
+  esotericist: 'Esotericist',
+  witch: 'Witch',
+  mage: 'Mage',
+  'light-mage': 'Light Magic Practitioner',
+  shaman: 'Shaman',
+  healer: 'Healer',
+  seer: 'Seer',
+  oracle: 'Oracle',
+  necromancer: 'Necromancer',
+  totemist: 'Totemist',
+  dreamwalker: 'Dreamwalker',
+  enchanter: 'Enchanter',
+  'knowledge-keeper': 'Knowledge Keeper',
+  invoker: 'Invoker',
+  alchemist: 'Alchemist',
+  mystic: 'Mystic',
+  'daemon-worker': 'Daemon Worker',
+  'spirit-worker': 'Spirit Worker',
+}
+
 const ARCHETYPES_RU: Record<string, string> = {
   seeker: 'Искатель',
+  esotericist: 'Эзотерист',
   witch: 'Ведьма',
   mage: 'Маг',
+  'light-mage': 'Практик Светлой Магии',
   shaman: 'Шаман',
+  healer: 'Целитель',
+  seer: 'Провидец',
+  oracle: 'Оракул',
+  necromancer: 'Некромант',
+  totemist: 'Тотемист',
+  dreamwalker: 'Сновидец',
+  enchanter: 'Заклинатель',
+  'knowledge-keeper': 'Хранитель знаний',
+  invoker: 'Инвокатор',
   alchemist: 'Алхимик',
   mystic: 'Мистик',
   'daemon-worker': 'Демонолатор',
   'spirit-worker': 'Духовник',
 }
 
-const TRADITIONS = ['eclectic', 'hellenic', 'slavic', 'norse', 'daemonic', 'chaos', 'ceremonial']
+const TRADITIONS = [
+  'eclectic',
+  'esotericism',
+  'light-magic',
+  'shamanism',
+  'folk-magic',
+  'ceremonial',
+  'hermetic',
+  'kabbalistic',
+  'druidic',
+  'eastern',
+  'arcane',
+  'lunar-magic',
+  'dark-lunar',
+  'angelic',
+  'draconian',
+  'hellenic',
+  'slavic',
+  'norse',
+  'pagan',
+  'daemonic',
+  'chaos',
+]
+
+const TRADITIONS_LABELS_EN: Record<string, string> = {
+  eclectic: 'Eclectic',
+  esotericism: 'Esotericism',
+  'light-magic': 'Light Magic',
+  shamanism: 'Shamanism',
+  'folk-magic': 'Folk Magic',
+  ceremonial: 'Ceremonial',
+  hermetic: 'Hermetic',
+  kabbalistic: 'Kabbalistic',
+  druidic: 'Druidic',
+  eastern: 'Eastern',
+  arcane: 'Arcane',
+  'lunar-magic': 'Lunar Magic',
+  'dark-lunar': 'Dark Lunar',
+  angelic: 'Angelic',
+  draconian: 'Draconian',
+  hellenic: 'Hellenic',
+  slavic: 'Slavic',
+  norse: 'Norse',
+  pagan: 'Pagan',
+  daemonic: 'Daemonic',
+  chaos: 'Chaos',
+}
+
+const TRADITIONS_LABELS_RU: Record<string, string> = {
+  eclectic: 'Эклектическая',
+  esotericism: 'Эзотеризм',
+  'light-magic': 'Светлая магия',
+  shamanism: 'Шаманизм',
+  'folk-magic': 'Народная магия',
+  ceremonial: 'Церемониальная',
+  hermetic: 'Герметическая',
+  kabbalistic: 'Каббалистическая',
+  druidic: 'Друидическая',
+  eastern: 'Восточная',
+  arcane: 'Арканическая',
+  'lunar-magic': 'Лунная магия',
+  'dark-lunar': 'Темная лунная магия',
+  angelic: 'Ангельская магия',
+  draconian: 'Драконианская',
+  hellenic: 'Эллинская',
+  slavic: 'Славянская',
+  norse: 'Скандинавская',
+  pagan: 'Языческая',
+  daemonic: 'Демоническая',
+  chaos: 'Хаос',
+}
 
 interface SettingsProps {
   user: { id: string; email?: string; displayName?: string }
@@ -139,7 +263,7 @@ export function Settings({ user }: SettingsProps) {
                   : 'border-border/40 text-muted-foreground hover:border-primary/20'
               )}
             >
-              {lang === 'ru' ? ARCHETYPES_RU[a] || a : a.charAt(0).toUpperCase() + a.slice(1).replace('-', ' ')}
+              {lang === 'ru' ? ARCHETYPES_RU[a] || a : ARCHETYPES_EN[a] || a}
             </button>
           ))}
         </div>
@@ -163,10 +287,7 @@ export function Settings({ user }: SettingsProps) {
                   : 'border-border/40 text-muted-foreground hover:border-primary/20'
               )}
             >
-              {lang === 'ru'
-                ? ({ eclectic: 'Эклектическая', hellenic: 'Эллинская', slavic: 'Славянская', norse: 'Скандинавская', daemonic: 'Демоническая', chaos: 'Хаос', ceremonial: 'Церемониальная' }[tr] || tr)
-                : tr.charAt(0).toUpperCase() + tr.slice(1)
-              }
+              {lang === 'ru' ? TRADITIONS_LABELS_RU[tr] || tr : TRADITIONS_LABELS_EN[tr] || tr}
             </button>
           ))}
         </div>
