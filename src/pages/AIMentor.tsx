@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useLang } from '../contexts/LanguageContext'
-import { Send, User, Loader2 } from 'lucide-react'
+import { Send, User, Loader2, Network } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { askOpenRouter } from '../services/openRouterService'
 import { mapAiErrorMessage } from '../lib/aiErrorMessages'
@@ -40,6 +40,11 @@ interface Message {
   content: string
 }
 
+interface KnowledgeGraphSnapshot {
+  nodes: Array<{ id: string; name: string; type: string }>
+  links: Array<{ source: string; target: string; relation: string }>
+}
+
 interface AIMentorProps {
   user: { id: string }
 }
@@ -58,6 +63,114 @@ export function AIMentor({ user }: AIMentorProps) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  function getKnowledgeWebSnapshot(): KnowledgeGraphSnapshot | null {
+    try {
+      const raw = localStorage.getItem('esoteric_knowledge_web_v1')
+      if (!raw) return null
+      const parsed = JSON.parse(raw) as { nodes?: any[]; links?: any[] }
+      if (!Array.isArray(parsed?.nodes) || !Array.isArray(parsed?.links)) return null
+
+      return {
+        nodes: parsed.nodes
+          .filter(node => node?.id && node?.name && node?.type)
+          .map(node => ({ id: String(node.id), name: String(node.name), type: String(node.type) })),
+        links: parsed.links
+          .filter(link => link?.source && link?.target && link?.relation)
+          .map(link => ({ source: String(link.source), target: String(link.target), relation: String(link.relation) })),
+      }
+    } catch {
+      return null
+    }
+  }
+
+  async function analyzeKnowledgeWeb() {
+    if (loading) return
+
+    const snapshot = getKnowledgeWebSnapshot()
+    if (!snapshot || snapshot.nodes.length === 0) {
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: lang === 'ru'
+            ? 'Паутина пока пуста. Сначала добавьте описание в Паутина знаний, затем я смогу провести анализ.'
+            : 'Your web is empty so far. Add some entries in Knowledge Web first, then I can analyze it.',
+        },
+      ])
+      return
+    }
+
+    const summaryByType = snapshot.nodes.reduce<Record<string, number>>((acc, node) => {
+      acc[node.type] = (acc[node.type] ?? 0) + 1
+      return acc
+    }, {})
+
+    const topConnected = snapshot.nodes
+      .map(node => {
+        const degree = snapshot.links.reduce((acc, link) => {
+          return acc + (link.source === node.id || link.target === node.id ? 1 : 0)
+        }, 0)
+        return { name: node.name, type: node.type, degree }
+      })
+      .sort((a, b) => b.degree - a.degree)
+      .slice(0, 8)
+
+    const userPrompt = lang === 'ru'
+      ? `Сделай глубокий анализ моей паутины знаний.
+
+Статистика:
+- Узлы: ${snapshot.nodes.length}
+- Связи: ${snapshot.links.length}
+- По типам: ${JSON.stringify(summaryByType)}
+
+Наиболее связанные сущности:
+${topConnected.map(item => `- ${item.name} (${item.type}) — ${item.degree} связей`).join('\n')}
+
+Дай ответ на русском в 4 блоках:
+1) Главные паттерны
+2) Слепые зоны и недостающие связи
+3) Потенциальные усилители практики (что добавить)
+4) Конкретные 3 шага на ближайшие ритуалы`
+      : `Give a deep analysis of my knowledge web.
+
+Stats:
+- Nodes: ${snapshot.nodes.length}
+- Links: ${snapshot.links.length}
+- By type: ${JSON.stringify(summaryByType)}
+
+Most connected entities:
+${topConnected.map(item => `- ${item.name} (${item.type}) - ${item.degree} links`).join('\n')}
+
+Respond in English in 4 blocks:
+1) Main patterns
+2) Blind spots and missing links
+3) Practice amplifiers (what to add)
+4) Concrete next 3 ritual steps`
+
+    const userMsg: Message = {
+      role: 'user',
+      content: lang === 'ru' ? 'Проанализируй мою паутину знаний.' : 'Analyze my knowledge web.',
+    }
+
+    setMessages(prev => [...prev, userMsg])
+    setLoading(true)
+
+    try {
+      const langInstruction = lang === 'ru' ? ' IMPORTANT: Always respond in Russian.' : ' Always respond in English.'
+      const prompt = `${archetype.systemPrompt}${langInstruction}\n\n${userPrompt}\n\n${archetypeInfo.name}:`
+      const text = await askOpenRouter(prompt)
+      const cleaned = text.trim()
+      if (!cleaned) throw new Error('empty_ai_response')
+      setMessages(prev => [...prev, { role: 'assistant', content: cleaned }])
+    } catch (e: any) {
+      const reason = typeof e?.message === 'string' ? e.message : ''
+      const detailed = mapAiErrorMessage(reason, lang as 'en' | 'ru', 'mentor')
+      setMessages(prev => [...prev, { role: 'assistant', content: detailed }])
+    } finally {
+      setLoading(false)
+    }
+  }
 
   async function sendMessage() {
     if (!input.trim() || loading) return
@@ -139,6 +252,14 @@ export function AIMentor({ user }: AIMentorProps) {
             <p className={cn('font-semibold', archetypeInfo.color)}>{archetypeInfo.name}</p>
             <p className="text-xs text-muted-foreground">{archetypeInfo.title}</p>
           </div>
+          <button
+            onClick={analyzeKnowledgeWeb}
+            disabled={loading}
+            className="ml-auto inline-flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary hover:bg-primary/20 disabled:opacity-50"
+          >
+            <Network className="w-3.5 h-3.5" />
+            {lang === 'ru' ? 'Анализ паутины' : 'Analyze Web'}
+          </button>
         </div>
 
         {/* Messages */}

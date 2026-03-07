@@ -185,6 +185,8 @@ function AppContent() {
         <Header 
           title={pageTitle} 
           userName={user.displayName || user.email} 
+          userArchetype={user.archetype}
+          userTradition={user.tradition}
           onMenuClick={isMobile ? () => setIsSidebarOpen(true) : undefined}
         />
         <main className={`flex-1 ${currentPage === 'altars' || currentPage === 'forum' || currentPage === 'knowledge-graph' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
