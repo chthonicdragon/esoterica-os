@@ -71,7 +71,13 @@ const translations = {
     hideWeak: "Hide weak flows",
     vizSettings: "Visualization Settings",
     expand: "Expand",
-    shrink: "Shrink"
+    shrink: "Shrink",
+    ritualPreviewTitle: "Ritual preview before weaving",
+    ritualPreviewHint: "The full ritual text will be preserved in the ritual node. Suggested tags are shown below for quick verification.",
+    ritualPreviewTags: "Suggested tags",
+    ritualPreviewEmptyTags: "No obvious tags found yet. AI will still process the full text.",
+    ritualPreviewCancel: "Cancel",
+    ritualPreviewConfirm: "Send to AI"
   },
   ru: {
     subtitle: "Магическая Сеть Знаний",
@@ -114,7 +120,13 @@ const translations = {
     hideWeak: "Скрыть слабые потоки",
     vizSettings: "Настройки Визуализации",
     expand: "Развернуть",
-    shrink: "Свернуть"
+    shrink: "Свернуть",
+    ritualPreviewTitle: "Предпросмотр ритуала перед плетением",
+    ritualPreviewHint: "Полный текст ритуала сохранится в ритуальном узле. Ниже показаны предложенные теги для быстрой проверки.",
+    ritualPreviewTags: "Предложенные теги",
+    ritualPreviewEmptyTags: "Явные теги не найдены. ИИ все равно обработает полный текст.",
+    ritualPreviewCancel: "Отмена",
+    ritualPreviewConfirm: "Отправить в ИИ"
   }
 }
 
@@ -162,6 +174,15 @@ export function KnowledgeGraph({ user }: Props) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [showGuide, setShowGuide] = useState(false)
   const [lastAttempt, setLastAttempt] = useState<WeaveAttempt | null>(null)
+  const [showRitualPreview, setShowRitualPreview] = useState(false)
+  const [pendingRitualAttempt, setPendingRitualAttempt] = useState<WeaveAttempt | null>(null)
+  const [ritualPreviewTags, setRitualPreviewTags] = useState<string[]>([])
+
+  const stopwords = useMemo(() => new Set([
+    'the', 'and', 'with', 'from', 'this', 'that', 'have', 'your', 'for', 'you', 'are', 'was', 'were', 'into', 'within', 'about',
+    'что', 'это', 'для', 'как', 'или', 'так', 'при', 'над', 'под', 'через', 'после', 'перед', 'если', 'когда', 'где', 'только',
+    'ритуал', 'ритуала', 'ритуале', 'ритуалом', 'ритуалы', 'обряд', 'обряда', 'обряде', 'обряды',
+  ]), [])
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(graphData))
@@ -277,6 +298,41 @@ export function KnowledgeGraph({ user }: Props) {
     }
   }, [graphData.nodes, lang, mergeGraphData, t.error, t.xpEarned, user.id])
 
+  const getRitualPreviewTags = useCallback((text: string) => {
+    const normalizedInput = text.toLowerCase()
+    const tagsFromGraph = graphData.nodes
+      .map(node => node.name.trim())
+      .filter(name => name.length >= 3 && normalizedInput.includes(name.toLowerCase()))
+
+    const tokenFreq = new Map<string, number>()
+    text
+      .toLowerCase()
+      .split(/[^a-zA-Zа-яА-ЯёЁ0-9_-]+/)
+      .filter(token => token.length >= 4 && !stopwords.has(token))
+      .forEach(token => tokenFreq.set(token, (tokenFreq.get(token) ?? 0) + 1))
+
+    const topTokens = [...tokenFreq.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([token]) => token)
+
+    return [...new Set([...tagsFromGraph, ...topTokens])].slice(0, 12)
+  }, [graphData.nodes, stopwords])
+
+  const handleConfirmRitualPreview = async () => {
+    if (!pendingRitualAttempt || isLoading) return
+    const attempt = pendingRitualAttempt
+    setShowRitualPreview(false)
+    setPendingRitualAttempt(null)
+    await runExtract(attempt)
+  }
+
+  const handleCancelRitualPreview = () => {
+    if (isLoading) return
+    setShowRitualPreview(false)
+    setPendingRitualAttempt(null)
+  }
+
   const handleExtract = async () => {
     if (!inputText.trim()) return
     const attempt: WeaveAttempt = {
@@ -285,6 +341,12 @@ export function KnowledgeGraph({ user }: Props) {
       ritualName: ritualNameInput,
     }
     setLastAttempt(attempt)
+    if (attempt.ritualMode) {
+      setPendingRitualAttempt(attempt)
+      setRitualPreviewTags(getRitualPreviewTags(attempt.input))
+      setShowRitualPreview(true)
+      return
+    }
     await runExtract(attempt)
   }
 
@@ -876,6 +938,80 @@ export function KnowledgeGraph({ user }: Props) {
         </div>
       </div>
     </div>
+    <AnimatePresence>
+      {showRitualPreview && pendingRitualAttempt && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[70] bg-black/70 backdrop-blur-sm p-3 sm:p-6"
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 12, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.98 }}
+            transition={{ duration: 0.18 }}
+            className="mx-auto mt-6 sm:mt-10 w-full max-w-2xl bg-[hsl(var(--sidebar))]/95 border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+              <h3 className="text-sm sm:text-base font-semibold text-foreground">{t.ritualPreviewTitle}</h3>
+              <button
+                type="button"
+                onClick={handleCancelRitualPreview}
+                className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="px-4 py-3 space-y-3 max-h-[70vh] overflow-y-auto">
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{t.ritualPreviewHint}</p>
+
+              <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">{t.ritualText}</p>
+                <p className="text-sm text-foreground whitespace-pre-wrap break-words leading-relaxed">{pendingRitualAttempt.input}</p>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">{t.ritualPreviewTags}</p>
+                {ritualPreviewTags.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {ritualPreviewTags.map(tagName => (
+                      <span
+                        key={tagName}
+                        className="px-2.5 py-1 rounded-full text-xs bg-primary/15 text-primary border border-primary/20"
+                      >
+                        {tagName}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">{t.ritualPreviewEmptyTags}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-white/10 bg-black/20">
+              <button
+                type="button"
+                onClick={handleCancelRitualPreview}
+                className="px-3 py-2 rounded-lg border border-white/15 text-sm text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+              >
+                {t.ritualPreviewCancel}
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmRitualPreview}
+                disabled={isLoading}
+                className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+              >
+                {t.ritualPreviewConfirm}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
     <KnowledgeWebGuideModal
       open={showGuide}
       lang={(lang === 'ru' ? 'ru' : 'en')}
