@@ -32,27 +32,39 @@ function AmbientMist({ active }: { active: boolean }) {
   )
 }
 
-function AltarBaseMesh({ modelUrl, tint }: { modelUrl: string; tint: string }) {
+function AltarBaseMesh({
+  modelUrl,
+  tint,
+  targetSpan,
+  targetTopY,
+}: {
+  modelUrl: string
+  tint: string
+  targetSpan: number
+  targetTopY: number
+}) {
   const gltf = useGLTF(modelUrl)
   const model = useMemo(() => {
     const cloned = gltf.scene.clone(true)
     const sourceBox = new THREE.Box3().setFromObject(cloned)
     const sourceSize = new THREE.Vector3()
     sourceBox.getSize(sourceSize)
-    const maxSide = Math.max(sourceSize.x, sourceSize.y, sourceSize.z, 1e-6)
-    const fitScale = 1 / maxSide
-    cloned.scale.setScalar(fitScale)
 
-    const normalizedBox = new THREE.Box3().setFromObject(cloned)
-    const normalizedCenter = new THREE.Vector3()
-    normalizedBox.getCenter(normalizedCenter)
+    const span = Math.max(sourceSize.x, sourceSize.z, 1e-6)
+    const uniformScale = targetSpan / span
+    cloned.scale.setScalar(uniformScale)
 
-    cloned.position.x -= normalizedCenter.x
-    cloned.position.y -= normalizedBox.min.y
-    cloned.position.z -= normalizedCenter.z
+    const fittedBox = new THREE.Box3().setFromObject(cloned)
+    const fittedCenter = new THREE.Vector3()
+    fittedBox.getCenter(fittedCenter)
+
+    // Keep altar centered and anchor its highest point to the placement plane.
+    cloned.position.x -= fittedCenter.x
+    cloned.position.z -= fittedCenter.z
+    cloned.position.y -= fittedBox.max.y - targetTopY
 
     return cloned
-  }, [gltf.scene])
+  }, [gltf.scene, targetSpan, targetTopY])
 
   useMemo(() => {
     model.traverse((node) => {
@@ -75,12 +87,17 @@ function AltarTable({ themeKey, baseId }: { themeKey: string; baseId: AltarLayou
   const altarBase = ALTAR_BASES.find(base => base.id === baseId)
   if (!theme) return null
 
+  const placementY = 0.05
+
   return (
     <group>
       {altarBase ? (
-        <group scale={altarBase.scale}>
-          <AltarBaseMesh modelUrl={altarBase.modelUrl} tint={altarBase.tint} />
-        </group>
+        <AltarBaseMesh
+          modelUrl={altarBase.modelUrl}
+          tint={altarBase.tint}
+          targetSpan={altarBase.targetSpan}
+          targetTopY={placementY}
+        />
       ) : (
         <>
           {/* Fallback primitive table if model metadata is missing. */}
@@ -98,19 +115,19 @@ function AltarTable({ themeKey, baseId }: { themeKey: string; baseId: AltarLayou
               <meshStandardMaterial color={theme.altarColor} roughness={0.9} metalness={0} />
             </mesh>
           ))}
+          {/* Decorative edge trim for fallback table only. */}
+          <mesh position={[0, 0.045, 0]}>
+            <boxGeometry args={[2.04, 0.01, 1.24]} />
+            <meshStandardMaterial
+              color={themeKey === 'mystical' ? '#9333ea' : themeKey === 'obsidian' ? '#6622cc' : theme.altarColor}
+              emissive={themeKey === 'mystical' ? '#6600cc' : '#000000'}
+              emissiveIntensity={themeKey === 'mystical' ? 0.5 : 0}
+              roughness={0.3}
+              metalness={themeKey === 'mystical' || themeKey === 'obsidian' ? 0.8 : 0.1}
+            />
+          </mesh>
         </>
       )}
-      {/* Decorative edge trim */}
-      <mesh position={[0, 0.045, 0]}>
-        <boxGeometry args={[2.04, 0.01, 1.24]} />
-        <meshStandardMaterial
-          color={themeKey === 'mystical' ? '#9333ea' : themeKey === 'obsidian' ? '#6622cc' : theme.altarColor}
-          emissive={themeKey === 'mystical' ? '#6600cc' : '#000000'}
-          emissiveIntensity={themeKey === 'mystical' ? 0.5 : 0}
-          roughness={0.3}
-          metalness={themeKey === 'mystical' || themeKey === 'obsidian' ? 0.8 : 0.1}
-        />
-      </mesh>
     </group>
   )
 }
@@ -342,6 +359,7 @@ export function AltarScene3D({
 }: AltarScene3DProps) {
   const isSafeQuality = renderQuality === 'safe'
   const theme = ALTAR_THEMES[layout.theme]
+  const hasModelBase = ALTAR_BASES.some(base => base.id === layout.baseId)
   const catalogMap = Object.fromEntries(CATALOG.map(c => [c.id, c]))
   const candleCount = layout.objects.reduce((acc, placed) => {
     const cat = catalogMap[placed.catalogId]
@@ -426,7 +444,7 @@ export function AltarScene3D({
       {/* Altar */}
       <Suspense fallback={null}>
         <AltarTable themeKey={layout.theme} baseId={layout.baseId} />
-        <AltarCloth themeKey={layout.theme} />
+        {!hasModelBase && <AltarCloth themeKey={layout.theme} />}
         <AltarGroundContact
           themeKey={layout.theme}
           ritualActive={ritualActive}

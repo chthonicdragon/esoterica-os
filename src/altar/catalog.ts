@@ -8,7 +8,7 @@ export interface AltarBaseOption {
   unlockLevel: number
   preview: string
   tint: string
-  scale: [number, number, number]
+  targetSpan: number
 }
 
 export const ALTAR_BASES: AltarBaseOption[] = [
@@ -20,7 +20,7 @@ export const ALTAR_BASES: AltarBaseOption[] = [
     unlockLevel: 1,
     preview: 'Wood',
     tint: '#6e4a2f',
-    scale: [2.1, 2.1, 2.1],
+    targetSpan: 2.1,
   },
   {
     id: 'base_stone_altar',
@@ -30,7 +30,7 @@ export const ALTAR_BASES: AltarBaseOption[] = [
     unlockLevel: 1,
     preview: 'Stone',
     tint: '#6d7077',
-    scale: [2.0, 2.0, 2.0],
+    targetSpan: 2.05,
   },
   {
     id: 'base_psx_wooden',
@@ -40,7 +40,7 @@ export const ALTAR_BASES: AltarBaseOption[] = [
     unlockLevel: 3,
     preview: 'Retro',
     tint: '#745237',
-    scale: [2.35, 2.35, 2.35],
+    targetSpan: 2.0,
   },
   {
     id: 'base_sacrificial',
@@ -50,7 +50,7 @@ export const ALTAR_BASES: AltarBaseOption[] = [
     unlockLevel: 4,
     preview: 'Ritual',
     tint: '#4f4140',
-    scale: [2.0, 2.0, 2.0],
+    targetSpan: 2.05,
   },
   {
     id: 'base_diana',
@@ -60,7 +60,7 @@ export const ALTAR_BASES: AltarBaseOption[] = [
     unlockLevel: 6,
     preview: 'Grand',
     tint: '#807467',
-    scale: [2.1, 2.1, 2.1],
+    targetSpan: 2.2,
   },
 ]
 
