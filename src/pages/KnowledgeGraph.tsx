@@ -77,7 +77,11 @@ const translations = {
     ritualPreviewTags: "Suggested tags",
     ritualPreviewEmptyTags: "No obvious tags found yet. AI will still process the full text.",
     ritualPreviewCancel: "Cancel",
-    ritualPreviewConfirm: "Send to AI"
+    ritualPreviewConfirm: "Send to AI",
+    ritualTags: "Ritual Tags",
+    activeLinks: "Active Links",
+    noRitualTags: "No tags extracted yet for this ritual.",
+    noActiveLinks: "No active links found for this ritual."
   },
   ru: {
     subtitle: "Магическая Сеть Знаний",
@@ -126,7 +130,11 @@ const translations = {
     ritualPreviewTags: "Предложенные теги",
     ritualPreviewEmptyTags: "Явные теги не найдены. ИИ все равно обработает полный текст.",
     ritualPreviewCancel: "Отмена",
-    ritualPreviewConfirm: "Отправить в ИИ"
+    ritualPreviewConfirm: "Отправить в ИИ",
+    ritualTags: "Теги ритуала",
+    activeLinks: "Активные связи",
+    noRitualTags: "Для этого ритуала пока нет извлеченных тегов.",
+    noActiveLinks: "Для этого ритуала активные связи пока не найдены."
   }
 }
 
@@ -544,6 +552,29 @@ export function KnowledgeGraph({ user }: Props) {
     return visibleTypes
   }, [visibleTypes, showRitualsOnly])
 
+  const ritualDetails = useMemo(() => {
+    if (!selectedNode || selectedNode.type !== 'ritual') {
+      return { relatedNodes: [] as Node[], relatedLinks: [] as Link[] }
+    }
+
+    const nodeById = new Map(graphData.nodes.map(node => [node.id, node]))
+    const relatedLinks = graphData.links.filter(link => link.source === selectedNode.id || link.target === selectedNode.id)
+
+    const relatedNodes: Node[] = []
+    const seenNodeIds = new Set<string>()
+
+    relatedLinks.forEach(link => {
+      const relatedId = link.source === selectedNode.id ? link.target : link.source
+      if (seenNodeIds.has(relatedId)) return
+      const relatedNode = nodeById.get(relatedId)
+      if (!relatedNode) return
+      seenNodeIds.add(relatedId)
+      relatedNodes.push(relatedNode)
+    })
+
+    return { relatedNodes, relatedLinks }
+  }, [graphData.links, graphData.nodes, selectedNode])
+
   return (
     <>
     <div className="flex flex-col lg:flex-row gap-4 h-full w-full overflow-y-auto lg:overflow-hidden p-1">
@@ -889,6 +920,61 @@ export function KnowledgeGraph({ user }: Props) {
                             </div>
                           )}
                           {selectedNode.type === 'ritual' && (
+                            <div className="pt-3 border-t border-white/5 space-y-3">
+                              <div>
+                                <div className="flex items-center gap-1.5 mb-2">
+                                  <Tag className="w-2.5 h-2.5 text-primary/80" />
+                                  <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground/60">{t.ritualTags}</span>
+                                </div>
+                                {ritualDetails.relatedNodes.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {ritualDetails.relatedNodes.map((node) => (
+                                      <button
+                                        key={node.id}
+                                        onClick={() => { setSelectedNode(node); setSelectedLink(null) }}
+                                        className={`px-2 py-0.5 rounded-full border text-[9px] font-medium uppercase tracking-wider transition-colors hover:bg-white/10 ${colors[node.type]}`}
+                                      >
+                                        {node.name}
+                                      </button>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-muted-foreground/70">{t.noRitualTags}</p>
+                                )}
+                              </div>
+
+                              <div>
+                                <div className="flex items-center gap-1.5 mb-2">
+                                  <LinkIcon className="w-2.5 h-2.5 text-blue-400" />
+                                  <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground/60">{t.activeLinks}</span>
+                                </div>
+                                {ritualDetails.relatedLinks.length > 0 ? (
+                                  <div className="space-y-1.5">
+                                    {ritualDetails.relatedLinks.map((link, idx) => {
+                                      const linkedId = link.source === selectedNode.id ? link.target : link.source
+                                      const linkedNode = graphData.nodes.find(node => node.id === linkedId)
+                                      if (!linkedNode) return null
+                                      return (
+                                        <button
+                                          key={`${link.source}-${link.target}-${link.relation}-${idx}`}
+                                          onClick={() => { setSelectedLink(link); setSelectedNode(null) }}
+                                          className="w-full text-left p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-colors"
+                                        >
+                                          <div className="flex items-center justify-between gap-2">
+                                            <span className="text-xs text-foreground truncate">{linkedNode.name}</span>
+                                            <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-primary/20 bg-primary/10 text-primary/80 shrink-0">{link.relation}</span>
+                                          </div>
+                                        </button>
+                                      )
+                                    })}
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-muted-foreground/70">{t.noActiveLinks}</p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          {selectedNode.type === 'ritual' && (
                             <button onClick={() => handleExportRitual(selectedNode)}
                               className="w-full flex items-center justify-center gap-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 py-2 rounded-xl transition-all text-xs font-medium mt-2">
                               <Download className="w-3 h-3" />
@@ -907,7 +993,7 @@ export function KnowledgeGraph({ user }: Props) {
                 {selectedLink && !selectedNode && (
                   <motion.div
                     initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }}
-                    className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 bg-[hsl(var(--sidebar))]/95 backdrop-blur-2xl border border-white/10 rounded-2xl p-4 shadow-2xl max-w-[340px] w-full"
+                    className="fixed inset-x-2 bottom-3 z-50 bg-[hsl(var(--sidebar))]/95 backdrop-blur-2xl border border-white/10 rounded-2xl p-4 shadow-2xl sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:bottom-4 sm:w-full sm:max-w-[340px]"
                   >
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
