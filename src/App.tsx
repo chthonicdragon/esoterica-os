@@ -156,17 +156,42 @@ function AppContent() {
 
 function LandingPage() {
   const { lang, setLang } = useLang()
+  const [authError, setAuthError] = useState<string | null>(null)
+  const [isSigningIn, setIsSigningIn] = useState(false)
 
   const handleSignIn = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/`,
-      },
-    })
+    if (isSigningIn) return
+    setAuthError(null)
+    setIsSigningIn(true)
 
-    if (error) {
+    const redirectTo = ((import.meta.env.VITE_AUTH_REDIRECT_URL as string | undefined)?.trim() || `${window.location.origin}/`)
+
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+        },
+      })
+
+      if (error) {
+        throw error
+      }
+
+      if (!data?.url) {
+        throw new Error('OAuth URL was not returned by Supabase')
+      }
+
+      window.location.assign(data.url)
+    } catch (error: any) {
       console.error('Login error:', error)
+      setAuthError(
+        lang === 'ru'
+          ? `Не удалось начать вход: ${error?.message || 'неизвестная ошибка'}`
+          : `Failed to start sign-in: ${error?.message || 'unknown error'}`
+      )
+      setIsSigningIn(false)
     }
   }
 
@@ -254,12 +279,21 @@ function LandingPage() {
         {/* CTA */}
         <button
           onClick={handleSignIn}
+          disabled={isSigningIn}
           className="group relative px-10 py-4 rounded-2xl bg-gradient-to-r from-primary to-[hsl(267,60%,45%)] text-white font-semibold text-sm tracking-wider hover:opacity-90 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_30px_hsl(var(--primary)/0.4)]"
         >
           <span className="relative z-10 font-cinzel tracking-widest">
-            {lang === 'ru' ? 'ВОЙТИ В СИСТЕМУ' : 'ENTER THE SYSTEM'}
+            {isSigningIn
+              ? (lang === 'ru' ? 'ПЕРЕНАПРАВЛЕНИЕ...' : 'REDIRECTING...')
+              : (lang === 'ru' ? 'ВОЙТИ В СИСТЕМУ' : 'ENTER THE SYSTEM')}
           </span>
         </button>
+
+        {authError && (
+          <p className="mt-4 text-xs text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2 inline-block max-w-md">
+            {authError}
+          </p>
+        )}
 
         <p className="text-xs text-muted-foreground mt-4">
           {lang === 'ru' ? 'Бесплатно · Безопасно · Ваши данные принадлежат вам' : 'Free · Secure · Your data belongs to you'}
