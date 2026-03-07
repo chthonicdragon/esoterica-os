@@ -7,6 +7,7 @@ import { Plus, BookOpen, Trash2, ChevronLeft } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { cn } from '../lib/utils'
 import { ACTION_POINTS, grantProgressionPoints, syncProgressionToDb } from '../altar/altarStore'
+import { extractAndMerge } from '../services/knowledgeGraphBridge'
 
 interface JournalEntry {
   id: string
@@ -81,6 +82,19 @@ export function Journal({ user }: JournalProps) {
             ? `Запись сохранена (+${pointsEarned} XP)`
             : `Entry saved (+${pointsEarned} XP)`
         )
+
+        // Background: extract entities from journal text and merge into Knowledge Graph
+        const fullText = `${form.title}. ${form.content}`
+        extractAndMerge(fullText, lang as 'en' | 'ru', form.type === 'dream' ? 'dream' : 'journal').then(result => {
+          if (result && result.added > 0) {
+            toast.success(
+              lang === 'ru'
+                ? `🕸 Паутина: +${result.added} ${result.added === 1 ? 'символ' : 'символов'}`
+                : `🕸 Web: +${result.added} ${result.added === 1 ? 'symbol' : 'symbols'}`,
+              { duration: 3000 }
+            )
+          }
+        })
       }
     } catch (e) { toast.error(t.error) }
   }

@@ -26,6 +26,7 @@ import {
   loadProgressionFromDb,
 } from '../altar/altarStore'
 import type { AltarLayout, AltarTheme, AltarBaseId, PlacedObject, RitualSession, Progression } from '../altar/types'
+import { logAltarRitualSession } from '../services/ritualBridge'
 
 type AltarVisualPreset = 'soft' | 'cinematic'
 const WORK_SURFACE_Y = 0.12
@@ -370,6 +371,15 @@ export function Altars({ user }: AltarsProps) {
       ? (lang === 'ru' ? `✦ Завершено! +${pointsEarned} очков (${breakdown})` : `✦ Completed! +${pointsEarned} pts (${breakdown})`)
       : (lang === 'ru' ? `✦ Завершено! +${pointsEarned} очков (${breakdown})` : `✦ Completed! +${pointsEarned} pts (${breakdown})`)
     toast.success(msg, { duration: 4000 })
+
+    // Auto-log to RitualTracker so altar sessions appear in ritual history
+    logAltarRitualSession({
+      userId: user.id,
+      durationMinutes: session.durationMinutes,
+      mode: session.mode,
+      pointsEarned,
+      lang: lang as 'en' | 'ru',
+    })
   }, [progression, session.durationMinutes, session.mode, user.id, lang, playUiSound])
 
   const handleInterrupt = useCallback(() => {
