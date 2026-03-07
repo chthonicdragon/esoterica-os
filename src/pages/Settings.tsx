@@ -86,6 +86,7 @@ export function Settings({ user }: SettingsProps) {
   const [openSection, setOpenSection] = useState<string | null>(null)
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [isAppInstalled, setIsAppInstalled] = useState(false)
+  const [isInstalling, setIsInstalling] = useState(false)
 
   useEffect(() => { loadProfile() }, [user.id])
 
@@ -117,12 +118,15 @@ export function Settings({ user }: SettingsProps) {
   }, [lang])
 
   async function handleInstallToHomeScreen() {
+    if (isInstalling) return
+
     if (isAppInstalled) {
       toast(lang === 'ru' ? 'Приложение уже добавлено на экран домой' : 'App is already added to home screen')
       return
     }
 
     if (deferredInstallPrompt) {
+      setIsInstalling(true)
       try {
         await deferredInstallPrompt.prompt()
         const choice = await deferredInstallPrompt.userChoice
@@ -135,13 +139,35 @@ export function Settings({ user }: SettingsProps) {
         toast.error(lang === 'ru' ? 'Не удалось открыть окно установки' : 'Failed to open install prompt')
       } finally {
         setDeferredInstallPrompt(null)
+        setIsInstalling(false)
       }
       return
     }
 
     const ua = navigator.userAgent || ''
     const isIOS = /iPhone|iPad|iPod/i.test(ua)
+    const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+
     if (isIOS) {
+      if (canShare) {
+        try {
+          await navigator.share({
+            title: 'Esoterica OS',
+            text: lang === 'ru' ? 'Добавьте Esoterica OS на экран домой' : 'Add Esoterica OS to your home screen',
+            url: window.location.href,
+          })
+          toast(
+            lang === 'ru'
+              ? 'Открыто меню Поделиться. Выберите: На экран Домой'
+              : 'Share sheet opened. Choose: Add to Home Screen',
+            { duration: 5000 }
+          )
+        } catch {
+          // User may cancel share sheet; keep silent to avoid noisy errors.
+        }
+        return
+      }
+
       toast(
         lang === 'ru'
           ? 'На iPhone/iPad: Поделиться -> На экран Домой'
@@ -149,6 +175,18 @@ export function Settings({ user }: SettingsProps) {
         { duration: 5000 }
       )
       return
+    }
+
+    if (canShare) {
+      try {
+        await navigator.share({
+          title: 'Esoterica OS',
+          text: lang === 'ru' ? 'Установите Esoterica OS на главный экран' : 'Install Esoterica OS to your home screen',
+          url: window.location.href,
+        })
+      } catch {
+        // Ignore if share is cancelled.
+      }
     }
 
     toast(
@@ -254,6 +292,15 @@ export function Settings({ user }: SettingsProps) {
 
   if (loading) return <div className="p-6 text-muted-foreground">{t.loading}</div>
 
+  const isIOSDevice = /iPhone|iPad|iPod/i.test(navigator.userAgent || '')
+  const installButtonLabel = isAppInstalled
+    ? (lang === 'ru' ? 'Уже установлено' : 'Already Installed')
+    : deferredInstallPrompt
+      ? (lang === 'ru' ? 'Установить сейчас' : 'Install Now')
+      : isIOSDevice
+        ? (lang === 'ru' ? 'Открыть меню Поделиться' : 'Open Share Menu')
+        : (lang === 'ru' ? 'Сохранить на экран домой' : 'Save to Home Screen')
+
   return (
     <div className="p-6 max-w-2xl space-y-6 animate-fade-in">
       <h2 className="text-lg font-bold font-cinzel text-foreground">{t.settingsTitle}</h2>
@@ -312,17 +359,19 @@ export function Settings({ user }: SettingsProps) {
         </p>
         <button
           onClick={handleInstallToHomeScreen}
-          disabled={isAppInstalled}
+          disabled={isAppInstalled || isInstalling}
           className={cn(
             'w-full rounded-xl py-2.5 text-sm font-medium transition-colors border',
             isAppInstalled
               ? 'bg-green-500/10 border-green-500/30 text-green-400 cursor-not-allowed'
-              : 'bg-primary/10 border-primary/30 text-primary hover:bg-primary/20'
+              : isInstalling
+                ? 'bg-primary/10 border-primary/20 text-primary/70 cursor-wait'
+                : 'bg-primary/10 border-primary/30 text-primary hover:bg-primary/20'
           )}
         >
-          {isAppInstalled
-            ? (lang === 'ru' ? 'Уже установлено' : 'Already Installed')
-            : (lang === 'ru' ? 'Сохранить на экран домой' : 'Save to Home Screen')}
+          {isInstalling
+            ? (lang === 'ru' ? 'Открываем установку...' : 'Opening install...')
+            : installButtonLabel}
         </button>
       </div>
 
