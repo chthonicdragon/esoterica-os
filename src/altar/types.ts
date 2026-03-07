@@ -78,27 +78,43 @@ export interface KeyLevelRequirement {
 }
 
 export const POINTS_PER_RITUAL: Record<number, number> = {
-  15: 18,
-  30: 55,
-  60: 120,
-  90: 200,
+  15: 20,
+  30: 42,
+  60: 90,
+  90: 130,
 }
 
-export const LEVEL_THRESHOLDS = [0, 140, 380, 820, 1550, 2700, 4300, 6500, 9400, 13000]
+/** Interpolates XP reward for any duration, preventing exploits via custom timers. */
+export function getRitualBasePoints(durationMinutes: number): number {
+  if (POINTS_PER_RITUAL[durationMinutes] !== undefined) return POINTS_PER_RITUAL[durationMinutes]
+  const bp = [15, 30, 60, 90]
+  const vals = [20, 42, 90, 130]
+  if (durationMinutes <= bp[0]) return Math.max(1, Math.round(durationMinutes * vals[0] / bp[0]))
+  if (durationMinutes >= bp[bp.length - 1]) return Math.round(vals[vals.length - 1] + (durationMinutes - bp[bp.length - 1]) * 0.9)
+  for (let i = 0; i < bp.length - 1; i++) {
+    if (durationMinutes <= bp[i + 1]) {
+      const t = (durationMinutes - bp[i]) / (bp[i + 1] - bp[i])
+      return Math.round(vals[i] + t * (vals[i + 1] - vals[i]))
+    }
+  }
+  return Math.round(durationMinutes * 1.45)
+}
+
+export const LEVEL_THRESHOLDS = [0, 120, 350, 720, 1300, 2150, 3350, 4950, 7050, 9750]
 
 // Mandatory multi-domain milestones for key progression.
 // Index maps to level-1 (index 0 -> level 1 baseline).
 export const KEY_LEVEL_REQUIREMENTS: KeyLevelRequirement[] = [
-  { ritualXp: 0, journalXp: 0, knowledgeXp: 0, altarXp: 0 },
-  { ritualXp: 20, journalXp: 15, knowledgeXp: 15, altarXp: 45 },
-  { ritualXp: 55, journalXp: 40, knowledgeXp: 40, altarXp: 105 },
-  { ritualXp: 110, journalXp: 80, knowledgeXp: 80, altarXp: 210 },
-  { ritualXp: 180, journalXp: 130, knowledgeXp: 130, altarXp: 330 },
-  { ritualXp: 270, journalXp: 200, knowledgeXp: 190, altarXp: 480 },
-  { ritualXp: 380, journalXp: 280, knowledgeXp: 260, altarXp: 660 },
-  { ritualXp: 510, journalXp: 370, knowledgeXp: 340, altarXp: 860 },
-  { ritualXp: 660, journalXp: 480, knowledgeXp: 430, altarXp: 1080 },
-  { ritualXp: 840, journalXp: 620, knowledgeXp: 550, altarXp: 1320 },
+  { ritualXp: 0,    journalXp: 0,   knowledgeXp: 0,   altarXp: 0 },
+  { ritualXp: 42,   journalXp: 18,  knowledgeXp: 14,  altarXp: 14 },
+  { ritualXp: 100,  journalXp: 40,  knowledgeXp: 30,  altarXp: 35 },
+  { ritualXp: 175,  journalXp: 68,  knowledgeXp: 55,  altarXp: 70 },
+  { ritualXp: 270,  journalXp: 105, knowledgeXp: 85,  altarXp: 115 },
+  { ritualXp: 380,  journalXp: 150, knowledgeXp: 125, altarXp: 170 },
+  { ritualXp: 510,  journalXp: 210, knowledgeXp: 180, altarXp: 235 },
+  { ritualXp: 660,  journalXp: 280, knowledgeXp: 250, altarXp: 310 },
+  { ritualXp: 840,  journalXp: 370, knowledgeXp: 335, altarXp: 400 },
+  { ritualXp: 1050, journalXp: 480, knowledgeXp: 430, altarXp: 510 },
 ]
 
 export function getLevelFromPoints(points: number): number {

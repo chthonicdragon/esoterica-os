@@ -161,10 +161,9 @@ export const CATEGORY_LABELS: Record<string, { en: string; ru: string; emoji: st
 }
 
 export function getRequiredUnlockLevel(item: CatalogItem): number {
-  // Detailed GLB models and very high-value artifacts unlock slightly later.
-  const detailedBias = item.geometry === 'custom' ? 1 : 0
-  const rarityBias = item.points >= 24 ? 1 : 0
-  return Math.min(10, item.unlockLevel + detailedBias + rarityBias)
+  // Either custom geometry or high-value rarity adds +1 unlock delay (never both).
+  const bias = (item.geometry === 'custom' || item.points >= 24) ? 1 : 0
+  return Math.min(10, item.unlockLevel + bias)
 }
 
 export function isCatalogItemUnlocked(item: CatalogItem, userLevel: number): boolean {

@@ -197,13 +197,22 @@ export function ProgressionPanel({ lang, progression, lastPointsEarned }: Progre
           <div className="space-y-1">
             {todoRows.map(row => {
               const done = row.current >= row.required
+              const pct = row.required > 0 ? Math.min(1, row.current / row.required) : 1
               return (
-                <div key={row.key} className="flex items-center justify-between rounded-lg bg-background/40 px-2 py-1 text-[10px]">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    {done ? <CheckCircle2 className="w-3 h-3 text-emerald-400" /> : <Circle className="w-3 h-3 text-muted-foreground" />}
-                    <span className="text-muted-foreground truncate">{row.label}</span>
+                <div key={row.key} className="rounded-lg bg-background/40 px-2 py-1 text-[10px] space-y-0.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {done ? <CheckCircle2 className="w-3 h-3 text-emerald-400" /> : <Circle className="w-3 h-3 text-muted-foreground" />}
+                      <span className="text-muted-foreground truncate">{row.label}</span>
+                    </div>
+                    <span className="font-medium text-foreground">{Math.min(row.current, row.required)}/{row.required}</span>
                   </div>
-                  <span className="font-medium text-foreground">{Math.min(row.current, row.required)}/{row.required}</span>
+                  <div className="h-0.5 rounded-full bg-secondary/60 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${done ? 'bg-emerald-400/70' : 'bg-primary/50'}`}
+                      style={{ width: `${pct * 100}%` }}
+                    />
+                  </div>
                 </div>
               )
             })}

@@ -95,8 +95,8 @@ export function RitualPanel({ lang, session, onStart, onComplete, onInterrupt }:
       ? 'Strict режим: формат аскезы. При выходе из приложения/вкладки ритуал прерывается и прогресс сессии сбрасывается.'
       : 'Strict mode: an ascetic format. Leaving the app/tab interrupts the ritual and resets session progress.',
     rulesPoints: lang === 'ru'
-      ? 'Очки начисляются за практику и работу с алтарём, но основной вклад даёт завершённый ритуал.'
-      : 'Points are granted for practice and altar work, but completed rituals provide the main progression boost.',
+      ? 'Очки начисляются за все разделы, но основной вклад в прокачку даёт завершённый ритуал (особенно в strict/hard режиме).'
+      : 'Points are granted across all sections, but completed rituals provide the main progression boost (especially in strict/hard mode).',
     confirmQ: lang === 'ru' ? 'Вы полностью готовы к этой практике?' : 'Are you fully committed to this practice session?',
     yes: lang === 'ru' ? 'Да, я готов' : 'Yes, I am ready',
     no: lang === 'ru' ? 'Нет, позже' : 'Not yet',

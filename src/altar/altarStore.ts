@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabaseClient'
 import type { AltarLayout, PlacedObject, Progression, AltarTheme, AltarBaseId } from './types'
-import { getEffectiveLevel, getStreakBonus, POINTS_PER_RITUAL } from './types'
+import { getEffectiveLevel, getStreakBonus, getRitualBasePoints } from './types'
 
 const STORAGE_KEY = 'esoterica_altar_v2'
 export type ProgressSource = 'ritual' | 'journal' | 'knowledge' | 'altar'
@@ -73,14 +73,27 @@ function withSourceXp(progression: Progression, source: ProgressSource, pointsEa
 }
 
 export const ACTION_POINTS = {
-  createAltar: 18,
-  placeFirstObject: 8,
-  placeObjectBase: 3,
+  createAltar: 15,
+  placeFirstObject: 5,
+  placeObjectBase: 2,
   deleteObject: 1,
-  journalEntryBase: 7,
+  journalEntryBase: 16,
   dreamEntryBonus: 4,
-  knowledgeWeaveBase: 5,
+  knowledgeWeaveBase: 12,
 } as const
+
+export function getXpGainFactorForLevel(level: number): number {
+  if (level <= 1) return 1
+  if (level === 2) return 0.9
+  if (level === 3) return 0.82
+  if (level === 4) return 0.75
+  if (level === 5) return 0.69
+  if (level === 6) return 0.64
+  if (level === 7) return 0.6
+  if (level === 8) return 0.57
+  if (level === 9) return 0.54
+  return 0.5
+}
 
 export function loadLocalState(): AltarStoreState {
   try {
@@ -161,15 +174,20 @@ export function completeRitual(
   streakMultiplier: number
   modeMultiplier: number
 } {
-  const base = POINTS_PER_RITUAL[durationMinutes] || Math.round(durationMinutes * 3.1)
+  const base = getRitualBasePoints(durationMinutes)
   const longSession = durationMinutes >= 30
   const modeMultiplier = mode === 'strict' ? 1.2 : 1
-  // Short sessions keep momentum but do not drive major progression.
-  const streakMultiplier = longSession ? getStreakBonus(progression.streak) : 0.4
+  // Short sessions still benefit from streak but at a reduced rate.
+  const streakMultiplier = longSession
+    ? getStreakBonus(progression.streak)
+    : Math.max(0.7, getStreakBonus(progression.streak) * 0.6)
   const multiplier = streakMultiplier * modeMultiplier
-  const pointsEarned = Math.round(base * multiplier)
-
+  const levelFactor = getXpGainFactorForLevel(progression.level)
   const today = new Date().toDateString()
+  const isFirstToday = progression.lastPracticeDate !== today
+  const dailyBonus = isFirstToday ? 5 : 0
+  const pointsEarned = Math.round(base * multiplier * levelFactor) + dailyBonus
+
   const lastDate = progression.lastPracticeDate
 
   let newStreak = progression.streak
@@ -210,7 +228,8 @@ export function addProgressPoints(
   rawPoints: number,
   source: ProgressSource = 'altar'
 ): { progression: Progression; pointsEarned: number } {
-  const pointsEarned = Math.max(0, Math.round(rawPoints))
+  const levelFactor = getXpGainFactorForLevel(progression.level)
+  const pointsEarned = Math.max(0, Math.round(rawPoints * levelFactor))
   const newPoints = progression.points + pointsEarned
   const withSource = withSourceXp(progression, source, pointsEarned)
   const leveled = recalculateProgressionLevel({
@@ -274,14 +293,18 @@ export async function loadProgressionFromDb(userId: string): Promise<Progression
       .limit(1)
     if (profiles && profiles.length > 0) {
       const p = profiles[0] as Record<string, unknown>
+      const estimatedTotal = Math.round((p.totalRituals as number || 0) * 28)
       const merged: Progression = {
         ...DEFAULT_PROGRESSION,
-        points: Math.round((p.totalRituals as number || 0) * 28),
+        points: estimatedTotal,
         level: (p.initiationLevel as number) || 1,
         streak: (p.practiceStreak as number) || 0,
         lastPracticeDate: (p.lastPracticeDate as string) || null,
         totalRituals: (p.totalRituals as number) || 0,
-        ritualXp: Math.round((p.totalRituals as number || 0) * 28),
+        ritualXp: Math.round(estimatedTotal * 0.5),
+        journalXp: Math.round(estimatedTotal * 0.18),
+        knowledgeXp: Math.round(estimatedTotal * 0.12),
+        altarXp: Math.round(estimatedTotal * 0.2),
       }
       return recalculateProgressionLevel(merged)
     }
