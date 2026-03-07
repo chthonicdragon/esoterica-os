@@ -14,6 +14,8 @@ import { supabase } from './lib/supabaseClient'
 
 type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'journal' | 'forum' | 'marketplace' | 'settings' | 'knowledge-graph'
 
+const BUILD_TAG = 'build 3a207df'
+
 const PAGE_TITLES: Record<Page, { en: string; ru: string }> = {
   dashboard: { en: 'Dashboard', ru: 'Главная' },
   altars: { en: 'Altars', ru: 'Алтари' },
@@ -130,6 +132,7 @@ function AppContent() {
         <Header 
           title={pageTitle} 
           userName={user.displayName || user.email} 
+          buildTag={BUILD_TAG}
           onMenuClick={isMobile ? () => setIsSidebarOpen(true) : undefined}
         />
         <main className={`flex-1 ${currentPage === 'altars' || currentPage === 'forum' || currentPage === 'knowledge-graph' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>

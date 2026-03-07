@@ -8,9 +8,10 @@ interface HeaderProps {
   title: string
   userName?: string
   onMenuClick?: () => void
+  buildTag?: string
 }
 
-export function Header({ title, userName, onMenuClick }: HeaderProps) {
+export function Header({ title, userName, onMenuClick, buildTag }: HeaderProps) {
   const { t } = useLang()
   const { isMuted, setIsMuted, playUiSound } = useAudio()
   const moonPhase = getMoonPhase()
@@ -36,7 +37,14 @@ export function Header({ title, userName, onMenuClick }: HeaderProps) {
             <Menu className="w-5 h-5" />
           </button>
         )}
-        <h1 className="text-sm sm:text-lg font-semibold text-foreground font-cinzel tracking-wide truncate max-w-[120px] sm:max-w-none">{title}</h1>
+        <div className="flex items-center gap-2 min-w-0">
+          <h1 className="text-sm sm:text-lg font-semibold text-foreground font-cinzel tracking-wide truncate max-w-[120px] sm:max-w-none">{title}</h1>
+          {buildTag && (
+            <span className="hidden sm:inline-flex px-2 py-0.5 rounded-md border border-primary/30 bg-primary/10 text-[10px] tracking-wider text-primary">
+              {buildTag}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-2 sm:gap-4">
