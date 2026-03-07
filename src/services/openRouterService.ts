@@ -49,6 +49,15 @@ const OPENROUTER_MODELS = [
 
 const MODELS = PROVIDER === "openrouter" ? OPENROUTER_MODELS : GROQ_MODELS;
 
+const REQUEST_TIMEOUT_MS = 22000;
+const MENTOR_RETRY_COUNT = 2;
+const MENTOR_BACKOFF_MS = 1200;
+const MENTOR_CIRCUIT_THRESHOLD = 3;
+const MENTOR_CIRCUIT_COOLDOWN_MS = 45000;
+
+let mentorFailureCount = 0;
+let mentorCircuitOpenUntil = 0;
+
 const COMMON_HEADERS: Record<string, string> = {
   "Content-Type": "application/json",
 };
@@ -56,6 +65,41 @@ const COMMON_HEADERS: Record<string, string> = {
 if (PROVIDER === "openrouter") {
   COMMON_HEADERS["HTTP-Referer"] = typeof window !== "undefined" ? window.location.origin : "https://localhost";
   COMMON_HEADERS["X-Title"] = "Esoterica OS";
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error: any) {
+    if (error?.name === "AbortError") {
+      throw new Error(`[AI:${PROVIDER}] Request timeout after ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function isRetryableMentorError(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("timeout") ||
+    m.includes("429") ||
+    m.includes("all models unavailable") ||
+    m.includes("http 500") ||
+    m.includes("http 502") ||
+    m.includes("http 503") ||
+    m.includes("http 504") ||
+    m.includes("failed to fetch") ||
+    m.includes("network")
+  );
 }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
@@ -293,14 +337,14 @@ async function fetchWithFallback(body: object, modelIndex = 0): Promise<string> 
   const model = MODELS[modelIndex];
   console.log(`[AI:${PROVIDER}] Trying model: ${model}`);
 
-  const res = await fetch(API_URL, {
+  const res = await fetchWithTimeout(API_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${API_KEY}`,
       ...COMMON_HEADERS,
     },
     body: JSON.stringify({ ...body, model }),
-  });
+  }, REQUEST_TIMEOUT_MS);
 
   if (res.status === 429 || res.status === 404 || res.status === 400) {
     console.warn(`[AI:${PROVIDER}] ${model} -> ${res.status}, switching to next model...`);
@@ -323,12 +367,45 @@ async function fetchWithFallback(body: object, modelIndex = 0): Promise<string> 
 // ── AI Mentor ─────────────────────────────────────────────────────────────────
 
 export async function askOpenRouter(prompt: string): Promise<string> {
+  const now = Date.now();
+  if (mentorCircuitOpenUntil > now) {
+    const waitSec = Math.max(1, Math.ceil((mentorCircuitOpenUntil - now) / 1000));
+    throw new Error(`[AI] Circuit breaker open. Retry after ${waitSec}s`);
+  }
+
+  let lastError = "Unknown AI error";
+
   try {
-    return await fetchWithFallback({
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7,
-      max_tokens: 800,
-    });
+    for (let attempt = 0; attempt <= MENTOR_RETRY_COUNT; attempt++) {
+      try {
+        const text = await fetchWithFallback({
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.7,
+          max_tokens: 800,
+        });
+
+        mentorFailureCount = 0;
+        mentorCircuitOpenUntil = 0;
+        return text;
+      } catch (error: any) {
+        lastError = error?.message ?? "Unknown AI error";
+        const canRetry = attempt < MENTOR_RETRY_COUNT && isRetryableMentorError(lastError);
+        if (!canRetry) break;
+
+        const backoff = MENTOR_BACKOFF_MS * (attempt + 1);
+        console.warn(`[AI] Mentor retry ${attempt + 1}/${MENTOR_RETRY_COUNT} in ${backoff}ms: ${lastError}`);
+        await wait(backoff);
+      }
+    }
+
+    mentorFailureCount += 1;
+    if (mentorFailureCount >= MENTOR_CIRCUIT_THRESHOLD) {
+      mentorCircuitOpenUntil = Date.now() + MENTOR_CIRCUIT_COOLDOWN_MS;
+      mentorFailureCount = 0;
+      throw new Error(`[AI] Circuit breaker open. Retry after ${Math.ceil(MENTOR_CIRCUIT_COOLDOWN_MS / 1000)}s`);
+    }
+
+    throw new Error(lastError);
   } catch (error: any) {
     const message = error?.message ?? "Unknown AI error";
     console.error("[AI] askOpenRouter failed:", message);

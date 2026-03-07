@@ -89,6 +89,14 @@ export function AIMentor({ user }: AIMentorProps) {
         ? (lang === 'ru'
           ? 'ИИ не настроен: отсутствует API ключ. Сообщите администратору проекта.'
           : 'AI is not configured: API key is missing. Please contact the project admin.')
+        : reason.includes('Circuit breaker open')
+          ? (lang === 'ru'
+            ? 'ИИ временно перегружен. Подождите около минуты и повторите запрос.'
+            : 'AI is temporarily overloaded. Please wait about a minute and retry.')
+        : reason.includes('timeout')
+          ? (lang === 'ru'
+            ? 'ИИ не успел ответить вовремя. Попробуйте еще раз или сократите запрос.'
+            : 'AI request timed out. Please retry or shorten your prompt.')
         : reason.includes('All models unavailable') || reason.includes('429')
           ? (lang === 'ru'
             ? 'Лимит моделей временно исчерпан. Подождите немного и повторите запрос.'

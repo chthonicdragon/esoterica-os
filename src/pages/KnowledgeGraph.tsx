@@ -124,6 +124,38 @@ interface Props {
 export function KnowledgeGraph({ user }: Props) {
   const { lang } = useLang()
   const t = translations[lang as 'en' | 'ru'] ?? translations.en
+  const mapKnowledgeError = useCallback((err: unknown) => {
+    const reason = err instanceof Error ? err.message : String(err ?? '')
+    const lower = reason.toLowerCase()
+
+    if (lower.includes('missing api key')) {
+      return lang === 'ru'
+        ? 'ИИ для Паутины не настроен: отсутствует API ключ. Сообщите администратору проекта.'
+        : 'Knowledge Web AI is not configured: API key is missing. Please contact the project admin.'
+    }
+    if (lower.includes('circuit breaker open')) {
+      return lang === 'ru'
+        ? 'ИИ временно перегружен. Подождите около минуты и повторите попытку.'
+        : 'AI is temporarily overloaded. Please wait about a minute and retry.'
+    }
+    if (lower.includes('429') || lower.includes('all models unavailable')) {
+      return lang === 'ru'
+        ? 'Лимит запросов временно исчерпан. Подождите 20-60 секунд и повторите.'
+        : 'Rate limit reached. Wait 20-60 seconds and try again.'
+    }
+    if (lower.includes('timeout') || lower.includes('failed to fetch') || lower.includes('network')) {
+      return lang === 'ru'
+        ? 'Сетевая ошибка или таймаут. Проверьте соединение и попробуйте снова.'
+        : 'Network error or timeout. Check your connection and retry.'
+    }
+    if (lower.includes('invalid json') || lower.includes('unable to recover valid graph json')) {
+      return lang === 'ru'
+        ? 'ИИ вернул поврежденный ответ. Повторите запрос с более коротким описанием.'
+        : 'AI returned malformed data. Retry with a shorter, more specific prompt.'
+    }
+
+    return t.error
+  }, [lang, t.error])
   const getTypeLabel = useCallback((type: string) => {
     const labels = TYPE_LABELS[type]
     if (!labels) return type
@@ -263,7 +295,7 @@ export function KnowledgeGraph({ user }: Props) {
       setIsRitualMode(false)
     } catch (err) {
       console.error(err)
-      setError(t.error)
+      setError(mapKnowledgeError(err))
     } finally {
       setIsLoading(false)
     }
