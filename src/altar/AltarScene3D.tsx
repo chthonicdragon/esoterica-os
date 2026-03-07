@@ -334,11 +334,17 @@ export function AltarScene3D({
   return (
     <Canvas
       shadows={THREE.PCFShadowMap}
-      gl={{ alpha: true, antialias: true }}
+      dpr={[1, 1.35]}
+      gl={{ alpha: true, antialias: false, powerPreference: 'high-performance' }}
       camera={{ near: 0.1, far: 50 }}
       style={{ background: 'transparent' }}
       onCreated={({ gl }) => {
         gl.setClearColor(0x000000, 0)
+        // Prevent default browser teardown and let WebGL recover when possible.
+        gl.domElement.addEventListener('webglcontextlost', (event) => {
+          event.preventDefault()
+          console.warn('WebGL context lost; trying to recover renderer context.')
+        })
       }}
       onPointerMissed={() => onSelect(null)}
     >
@@ -349,7 +355,7 @@ export function AltarScene3D({
         color={lighting.keyColor}
         intensity={lighting.keyIntensity}
         castShadow
-        shadow-mapSize={[1024, 1024]}
+        shadow-mapSize={[512, 512]}
         shadow-camera-near={0.5}
         shadow-camera-far={9}
         shadow-camera-left={-1.8}

@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useLang } from '../contexts/LanguageContext'
-import { ai } from '../lib/platformClient'
-import { Send, Bot, User, Loader2 } from 'lucide-react'
+import { Send, User, Loader2 } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { askOpenRouter } from '../services/openRouterService'
 
 const ARCHETYPES = {
   hecate: {
@@ -72,11 +72,7 @@ export function AIMentor({ user }: AIMentorProps) {
       const langInstruction = lang === 'ru' ? ' IMPORTANT: Always respond in Russian.' : ' Always respond in English.'
       const prompt = `${archetype.systemPrompt}${langInstruction}\n\nConversation:\n${history}\n\n${archetypeInfo.name}:`
 
-      const { text } = await ai.generateText({
-        prompt,
-        model: 'gpt-4.1-mini',
-        maxTokens: 600,
-      })
+      const text = await askOpenRouter(prompt) ?? ''
 
       const assistantMsg: Message = { role: 'assistant', content: text }
       setMessages(prev => [...prev, assistantMsg])
@@ -95,18 +91,19 @@ export function AIMentor({ user }: AIMentorProps) {
   }
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full min-w-0 flex-col md:flex-row">
       {/* Archetype selector */}
-      <div className="w-56 flex-shrink-0 border-r border-border/40 p-4 space-y-2">
-        <p className="text-xs text-muted-foreground mb-3">{t.selectArchetype}</p>
-        {(Object.keys(ARCHETYPES) as ArchetypeKey[]).map(key => {
+      <div className="w-full md:w-56 flex-shrink-0 border-b md:border-b-0 md:border-r border-border/40 p-3 md:p-4">
+        <p className="text-xs text-muted-foreground mb-2 md:mb-3">{t.selectArchetype}</p>
+        <div className="flex md:block gap-2 overflow-x-auto md:overflow-x-visible pb-1 md:pb-0">
+          {(Object.keys(ARCHETYPES) as ArchetypeKey[]).map(key => {
           const info = lang === 'ru' ? ARCHETYPES[key].ru : ARCHETYPES[key].en
           return (
             <button
               key={key}
               onClick={() => { setSelectedArchetype(key); setMessages([]) }}
               className={cn(
-                'w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-left transition-all',
+                'min-w-[170px] md:min-w-0 md:w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-left transition-all',
                 selectedArchetype === key
                   ? 'bg-primary/15 border border-primary/30'
                   : 'hover:bg-white/5 border border-transparent'
@@ -119,13 +116,14 @@ export function AIMentor({ user }: AIMentorProps) {
               </div>
             </button>
           )
-        })}
+          })}
+        </div>
       </div>
 
       {/* Chat area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 min-w-0 flex flex-col">
         {/* Mentor header */}
-        <div className="px-6 py-4 border-b border-border/40 flex items-center gap-3">
+        <div className="px-4 md:px-6 py-3 md:py-4 border-b border-border/40 flex items-center gap-3">
           <div className={cn('w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xl')}>
             {archetypeInfo.emoji}
           </div>
@@ -136,13 +134,13 @@ export function AIMentor({ user }: AIMentorProps) {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
           {messages.length === 0 && (
             <div className="flex items-start gap-3 animate-fade-in">
               <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-sm flex-shrink-0">
                 {archetypeInfo.emoji}
               </div>
-              <div className="rounded-2xl rounded-tl-none bg-card border border-border/40 px-4 py-3 max-w-lg">
+              <div className="rounded-2xl rounded-tl-none bg-card border border-border/40 px-4 py-3 max-w-[88%] md:max-w-lg">
                 <p className="text-sm text-foreground leading-relaxed">
                   {lang === 'ru'
                     ? `Я ${archetypeInfo.name}. Чем я могу помочь вам сегодня, искатель? Спрашивайте о символах, снах, ритуалах или о пути трансформации.`
@@ -164,7 +162,7 @@ export function AIMentor({ user }: AIMentorProps) {
                 {msg.role === 'user' ? <User className="w-4 h-4 text-primary" /> : archetypeInfo.emoji}
               </div>
               <div className={cn(
-                'rounded-2xl px-4 py-3 max-w-lg text-sm leading-relaxed',
+                'rounded-2xl px-4 py-3 max-w-[88%] md:max-w-lg text-sm leading-relaxed',
                 msg.role === 'user'
                   ? 'rounded-tr-none bg-primary/15 border border-primary/20 text-foreground'
                   : 'rounded-tl-none bg-card border border-border/40 text-foreground'
@@ -188,17 +186,17 @@ export function AIMentor({ user }: AIMentorProps) {
         </div>
 
         {/* Disclaimer */}
-        <p className="px-6 text-[10px] text-muted-foreground/60 italic">{t.mentorDisclaimer}</p>
+        <p className="px-4 md:px-6 text-[10px] text-muted-foreground/60 italic">{t.mentorDisclaimer}</p>
 
         {/* Input */}
-        <div className="p-4 border-t border-border/40">
+        <div className="p-3 md:p-4 border-t border-border/40">
           <div className="flex gap-2">
             <textarea
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={t.askMentor}
-              className="flex-1 bg-card border border-border/40 rounded-xl px-4 py-3 text-sm outline-none focus:border-primary/50 resize-none max-h-32 min-h-[44px]"
+              className="flex-1 min-w-0 bg-card border border-border/40 rounded-xl px-4 py-3 text-sm outline-none focus:border-primary/50 resize-none max-h-32 min-h-[44px]"
               rows={1}
             />
             <button
@@ -214,4 +212,3 @@ export function AIMentor({ user }: AIMentorProps) {
     </div>
   )
 }
-

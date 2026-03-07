@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
 import { useAudio } from '../contexts/AudioContext'
 import { useIsMobile } from '../hooks/use-mobile'
-import { db } from '../lib/platformClient'
+import { supabase } from '../lib/supabaseClient'
 import { Plus, BookOpen, Trash2, ChevronLeft } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { cn } from '../lib/utils'
+import { ACTION_POINTS, grantProgressionPoints, syncProgressionToDb } from '../altar/altarStore'
 
 interface JournalEntry {
   id: string
@@ -36,12 +37,13 @@ export function Journal({ user }: JournalProps) {
 
   async function loadEntries() {
     try {
-      const data = await db.journals.list({
-        where: { userId: user.id },
-        orderBy: { createdAt: 'desc' },
-        limit: 50,
-      }) as JournalEntry[]
-      setEntries(data)
+      const { data } = await supabase
+        .from('journals')
+        .select('*')
+        .eq('userId', user.id)
+        .order('createdAt', { ascending: false })
+        .limit(50)
+      setEntries((data as JournalEntry[]) || [])
     } catch (e) { console.error(e) } finally { setLoading(false) }
   }
 
@@ -49,27 +51,43 @@ export function Journal({ user }: JournalProps) {
     if (!form.title.trim() || !form.content.trim()) return
     playUiSound('click')
     try {
-      const entry = await db.journals.create({
-        userId: user.id,
-        title: form.title,
-        content: form.content,
-        type: form.type,
-        mood: form.mood,
-        symbols: JSON.stringify([]),
-        createdAt: new Date().toISOString(),
-      }) as JournalEntry
-      setEntries(prev => [entry, ...prev])
-      setShowForm(false)
-      setSelectedEntry(entry)
-      setForm({ title: '', content: '', type: 'dream', mood: '🌙' })
-      playUiSound('success')
-      toast.success(lang === 'ru' ? 'Запись сохранена' : 'Entry saved')
+      const { data: entry, error } = await supabase
+        .from('journals')
+        .insert([{
+          userId: user.id,
+          title: form.title,
+          content: form.content,
+          type: form.type,
+          mood: form.mood,
+          symbols: JSON.stringify([]),
+          createdAt: new Date().toISOString(),
+        }])
+        .select()
+        .single()
+      if (error) throw error
+      if (entry) {
+        setEntries(prev => [entry as JournalEntry, ...prev])
+        setShowForm(false)
+        setSelectedEntry(entry as JournalEntry)
+        const lengthBonus = Math.min(6, Math.floor(form.content.length / 350))
+        const typeBonus = form.type === 'dream' ? ACTION_POINTS.dreamEntryBonus : 2
+        const pointsAward = ACTION_POINTS.journalEntryBase + typeBonus + lengthBonus
+        const { pointsEarned, progression } = grantProgressionPoints(pointsAward, 'journal')
+        syncProgressionToDb(user.id, progression)
+        setForm({ title: '', content: '', type: 'dream', mood: '🌙' })
+        playUiSound('success')
+        toast.success(
+          lang === 'ru'
+            ? `Запись сохранена (+${pointsEarned} XP)`
+            : `Entry saved (+${pointsEarned} XP)`
+        )
+      }
     } catch (e) { toast.error(t.error) }
   }
 
   async function deleteEntry(id: string) {
     playUiSound('click')
-    await db.journals.delete(id)
+    await supabase.from('journals').delete().eq('id', id)
     setEntries(prev => prev.filter(e => e.id !== id))
     if (selectedEntry?.id === id) setSelectedEntry(null)
   }

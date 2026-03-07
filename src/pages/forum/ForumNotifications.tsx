@@ -1,15 +1,8 @@
 import { useState, useEffect } from 'react'
-import { db } from '../../lib/platformClient'
+import { supabase } from '../../lib/supabaseClient'
 import { useLang } from '../../contexts/LanguageContext'
 import type { ForumNotification } from '../../types/forum'
 import { formatDistanceToNow } from 'date-fns'
-
-let notificationsTableUnavailable = false
-
-function isMissingTableError(error: any): boolean {
-  const msg = String(error?.message || '').toLowerCase()
-  return msg.includes('could not find the table') || msg.includes('does not exist') || error?.status === 404
-}
 
 interface Props {
   userId: string
@@ -27,26 +20,27 @@ export function ForumNotifications({ userId, onClose, onNavigateToTopic }: Props
   }, [userId])
 
   async function loadNotifications() {
-    if (notificationsTableUnavailable) {
-      setNotifications([])
-      setLoading(false)
-      return
-    }
-
     try {
-      const raw = await db.forumNotifications.list({
-        where: { userId: { eq: userId } },
-        orderBy: { createdAt: 'desc' },
-        limit: 30,
-      })
+      const { data: raw, error } = await supabase
+        .from('forumNotifications')
+        .select('*')
+        .eq('userId', userId)
+        .order('createdAt', { ascending: false })
+        .limit(30)
+
+      if (error) throw error
 
       // Enrich with sender names
       const enriched = await Promise.all(
-        (raw as unknown as ForumNotification[]).map(async (n) => {
+        (raw as ForumNotification[]).map(async (n) => {
           try {
             if (n.fromUserId) {
-              const profiles = await db.userProfiles.list({ where: { userId: { eq: n.fromUserId } }, limit: 1 })
-              const p = (profiles as any[])[0]
+              const { data: profiles } = await supabase
+                .from('userProfiles')
+                .select('displayName')
+                .eq('userId', n.fromUserId)
+                .limit(1)
+              const p = profiles?.[0]
               return { ...n, fromUserName: p?.displayName || n.fromUserId.slice(0, 8) }
             }
             return n
@@ -60,14 +54,12 @@ export function ForumNotifications({ userId, onClose, onNavigateToTopic }: Props
       // Mark all as read
       const unread = enriched.filter(n => Number(n.isRead) === 0)
       await Promise.all(
-        unread.map(n => db.forumNotifications.update(n.id, { isRead: 1 }).catch(() => {}))
+        unread.map(n =>
+          supabase.from('forumNotifications').update({ isRead: 1 }).eq('id', n.id).catch(() => {})
+        )
       )
-    } catch (e: any) {
-      if (isMissingTableError(e)) {
-        notificationsTableUnavailable = true
-      } else {
-        console.error(e)
-      }
+    } catch (e) {
+      console.error(e)
     } finally {
       setLoading(false)
     }
@@ -138,18 +130,16 @@ export function ForumNotifications({ userId, onClose, onNavigateToTopic }: Props
 }
 
 export async function getUnreadNotificationCount(userId: string): Promise<number> {
-  if (notificationsTableUnavailable) return 0
-
   try {
-    const raw = await db.forumNotifications.list({
-      where: { userId: { eq: userId }, isRead: { eq: '0' } },
-      limit: 99,
-    })
-    return (raw as any[]).length
-  } catch (e) {
-    if (isMissingTableError(e)) {
-      notificationsTableUnavailable = true
-    }
+    const { count, error } = await supabase
+      .from('forumNotifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('userId', userId)
+      .eq('isRead', 0)
+
+    if (error) throw error
+    return count ?? 0
+  } catch {
     return 0
   }
 }
