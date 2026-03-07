@@ -32,7 +32,8 @@ const ARCHETYPES_RU: Record<string, string> = {
 
 const TRADITIONS = [
   'eclectic', 'hellenic', 'slavic', 'norse', 'daemonic', 'chaos', 'ceremonial',
-  'hermetic', 'kabbalistic', 'druidic', 'eastern', 'shamanic', 'arcane', 'dark-lunar', 'angelic', 'draconian',
+  'hermetic', 'kabbalistic', 'druidic', 'eastern', 'shamanic', 'arcane',
+  'lunar-magic', 'light-magic', 'dark-lunar', 'angelic', 'draconian',
 ]
 const TRADITIONS_RU: Record<string, string> = {
   eclectic: 'Эклектическая',
@@ -48,8 +49,10 @@ const TRADITIONS_RU: Record<string, string> = {
   eastern: 'Восточная',
   shamanic: 'Шаманская',
   arcane: 'Арканическая',
-  'dark-lunar': 'Тёмная / Лунная',
-  angelic: 'Ангельская / Светлая',
+  'lunar-magic': 'Лунная магия',
+  'light-magic': 'Светлая магия',
+  'dark-lunar': 'Тёмная лунная магия (legacy)',
+  angelic: 'Светлая / Ангельская (legacy)',
   draconian: 'Драконианская',
 }
 const TRADITIONS_EN: Record<string, string> = {
@@ -57,7 +60,8 @@ const TRADITIONS_EN: Record<string, string> = {
   daemonic: 'Daemonic', chaos: 'Chaos', ceremonial: 'Ceremonial',
   hermetic: 'Hermetic', kabbalistic: 'Kabbalistic', druidic: 'Druidic',
   eastern: 'Eastern', shamanic: 'Shamanic', arcane: 'Arcane',
-  'dark-lunar': 'Dark / Lunar', angelic: 'Angelic / Light', draconian: 'Draconian',
+  'lunar-magic': 'Lunar Magic', 'light-magic': 'Light Magic',
+  'dark-lunar': 'Dark Lunar (legacy)', angelic: 'Angelic / Light (legacy)', draconian: 'Draconian',
 }
 
 interface SettingsProps {
