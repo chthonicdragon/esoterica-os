@@ -164,7 +164,33 @@ function LandingPage() {
     setAuthError(null)
     setIsSigningIn(true)
 
-    const redirectTo = ((import.meta.env.VITE_AUTH_REDIRECT_URL as string | undefined)?.trim() || `${window.location.origin}/`)
+    const rawRedirect = (import.meta.env.VITE_AUTH_REDIRECT_URL as string | undefined)?.trim()
+    const hasPlaceholder = !!rawRedirect && (rawRedirect.includes('<') || rawRedirect.includes('>'))
+
+    if (hasPlaceholder) {
+      setAuthError(
+        lang === 'ru'
+          ? 'VITE_AUTH_REDIRECT_URL содержит шаблон. Укажи реальный URL, например: https://your-domain.vercel.app/'
+          : 'VITE_AUTH_REDIRECT_URL contains a placeholder. Set a real URL, e.g. https://your-domain.vercel.app/'
+      )
+      setIsSigningIn(false)
+      return
+    }
+
+    const redirectTo = rawRedirect || `${window.location.origin}/`
+
+    try {
+      // Validate URL format early so user gets a clear error before OAuth request.
+      new URL(redirectTo)
+    } catch {
+      setAuthError(
+        lang === 'ru'
+          ? `Некорректный VITE_AUTH_REDIRECT_URL: ${redirectTo}`
+          : `Invalid VITE_AUTH_REDIRECT_URL: ${redirectTo}`
+      )
+      setIsSigningIn(false)
+      return
+    }
 
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
