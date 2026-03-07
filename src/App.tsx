@@ -35,8 +35,23 @@ const isValidPage = (value: string | null | undefined): value is Page => {
 const getPageFromHash = (): Page | null => {
   if (typeof window === 'undefined') return null
   const hash = window.location.hash || ''
+  const looksLikeAuthHash = hash.includes('access_token=') || hash.includes('refresh_token=') || hash.includes('error_description=')
+  if (looksLikeAuthHash) return null
   const normalized = hash.startsWith('#/') ? hash.slice(2) : hash.startsWith('#') ? hash.slice(1) : hash
   return isValidPage(normalized) ? normalized : null
+}
+
+const isAuthCallbackInProgress = () => {
+  if (typeof window === 'undefined') return false
+  const hash = window.location.hash || ''
+  const search = window.location.search || ''
+  return (
+    hash.includes('access_token=') ||
+    hash.includes('refresh_token=') ||
+    hash.includes('error_description=') ||
+    search.includes('code=') ||
+    search.includes('error=')
+  )
 }
 
 const PAGE_TITLES: Record<Page, { en: string; ru: string }> = {
@@ -104,16 +119,19 @@ function AppContent() {
   // Keep current page stable across reloads and allow direct open via hash URL.
   useEffect(() => {
     if (typeof window === 'undefined') return
+    if (loading) return
+    if (isAuthCallbackInProgress()) return
     window.localStorage.setItem(PAGE_STORAGE_KEY, currentPage)
     const desiredHash = `#/${currentPage}`
     if (window.location.hash !== desiredHash) {
       window.history.replaceState(null, '', desiredHash)
     }
-  }, [currentPage])
+  }, [currentPage, loading])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
     const onHashChange = () => {
+      if (isAuthCallbackInProgress()) return
       const pageFromHash = getPageFromHash()
       if (pageFromHash) {
         setCurrentPage(prev => (prev === pageFromHash ? prev : pageFromHash))
