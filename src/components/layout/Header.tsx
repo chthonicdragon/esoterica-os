@@ -40,7 +40,7 @@ export function Header({ title, userName, onMenuClick, buildTag }: HeaderProps) 
         <div className="flex items-center gap-2 min-w-0">
           <h1 className="text-sm sm:text-lg font-semibold text-foreground font-cinzel tracking-wide truncate max-w-[120px] sm:max-w-none">{title}</h1>
           {buildTag && (
-            <span className="hidden sm:inline-flex px-2 py-0.5 rounded-md border border-primary/30 bg-primary/10 text-[10px] tracking-wider text-primary">
+            <span className="inline-flex px-2 py-0.5 rounded-md border border-primary/30 bg-primary/10 text-[10px] tracking-wider text-primary">
               {buildTag}
             </span>
           )}
