@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
 import { getMoonPhase, moonEmoji, moonEnergy, moonEnergyRu } from '../utils/moonPhase'
 import { db } from '../lib/platformClient'
-import { FlameKindling, Sparkles, BookOpen, Moon, TrendingUp, Star, Zap, MessageSquare } from 'lucide-react'
+import { FlameKindling, Sparkles, BookOpen, Moon, TrendingUp, Star, Zap, MessageSquare, Network } from 'lucide-react'
 
 interface Profile {
   initiationLevel: number
@@ -88,6 +88,7 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
     { icon: Sparkles, label: t.generateSigil, action: () => onNavigate('sigil-lab'), color: 'text-yellow-400' },
     { icon: FlameKindling, label: t.openAltar, action: () => onNavigate('altars'), color: 'text-orange-400' },
     { icon: MessageSquare, label: (t as any).forum || 'Forum', action: () => onNavigate('forum'), color: 'text-purple-400' },
+    { icon: Network, label: (t as any).knowledgeGraph || 'Knowledge Graph', action: () => onNavigate('knowledge-graph'), color: 'text-cyan-400' },
   ]
 
   return (
