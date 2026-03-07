@@ -7,6 +7,12 @@ const LETTER_MAP: Record<string, number> = {
   S: 1, T: 2, U: 3, V: 4, W: 5, X: 6, Y: 7, Z: 8,
 }
 
+const CYRILLIC_TO_LATIN: Record<string, string> = {
+  а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'i',
+  к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f',
+  х: 'h', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'shch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya',
+}
+
 // 9-position magic square layout (3x3)
 const POSITIONS: [number, number][] = [
   [1, 1], [2, 1], [3, 1],
@@ -15,7 +21,8 @@ const POSITIONS: [number, number][] = [
 ]
 
 function intentionToNumbers(text: string): number[] {
-  const cleaned = text.toUpperCase().replace(/[^A-Z]/g, '')
+  const normalized = normalizeIntentionText(text)
+  const cleaned = normalized.toUpperCase().replace(/[^A-Z]/g, '')
   const unique: number[] = []
   const seen = new Set<number>()
   for (const ch of cleaned) {
@@ -26,6 +33,16 @@ function intentionToNumbers(text: string): number[] {
     }
   }
   return unique
+}
+
+function normalizeIntentionText(text: string): string {
+  let transliterated = ''
+  for (const ch of text.toLowerCase()) {
+    transliterated += CYRILLIC_TO_LATIN[ch] ?? ch
+  }
+
+  // Strip combining marks so accented latin characters are handled consistently.
+  return transliterated.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
 }
 
 export function generateSigilSVG(intention: string, size = 300): string {
