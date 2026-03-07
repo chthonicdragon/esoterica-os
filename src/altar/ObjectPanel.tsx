@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { CATALOG, CATEGORY_LABELS } from './catalog'
 import type { ObjectCategory } from './types'
 import { cn } from '../lib/utils'
@@ -17,7 +17,32 @@ export function ObjectPanel({ lang, unlockedLevel, pendingDrop, onSelectForDrop 
 
   const categories = Object.keys(CATEGORY_LABELS) as ObjectCategory[]
 
-  const items = CATALOG.filter(c => c.category === activeCategory)
+  const items = useMemo(() => {
+    const filtered = CATALOG.filter(c => c.category === activeCategory)
+    if (activeCategory !== 'models') {
+      return [...filtered].sort((a, b) => {
+        const byLevel = a.unlockLevel - b.unlockLevel
+        if (byLevel !== 0) return byLevel
+        return a.label.localeCompare(b.label)
+      })
+    }
+
+    const candlePriority = (id: string, label: string) => {
+      const key = `${id} ${label}`.toLowerCase()
+      // In 3D Models tab: show candle-related 3D assets before statues/other props.
+      return /(candle|candles|holder|bowl)/.test(key) ? 0 : 1
+    }
+
+    return [...filtered].sort((a, b) => {
+      const byCandle = candlePriority(a.id, a.label) - candlePriority(b.id, b.label)
+      if (byCandle !== 0) return byCandle
+
+      const byLevel = a.unlockLevel - b.unlockLevel
+      if (byLevel !== 0) return byLevel
+
+      return a.label.localeCompare(b.label)
+    })
+  }, [activeCategory])
 
   return (
     <div className="flex flex-col h-full">

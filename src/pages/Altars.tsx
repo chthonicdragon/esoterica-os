@@ -66,6 +66,7 @@ export function Altars({ user }: AltarsProps) {
   const [visualPreset, setVisualPreset] = useState<AltarVisualPreset>('cinematic')
   const [hydrated, setHydrated] = useState(false)
   const [safeRenderMode, setSafeRenderMode] = useState(false)
+  const [forceHighRender, setForceHighRender] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const unlockedBases = useMemo(
@@ -148,12 +149,18 @@ export function Altars({ user }: AltarsProps) {
   const selectedCatalog = selectedObj ? CATALOG.find(c => c.id === selectedObj.catalogId) : null
   const ritualProgress = session.active ? session.elapsed / (session.durationMinutes * 60) : 0
   const objectCount = activeLayout?.objects.length || 0
-  const autoSafeRender = isMobile || objectCount >= 14 || safeRenderMode
+  const safeTriggerActive = isMobile || objectCount >= 14 || safeRenderMode
+  const autoSafeRender = !forceHighRender && safeTriggerActive
 
   const handleSceneContextLost = useCallback(() => {
     setSafeRenderMode(true)
     toast.error(lang === 'ru' ? 'Включен облегченный режим алтаря' : 'Switched altar to safe render mode')
   }, [lang])
+
+  useEffect(() => {
+    if (!isMobile) return
+    if (forceHighRender) setForceHighRender(false)
+  }, [isMobile, forceHighRender])
 
   // ── Layout mutations ────────────────────────────────────────────────────────
   function updateLayout(updated: AltarLayout) {
@@ -342,6 +349,10 @@ export function Altars({ user }: AltarsProps) {
     scaleUp:      lang === 'ru' ? 'Больше'                            : 'Bigger',
     scaleDown:    lang === 'ru' ? 'Меньше'                            : 'Smaller',
     list:         lang === 'ru' ? 'Список'                            : 'List',
+    safeModeOn:   lang === 'ru' ? 'Safe: Вкл'                         : 'Safe: On',
+    safeModeOff:  lang === 'ru' ? 'Safe: Выкл'                        : 'Safe: Off',
+    highForced:   lang === 'ru' ? 'Высокий рендер принудительно включен' : 'High render forced on',
+    highAuto:     lang === 'ru' ? 'Возврат к авто safe-режиму'        : 'Returned to auto safe mode',
   }
 
   // ── Altar list sidebar ──────────────────────────────────────────────────────
@@ -587,6 +598,27 @@ export function Altars({ user }: AltarsProps) {
         >
           {t.bases}
         </button>
+
+        {!isMobile && safeTriggerActive && (
+          <button
+            onClick={() => {
+              setForceHighRender(prev => {
+                const next = !prev
+                toast.success(next ? t.highForced : t.highAuto, { duration: 1800 })
+                return next
+              })
+            }}
+            className={cn(
+              'px-2.5 py-1.5 rounded-lg text-xs border transition-colors',
+              autoSafeRender
+                ? 'bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20'
+                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20',
+            )}
+            title={lang === 'ru' ? 'Переключить safe-режим рендера' : 'Toggle safe render mode'}
+          >
+            {autoSafeRender ? t.safeModeOn : t.safeModeOff}
+          </button>
+        )}
 
         {/* Fullscreen toggle */}
         <button
