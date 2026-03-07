@@ -2,6 +2,13 @@ export type ObjectCategory = 'candles' | 'crystals' | 'statues' | 'herbs' | 'inc
 
 export type AltarTheme = 'stone' | 'wood' | 'obsidian' | 'mystical'
 
+export type AltarBaseId =
+  | 'base_wooden_table'
+  | 'base_stone_altar'
+  | 'base_psx_wooden'
+  | 'base_sacrificial'
+  | 'base_diana'
+
 export interface CatalogItem {
   id: string
   category: ObjectCategory
@@ -30,6 +37,7 @@ export interface AltarLayout {
   id: string
   name: string
   theme: AltarTheme
+  baseId: AltarBaseId
   objects: PlacedObject[]
   createdAt: string
   updatedAt: string

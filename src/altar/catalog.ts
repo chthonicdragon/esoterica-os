@@ -1,4 +1,68 @@
-import type { CatalogItem, AltarTheme } from './types'
+import type { CatalogItem, AltarTheme, AltarBaseId } from './types'
+
+export interface AltarBaseOption {
+  id: AltarBaseId
+  label: string
+  labelRu: string
+  modelUrl: string
+  unlockLevel: number
+  preview: string
+  tint: string
+  scale: [number, number, number]
+}
+
+export const ALTAR_BASES: AltarBaseOption[] = [
+  {
+    id: 'base_wooden_table',
+    label: 'Wooden Table',
+    labelRu: 'Деревянный стол',
+    modelUrl: '/models/wooden_table.glb',
+    unlockLevel: 1,
+    preview: 'Wood',
+    tint: '#6e4a2f',
+    scale: [2.1, 2.1, 2.1],
+  },
+  {
+    id: 'base_stone_altar',
+    label: 'Stone Altar',
+    labelRu: 'Каменный алтарь',
+    modelUrl: '/models/stone_altar.glb',
+    unlockLevel: 1,
+    preview: 'Stone',
+    tint: '#6d7077',
+    scale: [2.0, 2.0, 2.0],
+  },
+  {
+    id: 'base_psx_wooden',
+    label: 'PSX Wooden Altar',
+    labelRu: 'PSX-деревянный алтарь',
+    modelUrl: '/models/psx_wooden_table.glb',
+    unlockLevel: 3,
+    preview: 'Retro',
+    tint: '#745237',
+    scale: [2.35, 2.35, 2.35],
+  },
+  {
+    id: 'base_sacrificial',
+    label: 'Sacrificial Altar',
+    labelRu: 'Ритуальный алтарь',
+    modelUrl: '/models/sacrificial_altar.glb',
+    unlockLevel: 4,
+    preview: 'Ritual',
+    tint: '#4f4140',
+    scale: [2.0, 2.0, 2.0],
+  },
+  {
+    id: 'base_diana',
+    label: 'Diana Grand Altar',
+    labelRu: 'Великий алтарь Дианы',
+    modelUrl: '/models/altar_for_diana.glb',
+    unlockLevel: 6,
+    preview: 'Grand',
+    tint: '#807467',
+    scale: [2.1, 2.1, 2.1],
+  },
+]
 
 export const CATALOG: CatalogItem[] = [
   // Candles
@@ -36,6 +100,9 @@ export const CATALOG: CatalogItem[] = [
   { id: 'cup_chalice', category: 'cups', label: 'Chalice', labelRu: 'Чаша', color: '#8b6914', emissive: '#aa8800', emissiveIntensity: 0.3, geometry: 'cylinder', scale: [0.14, 0.2, 0.14], unlockLevel: 1, points: 8 },
   { id: 'cup_cauldron', category: 'cups', label: 'Cauldron', labelRu: 'Котёл', color: '#1c1c1c', emissive: '#004400', emissiveIntensity: 0.4, geometry: 'sphere', scale: [0.18, 0.14, 0.18], effect: 'smoke', unlockLevel: 2, points: 12 },
   { id: 'cup_offering', category: 'cups', label: 'Offering Bowl', labelRu: 'Чаша для подношений', color: '#c4a747', emissive: '#886600', emissiveIntensity: 0.2, geometry: 'cylinder', scale: [0.16, 0.08, 0.16], unlockLevel: 1, points: 8 },
+  { id: 'cup_goblet_ritual', category: 'cups', label: 'Ritual Goblet', labelRu: 'Ритуальный кубок', color: '#b98a4f', emissive: '#9b6d2f', emissiveIntensity: 0.22, geometry: 'custom', modelUrl: '/models/goblet_01.glb', scale: [0.18, 0.18, 0.18], unlockLevel: 2, points: 14 },
+  { id: 'cup_goblet_lowpoly', category: 'cups', label: 'Lowpoly Goblet', labelRu: 'Лоуполи кубок', color: '#9e7651', emissive: '#7a5a3c', emissiveIntensity: 0.2, geometry: 'custom', modelUrl: '/models/goblet_gameready_lowpoly.glb', scale: [0.18, 0.18, 0.18], unlockLevel: 3, points: 16 },
+  { id: 'cup_goblet_wolnir', category: 'cups', label: 'Wolnir Goblet', labelRu: 'Кубок Волнира', color: '#b7a37c', emissive: '#8a7754', emissiveIntensity: 0.24, geometry: 'custom', modelUrl: '/models/wolnirs_goblet.glb', scale: [0.2, 0.2, 0.2], unlockLevel: 4, points: 20 },
 
   // Coins
   { id: 'coin_gold', category: 'coins', label: 'Gold Coin', labelRu: 'Золотая монета', color: '#ffd700', emissive: '#cc9900', emissiveIntensity: 0.4, geometry: 'cylinder', scale: [0.1, 0.02, 0.1], effect: 'sparkle', unlockLevel: 1, points: 6 },

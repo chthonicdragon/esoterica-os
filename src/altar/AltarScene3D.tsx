@@ -1,9 +1,9 @@
 import { useRef, Suspense, useMemo } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls } from '@react-three/drei'
+import { OrbitControls, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import type { AltarLayout } from './types'
-import { CATALOG, ALTAR_THEMES } from './catalog'
+import { CATALOG, ALTAR_THEMES, ALTAR_BASES } from './catalog'
 import { AltarObject3D } from './AltarObject3D'
 
 type AltarVisualPreset = 'soft' | 'cinematic'
@@ -32,29 +32,74 @@ function AmbientMist({ active }: { active: boolean }) {
   )
 }
 
+function AltarBaseMesh({ modelUrl, tint }: { modelUrl: string; tint: string }) {
+  const gltf = useGLTF(modelUrl)
+  const model = useMemo(() => {
+    const cloned = gltf.scene.clone(true)
+    const sourceBox = new THREE.Box3().setFromObject(cloned)
+    const sourceSize = new THREE.Vector3()
+    sourceBox.getSize(sourceSize)
+    const maxSide = Math.max(sourceSize.x, sourceSize.y, sourceSize.z, 1e-6)
+    const fitScale = 1 / maxSide
+    cloned.scale.setScalar(fitScale)
+
+    const normalizedBox = new THREE.Box3().setFromObject(cloned)
+    const normalizedCenter = new THREE.Vector3()
+    normalizedBox.getCenter(normalizedCenter)
+
+    cloned.position.x -= normalizedCenter.x
+    cloned.position.y -= normalizedBox.min.y
+    cloned.position.z -= normalizedCenter.z
+
+    return cloned
+  }, [gltf.scene])
+
+  useMemo(() => {
+    model.traverse((node) => {
+      if (!(node instanceof THREE.Mesh)) return
+      node.castShadow = true
+      node.receiveShadow = true
+      if (node.material instanceof THREE.MeshStandardMaterial) {
+        node.material = node.material.clone()
+        node.material.color.multiply(new THREE.Color(tint))
+      }
+    })
+  }, [model, tint])
+
+  return <primitive object={model} />
+}
+
 // The altar table surface
-function AltarTable({ themeKey }: { themeKey: string }) {
+function AltarTable({ themeKey, baseId }: { themeKey: string; baseId: AltarLayout['baseId'] }) {
   const theme = ALTAR_THEMES[themeKey as keyof typeof ALTAR_THEMES]
+  const altarBase = ALTAR_BASES.find(base => base.id === baseId)
   if (!theme) return null
 
   return (
     <group>
-      {/* Table top */}
-      <mesh position={[0, 0, 0]} receiveShadow castShadow>
-        <boxGeometry args={[2.0, 0.08, 1.2]} />
-        <meshStandardMaterial
-          color={theme.altarColor}
-          roughness={theme.altarRoughness}
-          metalness={theme.altarMetalness}
-        />
-      </mesh>
-      {/* Table legs */}
-      {[[-0.88, -0.3, -0.52], [0.88, -0.3, -0.52], [-0.88, -0.3, 0.52], [0.88, -0.3, 0.52]].map((pos, i) => (
-        <mesh key={i} position={pos as [number, number, number]} receiveShadow castShadow>
-          <boxGeometry args={[0.08, 0.6, 0.08]} />
-          <meshStandardMaterial color={theme.altarColor} roughness={0.9} metalness={0} />
-        </mesh>
-      ))}
+      {altarBase ? (
+        <group scale={altarBase.scale}>
+          <AltarBaseMesh modelUrl={altarBase.modelUrl} tint={altarBase.tint} />
+        </group>
+      ) : (
+        <>
+          {/* Fallback primitive table if model metadata is missing. */}
+          <mesh position={[0, 0, 0]} receiveShadow castShadow>
+            <boxGeometry args={[2.0, 0.08, 1.2]} />
+            <meshStandardMaterial
+              color={theme.altarColor}
+              roughness={theme.altarRoughness}
+              metalness={theme.altarMetalness}
+            />
+          </mesh>
+          {[[-0.88, -0.3, -0.52], [0.88, -0.3, -0.52], [-0.88, -0.3, 0.52], [0.88, -0.3, 0.52]].map((pos, i) => (
+            <mesh key={i} position={pos as [number, number, number]} receiveShadow castShadow>
+              <boxGeometry args={[0.08, 0.6, 0.08]} />
+              <meshStandardMaterial color={theme.altarColor} roughness={0.9} metalness={0} />
+            </mesh>
+          ))}
+        </>
+      )}
       {/* Decorative edge trim */}
       <mesh position={[0, 0.045, 0]}>
         <boxGeometry args={[2.04, 0.01, 1.24]} />
@@ -380,7 +425,7 @@ export function AltarScene3D({
 
       {/* Altar */}
       <Suspense fallback={null}>
-        <AltarTable themeKey={layout.theme} />
+        <AltarTable themeKey={layout.theme} baseId={layout.baseId} />
         <AltarCloth themeKey={layout.theme} />
         <AltarGroundContact
           themeKey={layout.theme}

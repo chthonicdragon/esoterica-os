@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabaseClient'
-import type { AltarLayout, PlacedObject, Progression, AltarTheme } from './types'
+import type { AltarLayout, PlacedObject, Progression, AltarTheme, AltarBaseId } from './types'
 import { getLevelFromPoints, getStreakBonus, POINTS_PER_RITUAL } from './types'
 
 const STORAGE_KEY = 'esoterica_altar_v2'
@@ -21,6 +21,21 @@ const DEFAULT_PROGRESSION: Progression = {
   journalXp: 0,
   knowledgeXp: 0,
   altarXp: 0,
+}
+
+const DEFAULT_BASE_ID: AltarBaseId = 'base_wooden_table'
+
+function normalizeLayout(raw: Partial<AltarLayout>): AltarLayout | null {
+  if (!raw.id || !raw.name || !raw.theme) return null
+  return {
+    id: raw.id,
+    name: raw.name,
+    theme: raw.theme,
+    baseId: raw.baseId || DEFAULT_BASE_ID,
+    objects: Array.isArray(raw.objects) ? raw.objects : [],
+    createdAt: raw.createdAt || new Date().toISOString(),
+    updatedAt: raw.updatedAt || new Date().toISOString(),
+  }
 }
 
 function normalizeProgression(raw?: Partial<Progression>): Progression {
@@ -67,8 +82,12 @@ export function loadLocalState(): AltarStoreState {
 
       const progression = normalizeProgression(parsed.progression)
 
+      const layouts = parsed.layouts
+        .map(layout => normalizeLayout(layout))
+        .filter((layout): layout is AltarLayout => layout !== null)
+
       return {
-        layouts: parsed.layouts,
+        layouts,
         activeLayoutId: parsed.activeLayoutId || null,
         progression,
       }
@@ -88,6 +107,7 @@ export function createDefaultLayout(name: string, theme: AltarTheme = 'mystical'
     id: `layout_${Date.now()}`,
     name,
     theme,
+    baseId: DEFAULT_BASE_ID,
     objects: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),

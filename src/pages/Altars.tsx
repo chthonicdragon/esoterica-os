@@ -7,9 +7,10 @@ import { useAudio } from '../contexts/AudioContext'
 import { useIsMobile } from '../hooks/use-mobile'
 import { AltarScene3D } from '../altar/AltarScene3D'
 import { ObjectPanel } from '../altar/ObjectPanel'
+import { BasePanel } from '../altar/BasePanel'
 import { RitualPanel } from '../altar/RitualPanel'
 import { ProgressionPanel } from '../altar/ProgressionPanel'
-import { CATALOG } from '../altar/catalog'
+import { CATALOG, ALTAR_BASES } from '../altar/catalog'
 import {
   loadLocalState,
   saveLocalState,
@@ -23,7 +24,7 @@ import {
   syncProgressionToDb,
   loadProgressionFromDb,
 } from '../altar/altarStore'
-import type { AltarLayout, AltarTheme, PlacedObject, RitualSession, Progression } from '../altar/types'
+import type { AltarLayout, AltarTheme, AltarBaseId, PlacedObject, RitualSession, Progression } from '../altar/types'
 
 const ALTAR_THEMES_LIST: AltarTheme[] = ['stone', 'wood', 'obsidian', 'mystical']
 type AltarVisualPreset = 'soft' | 'cinematic'
@@ -60,7 +61,7 @@ export function Altars({ user }: AltarsProps) {
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newName, setNewName] = useState('')
   const [newTheme, setNewTheme] = useState<AltarTheme>('mystical')
-  const [activeTab, setActiveTab] = useState<'objects' | 'ritual' | 'progress'>('objects')
+  const [activeTab, setActiveTab] = useState<'objects' | 'bases' | 'ritual' | 'progress'>('objects')
   const [fullscreen, setFullscreen] = useState(false)
   const [showAltarList, setShowAltarList] = useState(false)
   const [showThemeMenu, setShowThemeMenu] = useState(false)
@@ -167,6 +168,24 @@ export function Altars({ user }: AltarsProps) {
     playUiSound('success')
     updateLayout({ ...activeLayout, theme })
     setShowThemeMenu(false)
+  }
+
+  function changeBase(baseId: AltarBaseId) {
+    if (!activeLayout) return
+    const base = ALTAR_BASES.find(x => x.id === baseId)
+    if (!base) return
+    if (base.unlockLevel > progression.level) {
+      toast.error(
+        lang === 'ru'
+          ? `Нужен уровень ${base.unlockLevel}`
+          : `Requires level ${base.unlockLevel}`
+      )
+      return
+    }
+    if (activeLayout.baseId === baseId) return
+    playUiSound('success')
+    updateLayout({ ...activeLayout, baseId })
+    toast.success(lang === 'ru' ? 'База алтаря изменена' : 'Altar base changed')
   }
 
   // ── Object interactions ─────────────────────────────────────────────────────
@@ -298,6 +317,7 @@ export function Altars({ user }: AltarsProps) {
     objects:      lang === 'ru' ? 'Объекты'                           : 'Objects',
     ritual:       lang === 'ru' ? 'Ритуал'                            : 'Ritual',
     progress:     lang === 'ru' ? 'Прогресс'                          : 'Progress',
+    bases:        lang === 'ru' ? 'Базы'                              : 'Bases',
     clickToPlace: lang === 'ru' ? 'Нажмите на алтарь для размещения'  : 'Click altar to place',
     selected:     lang === 'ru' ? 'Выбрано:'                          : 'Selected:',
     delete:       lang === 'ru' ? 'Удалить'                           : 'Delete',
@@ -420,7 +440,7 @@ export function Altars({ user }: AltarsProps) {
     )}>
       {/* Tab bar */}
       <div className="flex border-b border-border/30 shrink-0">
-        {(['objects', 'ritual', 'progress'] as const).map(tab => (
+        {(['objects', 'bases', 'ritual', 'progress'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -431,7 +451,13 @@ export function Altars({ user }: AltarsProps) {
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            {tab === 'objects' ? t.objects : tab === 'ritual' ? t.ritual : t.progress}
+            {tab === 'objects'
+              ? t.objects
+              : tab === 'bases'
+                ? t.bases
+                : tab === 'ritual'
+                  ? t.ritual
+                  : t.progress}
           </button>
         ))}
       </div>
@@ -444,6 +470,15 @@ export function Altars({ user }: AltarsProps) {
             unlockedLevel={progression.level}
             pendingDrop={pendingDrop}
             onSelectForDrop={setPendingDrop}
+          />
+        )}
+        {activeTab === 'bases' && activeLayout && (
+          <BasePanel
+            lang={lang as 'en' | 'ru'}
+            unlockedLevel={progression.level}
+            points={progression.points}
+            selectedBaseId={activeLayout.baseId}
+            onSelectBase={changeBase}
           />
         )}
         {activeTab === 'ritual' && (
