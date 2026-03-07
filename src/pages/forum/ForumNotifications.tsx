@@ -22,7 +22,7 @@ export function ForumNotifications({ userId, onClose, onNavigateToTopic }: Props
   async function loadNotifications() {
     try {
       const raw = await blink.db.forumNotifications.list({
-        where: { userId },
+        where: { userId: { eq: userId } },
         orderBy: { createdAt: 'desc' },
         limit: 30,
       })
@@ -32,7 +32,7 @@ export function ForumNotifications({ userId, onClose, onNavigateToTopic }: Props
         (raw as unknown as ForumNotification[]).map(async (n) => {
           try {
             if (n.fromUserId) {
-              const profiles = await blink.db.userProfiles.list({ where: { userId: n.fromUserId }, limit: 1 })
+              const profiles = await blink.db.userProfiles.list({ where: { userId: { eq: n.fromUserId } }, limit: 1 })
               const p = (profiles as any[])[0]
               return { ...n, fromUserName: p?.displayName || n.fromUserId.slice(0, 8) }
             }
@@ -123,7 +123,7 @@ export function ForumNotifications({ userId, onClose, onNavigateToTopic }: Props
 export async function getUnreadNotificationCount(userId: string): Promise<number> {
   try {
     const raw = await blink.db.forumNotifications.list({
-      where: { AND: [{ userId }, { isRead: '0' }] },
+      where: { userId: { eq: userId }, isRead: { eq: '0' } },
       limit: 99,
     })
     return (raw as any[]).length

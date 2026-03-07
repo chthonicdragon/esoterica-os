@@ -1,4 +1,4 @@
-import { blink } from '../blink/client'
+// import { blink } from '../blink/client' // removed
 import type { AltarLayout, PlacedObject, Progression, AltarTheme } from './types'
 import { getLevelFromPoints, getStreakBonus, POINTS_PER_RITUAL } from './types'
 
@@ -107,7 +107,7 @@ export function completeRitual(
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = blink.db as any
+// const db = blink.db as any // removed
 
 export async function syncProgressionToDb(userId: string, progression: Progression) {
   try {

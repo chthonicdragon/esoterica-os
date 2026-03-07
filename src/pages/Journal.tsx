@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
 import { useAudio } from '../contexts/AudioContext'
 import { useIsMobile } from '../hooks/use-mobile'
-import { blink } from '../blink/client'
+// import { blink } from '../blink/client' // removed
 import { Plus, BookOpen, Trash2, ChevronLeft } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { cn } from '../lib/utils'

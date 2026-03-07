@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
-import { blink } from '../blink/client'
+// import { blink } from '../blink/client' // removed
 import toast from 'react-hot-toast'
 import { Globe, User, Sparkles, Layers } from 'lucide-react'
 import { cn } from '../lib/utils'

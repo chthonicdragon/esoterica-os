@@ -1,20 +1,13 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, Suspense } from 'react'
 import { LanguageProvider, useLang } from './contexts/LanguageContext'
 import { AudioProvider, useAudio } from './contexts/AudioContext'
 import { useAuth } from './hooks/useAuth'
-import { blink } from './blink/client'
+// import { blink } from './blink/client' // removed, migrated to Supabase
 import { Sidebar } from './components/layout/Sidebar'
 import { Header } from './components/layout/Header'
 import { Sheet, SheetContent } from './components/ui/sheet'
-import { Dashboard } from './pages/Dashboard'
-import { Altars } from './pages/Altars'
-import { AIMentor } from './pages/AIMentor'
-import { RitualTracker } from './pages/RitualTracker'
-import { SigilLab } from './pages/SigilLab'
-import { Journal } from './pages/Journal'
-import { Marketplace } from './pages/Marketplace'
-import { Settings } from './pages/Settings'
-import { ForumPage } from './pages/forum/ForumPage'
+import * as Pages from './pages'
+import { PageLoader } from './components/PageLoader'
 import { Maximize2 } from 'lucide-react'
 import { useIsMobile } from './hooks/use-mobile'
 
@@ -138,15 +131,17 @@ function AppContent() {
           onMenuClick={isMobile ? () => setIsSidebarOpen(true) : undefined}
         />
         <main className={`flex-1 ${currentPage === 'altars' || currentPage === 'forum' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
-          {currentPage === 'dashboard' && <Dashboard user={user} onNavigate={(p) => handleNavigate(p as Page)} />}
-          {currentPage === 'altars' && <Altars user={user} />}
-          {currentPage === 'ai-mentor' && <AIMentor user={user} />}
-          {currentPage === 'ritual-tracker' && <RitualTracker user={user} />}
-          {currentPage === 'sigil-lab' && <SigilLab user={user} />}
-          {currentPage === 'journal' && <Journal user={user} />}
-          {currentPage === 'forum' && <ForumPage user={user} />}
-          {currentPage === 'marketplace' && <Marketplace />}
-          {currentPage === 'settings' && <Settings user={user} />}
+          <Suspense fallback={<PageLoader />}>
+            {currentPage === 'dashboard' && <Pages.Dashboard user={user} onNavigate={(p) => handleNavigate(p as Page)} />}
+            {currentPage === 'altars' && <Pages.Altars user={user} />}
+            {currentPage === 'ai-mentor' && <Pages.AIMentor user={user} />}
+            {currentPage === 'ritual-tracker' && <Pages.RitualTracker user={user} />}
+            {currentPage === 'sigil-lab' && <Pages.SigilLab user={user} />}
+            {currentPage === 'journal' && <Pages.Journal user={user} />}
+            {currentPage === 'forum' && <Pages.ForumPage user={user} />}
+            {currentPage === 'marketplace' && <Pages.Marketplace />}
+            {currentPage === 'settings' && <Pages.Settings user={user} />}
+          </Suspense>
         </main>
       </div>
     </div>
@@ -236,7 +231,7 @@ function LandingPage() {
 
         {/* CTA */}
         <button
-          onClick={() => blink.auth.login()}
+          // onClick={() => blink.auth.login()} // removed
           className="group relative px-10 py-4 rounded-2xl bg-gradient-to-r from-primary to-[hsl(267,60%,45%)] text-white font-semibold text-sm tracking-wider hover:opacity-90 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_30px_hsl(var(--primary)/0.4)]"
         >
           <span className="relative z-10 font-cinzel tracking-widest">

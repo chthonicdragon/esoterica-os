@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { blink } from '../../blink/client'
+import { supabase } from '../../lib/supabaseClient'
 import { useLang } from '../../contexts/LanguageContext'
 import { useAudio } from '../../contexts/AudioContext'
 import type { ForumCategory, ForumView } from '../../types/forum'
@@ -23,30 +23,12 @@ export function ForumCategories({ onNavigate }: Props) {
   async function loadCounts() {
     // Fetch live topic counts per category from forum_topics (which has user_id)
     try {
-      const allTopics = await blink.db.forumTopics.list({ limit: 500 }) as Array<{ categoryId: string }>
-      const allPosts = await blink.db.forumPosts.list({ where: { isDeleted: '0' }, limit: 1000 }) as Array<{ topicId: string }>
-
-      const topicsByCategory: Record<string, number> = {}
-      for (const t of allTopics) {
-        topicsByCategory[t.categoryId] = (topicsByCategory[t.categoryId] || 0) + 1
-      }
-
-      // Map posts to categories via topics
-      const topicCategoryMap: Record<string, string> = {}
-      for (const t of allTopics as Array<{ id: string; categoryId: string }>) {
-        topicCategoryMap[t.id] = t.categoryId
-      }
-      const postsByCategory: Record<string, number> = {}
-      for (const p of allPosts as Array<{ topicId: string }>) {
-        const catId = topicCategoryMap[p.topicId]
-        if (catId) postsByCategory[catId] = (postsByCategory[catId] || 0) + 1
-      }
-
-      setCategories(prev => prev.map(cat => ({
-        ...cat,
-        topicCount: topicsByCategory[cat.id] || 0,
-        postCount: postsByCategory[cat.id] || 0,
-      })))
+      const { data, error } = await supabase
+        .from('forum_categories')
+        .select('*')
+        .order('sortOrder', { ascending: true })
+      if (error) throw error
+      setCategories((data || []) as ForumCategory[])
     } catch (e) {
       // Counts stay at 0 — categories still render fine
     }

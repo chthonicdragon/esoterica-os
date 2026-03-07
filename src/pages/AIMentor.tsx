@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useLang } from '../contexts/LanguageContext'
-import { blink } from '../blink/client'
+// import { blink } from '../blink/client' // removed
 import { Send, Bot, User, Loader2 } from 'lucide-react'
 import { cn } from '../lib/utils'
 

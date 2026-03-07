@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, memo } from 'react'
 import { Plus, Trash2, Settings2, RotateCcw, Maximize2, Minimize2, List } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { cn } from '../lib/utils'
 import { useLang } from '../contexts/LanguageContext'
 import { useAudio } from '../contexts/AudioContext'
 import { useIsMobile } from '../hooks/use-mobile'
-import { AltarScene3D } from '../altar/AltarScene3D'
+import { AltarScene3D as AltarScene3DBase } from '../altar/AltarScene3D'
 import { ObjectPanel } from '../altar/ObjectPanel'
 import { RitualPanel } from '../altar/RitualPanel'
 import { ProgressionPanel } from '../altar/ProgressionPanel'
@@ -22,6 +22,9 @@ import {
   loadProgressionFromDb,
 } from '../altar/altarStore'
 import type { AltarLayout, AltarTheme, PlacedObject, RitualSession, Progression } from '../altar/types'
+
+// Оптимизация Three.js Canvas с React.memo
+const AltarScene3D = memo(AltarScene3DBase)
 
 const ALTAR_THEMES_LIST: AltarTheme[] = ['stone', 'wood', 'obsidian', 'mystical']
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { blink } from '../../blink/client'
+import { supabase } from '../../lib/supabaseClient'
 import { useLang } from '../../contexts/LanguageContext'
 import { useAudio } from '../../contexts/AudioContext'
 import type { ForumCategory, ForumTopic, ForumView } from '../../types/forum'
@@ -10,10 +10,6 @@ interface Props {
   user: { id: string; email: string; displayName?: string }
   categoryId: string
   onNavigate: (to: ForumView, params?: { categoryId?: string; topicId?: string }) => void
-}
-
-const ARCHETYPE_LEVELS: Record<number, string> = {
-  1: 'Seeker', 2: 'Initiate', 3: 'Adept', 4: 'Mystic', 5: 'Sage',
 }
 
 export function ForumCategoryView({ user, categoryId, onNavigate }: Props) {
@@ -28,26 +24,40 @@ export function ForumCategoryView({ user, categoryId, onNavigate }: Props) {
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const rawTopics = await blink.db.forumTopics.list({
-        where: { categoryId },
-        orderBy: { createdAt: 'desc' },
-        limit: PAGE_SIZE,
-        offset: page * PAGE_SIZE,
-      })
-      setCategory(getStaticCategory(categoryId))
+      const from = page * PAGE_SIZE
+      const to = from + PAGE_SIZE - 1
+      const [catRes, topicsRes] = await Promise.all([
+        supabase
+          .from('forum_categories')
+          .select('*')
+          .eq('id', categoryId)
+          .maybeSingle(),
+        supabase
+          .from('forum_topics')
+          .select('*')
+          .eq('categoryId', categoryId)
+          .order('createdAt', { ascending: false })
+          .range(from, to),
+      ])
+
+      const rawTopics = (topicsRes.data || []) as unknown as ForumTopic[]
+      setCategory((catRes.data as unknown as ForumCategory) || getStaticCategory(categoryId))
 
       // Fetch author names
       const topicsWithAuthors = await Promise.all(
-        (rawTopics as unknown as ForumTopic[]).map(async (topic) => {
+        rawTopics.map(async (topic) => {
           try {
-            const profile = await blink.db.userProfiles.list({ where: { userId: topic.userId }, limit: 1 })
-            const p = (profile as any[])[0]
+            const { data: p } = await supabase
+              .from('userProfiles')
+              .select('displayName')
+              .eq('userId', topic.userId)
+              .maybeSingle()
             return {
               ...topic,
-              authorName: p?.displayName || topic.userId.slice(0, 8),
+              authorName: p?.displayName || topic.userId?.slice(0, 8),
             }
           } catch {
-            return { ...topic, authorName: topic.userId.slice(0, 8) }
+            return { ...topic, authorName: topic.userId?.slice(0, 8) }
           }
         })
       )

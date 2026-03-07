@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
 import { getMoonPhase, moonEmoji, moonEnergy, moonEnergyRu } from '../utils/moonPhase'
-import { blink } from '../blink/client'
+// import { blink } from '../blink/client' // removed
 import { FlameKindling, Sparkles, BookOpen, Moon, TrendingUp, Star, Zap, MessageSquare } from 'lucide-react'
 
 interface Profile {

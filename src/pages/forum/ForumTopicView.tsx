@@ -33,7 +33,7 @@ export function ForumTopicView({ user, topicId, onNavigate }: Props) {
       const [rawTopic, rawPosts] = await Promise.all([
         blink.db.forumTopics.get(topicId),
         blink.db.forumPosts.list({
-          where: { AND: [{ topicId }, { isDeleted: '0' }] },
+          where: { topicId: { eq: topicId }, isDeleted: { eq: '0' } },
           orderBy: { createdAt: 'asc' },
           limit: 100,
         }),
@@ -46,8 +46,8 @@ export function ForumTopicView({ user, topicId, onNavigate }: Props) {
         (rawPosts as unknown as ForumPost[]).map(async (post) => {
           try {
             const [profiles, likedByMe] = await Promise.all([
-              blink.db.userProfiles.list({ where: { userId: post.userId }, limit: 1 }),
-              blink.db.forumLikes.list({ where: { AND: [{ postId: post.id }, { userId: user.id }] }, limit: 1 }),
+              blink.db.userProfiles.list({ where: { userId: { eq: post.userId } }, limit: 1 }),
+              blink.db.forumLikes.list({ where: { postId: { eq: post.id }, userId: { eq: user.id } }, limit: 1 }),
             ])
             const p = (profiles as any[])[0]
             return {
@@ -143,7 +143,7 @@ export function ForumTopicView({ user, topicId, onNavigate }: Props) {
     playUiSound('click')
     try {
       if (post.isLikedByMe) {
-        const likes = await blink.db.forumLikes.list({ where: { AND: [{ postId: post.id }, { userId: user.id }] } })
+        const likes = await blink.db.forumLikes.list({ where: { postId: { eq: post.id }, userId: { eq: user.id } } })
         if ((likes as any[]).length > 0) {
           await blink.db.forumLikes.delete((likes as any[])[0].id)
           await blink.db.forumPosts.update(post.id, { likeCount: Math.max(0, post.likeCount - 1) })

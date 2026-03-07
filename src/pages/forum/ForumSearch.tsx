@@ -32,7 +32,7 @@ export function ForumSearch({ onNavigate, initialQuery = '' }: Props) {
     try {
       // Search in posts content
       const allPosts = await blink.db.forumPosts.list({
-        where: { isDeleted: '0' },
+        where: { isDeleted: { eq: '0' } },
         limit: 200,
       })
 
