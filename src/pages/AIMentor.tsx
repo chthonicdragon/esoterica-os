@@ -429,14 +429,6 @@ Respond in English in 4 blocks:
           ))}
 
           {loading && (
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-card border border-border/40 flex items-center justify-center text-sm flex-shrink-0">
-                {archetypeInfo.emoji}
-              </div>
-              <div className="rounded-2xl rounded-tl-none bg-card border border-border/40 px-4 py-3">
-                <Loader2 className="w-4 h-4 text-primary animate-spin" />
-              </div>
-            </div>
           )}
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-full bg-card border border-border/40 flex items-center justify-center text-sm flex-shrink-0">
