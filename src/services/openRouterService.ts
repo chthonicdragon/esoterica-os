@@ -102,6 +102,18 @@ function isRetryableMentorError(message: string): boolean {
   );
 }
 
+function getRateLimitSnapshot(res: Response) {
+  return {
+    retryAfter: res.headers.get("retry-after") || "-",
+    limitRequests: res.headers.get("x-ratelimit-limit-requests") || "-",
+    limitTokens: res.headers.get("x-ratelimit-limit-tokens") || "-",
+    remainingRequests: res.headers.get("x-ratelimit-remaining-requests") || "-",
+    remainingTokens: res.headers.get("x-ratelimit-remaining-tokens") || "-",
+    resetRequests: res.headers.get("x-ratelimit-reset-requests") || "-",
+    resetTokens: res.headers.get("x-ratelimit-reset-tokens") || "-",
+  };
+}
+
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
 function extractJSON(raw: string): string {
@@ -346,14 +358,16 @@ async function fetchWithFallback(body: object, modelIndex = 0): Promise<string> 
     body: JSON.stringify({ ...body, model }),
   }, REQUEST_TIMEOUT_MS);
 
+  const rate = getRateLimitSnapshot(res);
+
   if (res.status === 429 || res.status === 404 || res.status === 400) {
-    console.warn(`[AI:${PROVIDER}] ${model} -> ${res.status}, switching to next model...`);
+    console.warn(`[AI:${PROVIDER}] ${model} -> ${res.status}, switching to next model...`, rate);
     return fetchWithFallback(body, modelIndex + 1);
   }
 
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`[AI:${PROVIDER}] HTTP ${res.status}: ${errText}`);
+    throw new Error(`[AI:${PROVIDER}] HTTP ${res.status}: ${errText} | rate=${JSON.stringify(rate)}`);
   }
 
   const json = await res.json();
