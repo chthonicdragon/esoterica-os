@@ -30,6 +30,9 @@ const TABLE_FALLBACK_MAP: Record<string, string> = {
   forumReports: 'forum_reports',
 }
 
+const TABLE_SELECTION_CACHE: Record<string, string> = {}
+const TABLE_MISSING_CACHE = new Set<string>()
+
 function mapTable(entity: string): string {
   return TABLE_MAP[entity] || entity
 }
@@ -45,9 +48,24 @@ function isMissingTableError(error: any): boolean {
 }
 
 function getTableCandidates(entity: string): string[] {
+  const selected = TABLE_SELECTION_CACHE[entity]
+  if (selected) return [selected]
+
   const primary = mapTable(entity)
   const fallback = TABLE_FALLBACK_MAP[entity]
-  return [primary, fallback].filter((v, i, arr): v is string => !!v && arr.indexOf(v) === i)
+  const unique = [primary, fallback].filter((v, i, arr): v is string => !!v && arr.indexOf(v) === i)
+  const filtered = unique.filter((table) => !TABLE_MISSING_CACHE.has(`${entity}:${table}`))
+
+  // If both candidates were marked missing in this runtime, retry the unique set once.
+  return filtered.length ? filtered : unique
+}
+
+function rememberResolvedTable(entity: string, table: string) {
+  TABLE_SELECTION_CACHE[entity] = table
+}
+
+function markMissingTable(entity: string, table: string) {
+  TABLE_MISSING_CACHE.add(`${entity}:${table}`)
 }
 
 async function list(entity: string, options: ListOptions = {}) {
@@ -80,9 +98,13 @@ async function list(entity: string, options: ListOptions = {}) {
     }
 
     const { data, error } = await query
-    if (!error) return data || []
+    if (!error) {
+      rememberResolvedTable(entity, table)
+      return data || []
+    }
 
     lastError = error
+    if (isMissingTableError(error)) markMissingTable(entity, table)
     if (!isMissingTableError(error)) throw error
   }
 
@@ -99,9 +121,13 @@ async function get(entity: string, id: string) {
       .select('*')
       .eq('id', id)
       .maybeSingle()
-    if (!error) return data
+    if (!error) {
+      rememberResolvedTable(entity, table)
+      return data
+    }
 
     lastError = error
+    if (isMissingTableError(error)) markMissingTable(entity, table)
     if (!isMissingTableError(error)) throw error
   }
 
@@ -118,9 +144,13 @@ async function create(entity: string, payload: Record<string, unknown>) {
       .insert(payload)
       .select('*')
       .maybeSingle()
-    if (!error) return data
+    if (!error) {
+      rememberResolvedTable(entity, table)
+      return data
+    }
 
     lastError = error
+    if (isMissingTableError(error)) markMissingTable(entity, table)
     if (!isMissingTableError(error)) throw error
   }
 
@@ -138,9 +168,13 @@ async function update(entity: string, id: string, payload: Record<string, unknow
       .eq('id', id)
       .select('*')
       .maybeSingle()
-    if (!error) return data
+    if (!error) {
+      rememberResolvedTable(entity, table)
+      return data
+    }
 
     lastError = error
+    if (isMissingTableError(error)) markMissingTable(entity, table)
     if (!isMissingTableError(error)) throw error
   }
 
@@ -156,9 +190,13 @@ async function remove(entity: string, id: string) {
       .from(table)
       .delete()
       .eq('id', id)
-    if (!error) return true
+    if (!error) {
+      rememberResolvedTable(entity, table)
+      return true
+    }
 
     lastError = error
+    if (isMissingTableError(error)) markMissingTable(entity, table)
     if (!isMissingTableError(error)) throw error
   }
 
