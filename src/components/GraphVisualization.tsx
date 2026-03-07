@@ -3,11 +3,13 @@ import * as d3 from 'd3';
 import { ZoomIn, ZoomOut, Maximize } from 'lucide-react';
 import { useDebounce } from 'use-debounce';
 import { GraphData, Node, Link } from '../services/openRouterService';
+import { getRelationLabel } from '../lib/relationLabels';
 
 interface GraphVisualizationProps {
   data: GraphData;
   onNodeClick?: (node: Node) => void;
   onLinkClick?: (link: Link) => void;
+  lang?: 'en' | 'ru';
   searchQuery?: string;
   visibleTypes?: Set<string>;
   selectedNodeId?: string | null;
@@ -47,6 +49,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
   data,
   onNodeClick,
   onLinkClick,
+  lang = 'en',
   searchQuery = '',
   visibleTypes = new Set(['deity', 'spirit', 'ritual', 'symbol', 'concept', 'place', 'creature', 'artifact', 'spell']),
   selectedNodeId = null,
@@ -321,7 +324,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
         if (highlights.nodes.size > 0) return highlights.links.has(id) ? 1 : 0.02;
         return 0.7;
       })
-      .text(d => d.relation);
+      .text(d => getRelationLabel(d.relation, lang));
 
     const node = g.append("g")
       .selectAll("g").data(nodes).join("g")
@@ -416,7 +419,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
         simulationRef.current = null;
       }
     };
-  }, [filteredData, data.links, data.nodes, onLinkClick, onNodeClick, debouncedDimensions]);
+  }, [filteredData, data.links, data.nodes, onLinkClick, onNodeClick, debouncedDimensions, lang]);
 
   useEffect(() => {
     if (!svgRef.current) return;

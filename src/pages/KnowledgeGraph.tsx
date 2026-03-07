@@ -14,6 +14,7 @@ import KnowledgeWebGuideModal from '../components/KnowledgeWebGuideModal'
 import { useLang } from '../contexts/LanguageContext'
 import { getKnowledgeWeavePoints, grantProgressionPoints, syncProgressionToDb } from '../altar/altarStore'
 import { mapAiErrorMessage } from '../lib/aiErrorMessages'
+import { getRelationLabel } from '../lib/relationLabels'
 
 const STORAGE_KEY = 'esoteric_knowledge_web_v1'
 const ALL_TYPES = ['deity', 'spirit', 'ritual', 'symbol', 'concept', 'place', 'creature', 'artifact', 'spell']
@@ -838,6 +839,7 @@ export function KnowledgeGraph({ user }: Props) {
                 data={graphData}
                 onNodeClick={handleNodeClick}
                 onLinkClick={handleLinkClick}
+                lang={lang as 'en' | 'ru'}
                 searchQuery={searchQuery}
                 visibleTypes={activeVisibleTypes}
                 selectedNodeId={selectedNode?.id}
@@ -962,7 +964,7 @@ export function KnowledgeGraph({ user }: Props) {
                                         >
                                           <div className="flex items-center justify-between gap-2">
                                             <span className="text-xs text-foreground truncate">{linkedNode.name}</span>
-                                            <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-primary/20 bg-primary/10 text-primary/80 shrink-0">{link.relation}</span>
+                                            <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-primary/20 bg-primary/10 text-primary/80 shrink-0">{getRelationLabel(link.relation, lang as 'en' | 'ru')}</span>
                                           </div>
                                         </button>
                                       )
@@ -1006,7 +1008,7 @@ export function KnowledgeGraph({ user }: Props) {
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <span className="text-foreground font-medium truncate">{typeof selectedLink.source === 'string' ? selectedLink.source : (selectedLink.source as any).name}</span>
-                      <span className="text-primary/60 text-[10px] px-2 py-0.5 bg-primary/10 rounded-full border border-primary/20 shrink-0">{selectedLink.relation}</span>
+                      <span className="text-primary/60 text-[10px] px-2 py-0.5 bg-primary/10 rounded-full border border-primary/20 shrink-0">{getRelationLabel(selectedLink.relation, lang as 'en' | 'ru')}</span>
                       <span className="text-foreground font-medium truncate">{typeof selectedLink.target === 'string' ? selectedLink.target : (selectedLink.target as any).name}</span>
                     </div>
                   </motion.div>
