@@ -93,9 +93,9 @@ export default function KnowledgeWebGuideModal({ open, lang, onClose }: Knowledg
             initial={{ opacity: 0, y: 18, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 18, scale: 0.98 }}
-            className="fixed left-1/2 top-1/2 z-[90] flex h-[90dvh] max-h-[900px] w-[96vw] max-w-[920px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-white/15 bg-[hsl(var(--sidebar))]/97 shadow-2xl sm:w-[95vw]"
+            className="fixed inset-0 z-[90] flex h-[100dvh] w-screen flex-col overflow-hidden rounded-none border-0 bg-[hsl(var(--sidebar))]/98 shadow-2xl sm:inset-auto sm:left-1/2 sm:top-1/2 sm:h-[90dvh] sm:max-h-[900px] sm:w-[95vw] sm:max-w-[920px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:border-white/15"
           >
-            <div className="sticky top-0 z-10 border-b border-white/10 bg-[hsl(var(--sidebar))]/95 px-4 py-3 sm:px-6 sm:py-4">
+            <div className="sticky top-0 z-10 border-b border-white/10 bg-[hsl(var(--sidebar))]/95 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-6 sm:py-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="mb-1 flex items-center gap-2">
@@ -162,7 +162,7 @@ export default function KnowledgeWebGuideModal({ open, lang, onClose }: Knowledg
               </section>
             </div>
 
-            <div className="sticky bottom-0 z-10 border-t border-white/10 bg-[hsl(var(--sidebar))]/95 px-4 py-3 sm:px-6">
+            <div className="sticky bottom-0 z-10 border-t border-white/10 bg-[hsl(var(--sidebar))]/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">
               <button
                 onClick={onClose}
                 className="w-full rounded-xl border border-primary/40 px-3 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10 sm:ml-auto sm:w-auto"
