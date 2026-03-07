@@ -14,6 +14,7 @@ import KnowledgeWebGuideModal from '../components/KnowledgeWebGuideModal'
 import { useLang } from '../contexts/LanguageContext'
 import { getKnowledgeWeavePoints, grantProgressionPoints, syncProgressionToDb } from '../altar/altarStore'
 import { mapAiErrorMessage } from '../lib/aiErrorMessages'
+import { SpiderWebIcon } from '../components/icons/SpiderWebIcon'
 import { getRelationLabel } from '../lib/relationLabels'
 
 const STORAGE_KEY = 'esoteric_knowledge_web_v1'
@@ -596,7 +597,7 @@ export function KnowledgeGraph({ user }: Props) {
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-primary/10 rounded-lg">
-              <Sparkles className="w-4 h-4 text-primary" />
+              <SpiderWebIcon className="w-4 h-4 text-primary" />
             </div>
             <span className="text-xs font-mono uppercase tracking-widest text-primary/70">{t.subtitle}</span>
           </div>

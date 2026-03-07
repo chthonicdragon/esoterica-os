@@ -349,13 +349,18 @@ export function Settings({ user }: SettingsProps) {
                 </p>
                 <ul className="space-y-1.5 pl-3">
                   {[
-                    lang === 'ru' ? '🕸 Arachna — паутина знаний: визуализация узлов и потоков энергии' : '🕸 Arachna — knowledge web: visualise nodes and energy flows',
-                    lang === 'ru' ? '🕯 Алтари: создание, редактирование и наблюдение за алтарями' : '🕯 Altars: create, edit, and observe their influence',
-                    lang === 'ru' ? '✦ Ритуалы: настройка и выполнение с визуальной обратной связью' : '✦ Rituals: configure and perform with visual feedback',
-                    lang === 'ru' ? '🤖 AI Mentor: помощник для объяснений и интеграции знаний' : '🤖 AI Mentor: assistant for explanations and knowledge integration',
-                    lang === 'ru' ? '🏅 Бейджи и репутация: достижения и вклад в сообщество' : '🏅 Badges & reputation: achievements and community contribution',
-                    lang === 'ru' ? '💬 Форумы: обмен опытом и публикация идей' : '💬 Forums: share experience and publish ideas',
-                    lang === 'ru' ? '📓 Дневники снов и заметки с синхронизацией в граф знаний' : '📓 Dream journals and notes synced to the knowledge graph',
+                    lang === 'ru' ? '🕸 Паутина знаний — визуализация сущностей, связей и потоков энергии с аналитикой и ритуальным слоем' : '🕸 Knowledge Web — visualise entities, links & energy flows with analytics and ritual layer',
+                    lang === 'ru' ? '🕯 3D-Алтари: создание, декорирование, ритуалы и система прогрессии с XP и уровнями' : '🕯 3D Altars: create, decorate, perform rituals & progression system with XP and levels',
+                    lang === 'ru' ? '✦ Трекер ритуалов: планирование, выполнение с таймером, лунные фазы и история' : '✦ Ritual Tracker: planning, timed execution, moon phases & history',
+                    lang === 'ru' ? '🤖 ИИ Наставник: чат с архетипами (Геката, Тот, Один), анализ практики, память контекста' : '🤖 AI Mentor: chat with archetypes (Hecate, Thoth, Odin), practice analysis, context memory',
+                    lang === 'ru' ? '✨ Лаборатория сигил: генерация сигил из намерений, зарядка, экспорт SVG, интеграция с XP' : '✨ Sigil Lab: generate sigils from intentions, charge, export SVG, XP integration',
+                    lang === 'ru' ? '📓 Журнал снов: записи снов и заметки с автоматическим извлечением символов в паутину знаний' : '📓 Dream Journal: dream entries & notes with automatic symbol extraction to the knowledge web',
+                    lang === 'ru' ? '💬 Форум: обсуждения, публикации, комментарии, репутация и уведомления' : '💬 Forum: discussions, posts, comments, reputation & notifications',
+                    lang === 'ru' ? '📈 Система прогрессии: единый XP из ритуалов, журнала, паутины и алтарей, 10 уровней, разблокировки' : '📈 Progression System: unified XP from rituals, journal, web & altars, 10 levels, unlocks',
+                    lang === 'ru' ? '🌙 Лунный календарь: фазы луны с энергетическими рекомендациями на главной' : '🌙 Moon Calendar: moon phases with energy recommendations on dashboard',
+                    lang === 'ru' ? '🏅 Бейджи и достижения: награды за вклад и активность в сообществе' : '🏅 Badges & achievements: rewards for contribution and community activity',
+                    lang === 'ru' ? '🛒 Маркетплейс: эзотерические товары и ресурсы (в разработке)' : '🛒 Marketplace: esoteric goods and resources (in development)',
+                    lang === 'ru' ? '🌐 Мультиязычность: полная поддержка English / Русский' : '🌐 Multilingual: full English / Russian support',
                   ].map((item, i) => (
                     <li key={i} className="flex gap-2">{item}</li>
                   ))}

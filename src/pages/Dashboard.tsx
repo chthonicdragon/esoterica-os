@@ -2,7 +2,10 @@ import React, { useEffect, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
 import { getMoonPhase, moonEmoji, moonEnergy, moonEnergyRu } from '../utils/moonPhase'
 import { db } from '../lib/platformClient'
-import { FlameKindling, Sparkles, BookOpen, Moon, TrendingUp, Star, Zap, MessageSquare, Network, Bell, X } from 'lucide-react'
+import { FlameKindling, Sparkles, BookOpen, Moon, TrendingUp, Star, Zap, MessageSquare, ChevronUp, ChevronDown } from 'lucide-react'
+import { SpiderWebIcon } from '../components/icons/SpiderWebIcon'
+import { ProgressionPanel } from '../altar/ProgressionPanel'
+import { loadLocalState } from '../altar/altarStore'
 import {
   clearUnlockNotifications,
   getUnlockNotifications,
@@ -60,8 +63,11 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
   const [unreadCount, setUnreadCount] = useState(0)
   const [showNotifications, setShowNotifications] = useState(false)
   const [notificationFilter, setNotificationFilter] = useState<'all' | 'feature' | 'item' | 'base'>('all')
+  const [showProgression, setShowProgression] = useState(false)
   const moonPhase = getMoonPhase()
   const energy = lang === 'ru' ? moonEnergyRu[moonPhase] : moonEnergy[moonPhase]
+  const altarState = loadLocalState()
+  const progression = altarState.progression
 
   useEffect(() => {
     loadData()
@@ -138,7 +144,6 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
 
   const currentLevel = INITIATION_LEVELS.find(l => l.level === (profile?.initiationLevel || 1)) || INITIATION_LEVELS[0]
   const nextLevel = INITIATION_LEVELS.find(l => l.level === (profile?.initiationLevel || 1) + 1)
-  const progress = nextLevel ? Math.min(100, ((profile?.totalRituals || 0) - currentLevel.min) / (nextLevel.min - currentLevel.min) * 100) : 100
 
   const quickActions = [
     { icon: Moon, label: t.newRitual, action: () => onNavigate('ritual-tracker'), color: 'text-blue-400' },
@@ -146,7 +151,7 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
     { icon: Sparkles, label: t.generateSigil, action: () => onNavigate('sigil-lab'), color: 'text-yellow-400' },
     { icon: FlameKindling, label: t.openAltar, action: () => onNavigate('altars'), color: 'text-orange-400' },
     { icon: MessageSquare, label: (t as any).forum || 'Forum', action: () => onNavigate('forum'), color: 'text-purple-400' },
-    { icon: Network, label: (t as any).knowledgeGraph || 'Knowledge Graph', action: () => onNavigate('knowledge-graph'), color: 'text-cyan-400' },
+    { icon: SpiderWebIcon, label: (t as any).knowledgeGraph || 'Knowledge Graph', action: () => onNavigate('knowledge-graph'), color: 'text-cyan-400' },
   ]
 
   const filteredNotifications = notifications.filter(note => {
@@ -285,21 +290,33 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
         ))}
       </div>
 
-      {/* Initiation Progress */}
+      {/* Progression Button + Panel */}
       <div className="rounded-xl bg-card border border-border/40 p-4">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-medium text-foreground">{t.initiationLevel}: {lang === 'ru' ? currentLevel.nameRu : currentLevel.name}</span>
-          {nextLevel && (
-            <span className="text-xs text-muted-foreground">→ {lang === 'ru' ? nextLevel.nameRu : nextLevel.name}</span>
-          )}
-        </div>
-        <div className="h-2 rounded-full bg-muted overflow-hidden">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-primary to-[hsl(var(--neon))] transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        <p className="text-xs text-muted-foreground mt-2">{profile?.totalRituals || 0} / {nextLevel?.min || '∞'} rituals</p>
+        <button
+          onClick={() => setShowProgression(prev => !prev)}
+          className="w-full flex items-center justify-between group"
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center text-primary font-bold text-xs">
+              {progression.level}
+            </div>
+            <div className="text-left">
+              <span className="text-sm font-medium text-foreground">
+                {lang === 'ru' ? 'Прогресс практики' : 'Practice Progress'}
+              </span>
+              <p className="text-[10px] text-muted-foreground">{progression.points} XP · {lang === 'ru' ? 'Уровень' : 'Level'} {progression.level}</p>
+            </div>
+          </div>
+          {showProgression
+            ? <ChevronUp className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+            : <ChevronDown className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+          }
+        </button>
+        {showProgression && (
+          <div className="mt-4 border-t border-border/30 pt-4">
+            <ProgressionPanel lang={lang as 'en' | 'ru'} progression={progression} />
+          </div>
+        )}
       </div>
 
       {/* Quick Actions */}

@@ -453,8 +453,8 @@ function LandingPage() {
         </p>
         <p className="text-sm text-muted-foreground mb-10 max-w-md mx-auto leading-relaxed">
           {lang === 'ru'
-            ? 'Цифровые алтари · ИИ Наставник · Трекер ритуалов · Лаборатория сигил · Дневник снов'
-            : 'Digital Altars · AI Mentor · Ritual Tracker · Sigil Lab · Dream Journal'
+            ? '3D-Алтари · ИИ Наставник · Трекер ритуалов · Лаборатория сигил · Дневник снов · Паутина знаний · Форум · Система прогрессии'
+            : 'Digital Altars · AI Mentor · Ritual Tracker · Sigil Lab · Dream Journal · Knowledge Web · Forum · Progression System'
           }
         </p>
 
@@ -463,8 +463,12 @@ function LandingPage() {
           {[
             { en: 'Archetype AI', ru: 'Архетипный ИИ', emoji: '🤖' },
             { en: 'Moon Phases', ru: 'Фазы Луны', emoji: '🌙' },
-            { en: 'Digital Altars', ru: 'Цифровые Алтари', emoji: '🕯️' },
+            { en: '3D Altars', ru: '3D Алтари', emoji: '🕯️' },
             { en: 'Sigil Lab', ru: 'Лаборатория Сигил', emoji: '✨' },
+            { en: 'Knowledge Web', ru: 'Паутина знаний', emoji: '🕸' },
+            { en: 'Dream Journal', ru: 'Дневник снов', emoji: '📓' },
+            { en: 'Forum', ru: 'Форум', emoji: '💬' },
+            { en: 'Progression & XP', ru: 'Прогрессия и XP', emoji: '📈' },
             { en: 'EN / RU', ru: 'EN / RU', emoji: '🌐' },
           ].map(chip => (
             <div key={chip.en} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-xs text-primary">
