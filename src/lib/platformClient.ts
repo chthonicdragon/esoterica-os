@@ -8,6 +8,28 @@ type ListOptions = {
   offset?: number
 }
 
+type DbEntityApi = {
+  list: (options?: ListOptions) => Promise<any[]>
+  get: (id: string) => Promise<any>
+  create: (payload: Record<string, unknown>) => Promise<any>
+  update: (id: string, payload: Record<string, unknown>) => Promise<any>
+  delete: (id: string) => Promise<boolean>
+}
+
+type DbClient = {
+  userProfiles: DbEntityApi
+  rituals: DbEntityApi
+  journals: DbEntityApi
+  sigils: DbEntityApi
+  forumCategories: DbEntityApi
+  forumTopics: DbEntityApi
+  forumPosts: DbEntityApi
+  forumNotifications: DbEntityApi
+  forumLikes: DbEntityApi
+  forumReports: DbEntityApi
+  [key: string]: DbEntityApi
+}
+
 const TABLE_MAP: Record<string, string> = {
   userProfiles: 'userProfiles',
   rituals: 'rituals',
@@ -214,7 +236,7 @@ export const db = new Proxy(
       delete: (id: string) => remove(entity, id),
     }),
   }
-)
+) as DbClient
 
 export const auth = {
   logout: async () => {

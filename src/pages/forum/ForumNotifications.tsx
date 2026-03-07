@@ -54,9 +54,17 @@ export function ForumNotifications({ userId, onClose, onNavigateToTopic }: Props
       // Mark all as read
       const unread = enriched.filter(n => Number(n.isRead) === 0)
       await Promise.all(
-        unread.map(n =>
-          supabase.from('forumNotifications').update({ isRead: 1 }).eq('id', n.id).catch(() => {})
-        )
+        unread.map(async (n) => {
+          try {
+            const { error } = await supabase
+              .from('forumNotifications')
+              .update({ isRead: 1 })
+              .eq('id', n.id)
+            if (error) throw error
+          } catch {
+            // Ignore notification read failures to avoid blocking the UI.
+          }
+        })
       )
     } catch (e) {
       console.error(e)

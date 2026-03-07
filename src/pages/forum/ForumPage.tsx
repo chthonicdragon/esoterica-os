@@ -9,7 +9,7 @@ import { ForumSearch } from './ForumSearch'
 import type { ForumView } from '../../types/forum'
 
 interface ForumPageProps {
-  user: { id: string; email: string; displayName?: string }
+  user: { id: string; email?: string; displayName?: string }
 }
 
 export function ForumPage({ user }: ForumPageProps) {

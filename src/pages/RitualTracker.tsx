@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
 import { useAudio } from '../contexts/AudioContext'
 import { db } from '../lib/platformClient'
-import { getMoonPhase, moonEmoji, moonEnergy, moonEnergyRu } from '../utils/moonPhase'
+import { getMoonPhase, moonEmoji, moonEnergy, moonEnergyRu, type MoonPhase } from '../utils/moonPhase'
 import { Plus, Moon, Trash2, TrendingUp, X } from 'lucide-react'
 import SunCalc from 'suncalc'
 import toast from 'react-hot-toast'
@@ -57,6 +57,8 @@ interface HecateDay {
   titleEn: string
   meaningRu: string
   meaningEn: string
+  detailsRu: string
+  detailsEn: string
 }
 
 interface MagicalHoliday {
@@ -207,6 +209,8 @@ function getHecateDays(baseDate: Date): HecateDay[] {
       titleEn: 'Deipnon',
       meaningRu: 'Очищение, подношения, закрытие циклов',
       meaningEn: 'Cleansing, offerings, and cycle closure',
+      detailsRu: 'Вечер перед новолунием. В традиции Гекаты этот день посвящают очищению дома и алтаря, вынесению старого, защитным практикам и подношениям на перекрестке. Хорошее время для завершения незакрытых магических процессов.',
+      detailsEn: 'The evening before the new moon. In Hecate practice this day is for cleansing home and altar, removing stale energy, protective work, and offerings at crossroads. It is ideal for closing unfinished magical cycles.',
     },
     {
       id: 'noumenia',
@@ -216,6 +220,8 @@ function getHecateDays(baseDate: Date): HecateDay[] {
       titleEn: 'Noumenia',
       meaningRu: 'Новые начала',
       meaningEn: 'New beginnings',
+      detailsRu: 'Первый день нового лунного цикла. Подходит для формулирования намерений, мягких стартов, благословения пространства и семейного очага. Лучше делать ясные, короткие ритуалы на рост и настройку курса.',
+      detailsEn: 'The first day of the new lunar cycle. Excellent for intention-setting, gentle beginnings, blessing your space, and household harmony. Best used for clear, concise rites focused on growth and direction.',
     },
     {
       id: 'agathos-daimon',
@@ -225,6 +231,8 @@ function getHecateDays(baseDate: Date): HecateDay[] {
       titleEn: 'Agathos Daimon',
       meaningRu: 'Благословение и защита',
       meaningEn: 'Blessing and protection',
+      detailsRu: 'День доброго духа-хранителя после начала месяца. Фокус на укреплении защиты, подпитке удачи, благодарности и закреплении намерений Noumenia через практические шаги.',
+      detailsEn: 'The day of the benevolent household spirit after the month begins. Focus on strengthening protection, nourishing luck, gratitude, and grounding Noumenia intentions into practical steps.',
     },
   ]
 }
@@ -448,6 +456,7 @@ export function RitualTracker({ user }: RitualTrackerProps) {
   const [loading, setLoading] = useState(true)
   const [activeWheel, setActiveWheel] = useState<'slavic' | 'neopagan' | 'hellenic'>('slavic')
   const [selectedFestival, setSelectedFestival] = useState<FestivalDay | null>(null)
+  const [selectedHecateDay, setSelectedHecateDay] = useState<HecateDay | null>(null)
   const [planetaryHours, setPlanetaryHours] = useState<PlanetaryHour[]>([])
   const [planetaryLoading, setPlanetaryLoading] = useState(true)
   const [planetaryError, setPlanetaryError] = useState<string | null>(null)
@@ -818,11 +827,13 @@ export function RitualTracker({ user }: RitualTrackerProps) {
           {hecateDays.map((day) => {
             const isToday = startOfDay(day.date).toDateString() === todayDayKey
             return (
-              <div
+              <button
+                type="button"
                 key={day.id}
+                onClick={() => setSelectedHecateDay(day)}
                 className={cn(
-                  'rounded-xl border p-3 transition-colors',
-                  isToday ? 'border-primary/40 bg-primary/10' : 'border-border/40 bg-background/20'
+                  'rounded-xl border p-3 text-left transition-colors hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/35',
+                  isToday ? 'border-primary/40 bg-primary/10' : 'border-border/40 bg-background/20 hover:bg-background/30'
                 )}
               >
                 <p className="text-sm font-semibold text-foreground">{day.icon} {lang === 'ru' ? day.titleRu : day.titleEn}</p>
@@ -830,11 +841,39 @@ export function RitualTracker({ user }: RitualTrackerProps) {
                 <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
                   {lang === 'ru' ? day.meaningRu : day.meaningEn}
                 </p>
-              </div>
+                <p className="text-[11px] text-primary/80 mt-2">
+                  {lang === 'ru' ? 'Нажми для подробного описания' : 'Tap for full description'}
+                </p>
+              </button>
             )
           })}
         </div>
       </div>
+
+      {selectedHecateDay && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-card border border-primary/20 shadow-2xl p-4 animate-fade-in">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-xl">{selectedHecateDay.icon}</span>
+                <p className="text-sm font-semibold text-foreground truncate">
+                  {lang === 'ru' ? selectedHecateDay.titleRu : selectedHecateDay.titleEn}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedHecateDay(null)}
+                className="p-1 rounded-md hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-[11px] text-primary/80 mb-2">{selectedHecateDay.date.toLocaleDateString()}</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {lang === 'ru' ? selectedHecateDay.detailsRu : selectedHecateDay.detailsEn}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Planetary Hours */}
       <div className="rounded-2xl bg-card border border-border/40 p-5 space-y-3">
@@ -1096,7 +1135,7 @@ export function RitualTracker({ user }: RitualTrackerProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <select
               value={form.moonPhaseForRitual}
-              onChange={e => setForm(p => ({ ...p, moonPhaseForRitual: e.target.value }))}
+              onChange={e => setForm(p => ({ ...p, moonPhaseForRitual: e.target.value as MoonPhase }))}
               className="bg-background border border-border rounded-xl px-4 py-2.5 text-sm outline-none"
             >
               {Object.entries(t.moonPhases).map(([key, label]) => (
