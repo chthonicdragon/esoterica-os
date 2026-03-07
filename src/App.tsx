@@ -10,6 +10,7 @@ import * as Pages from './pages'
 import { PageLoader } from './components/PageLoader'
 import { Maximize2 } from 'lucide-react'
 import { useIsMobile } from './hooks/use-mobile'
+import { supabase } from './lib/supabaseClient'
 
 type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'journal' | 'forum' | 'marketplace' | 'settings'
 
@@ -151,6 +152,19 @@ function AppContent() {
 function LandingPage() {
   const { lang, setLang } = useLang()
 
+  const handleSignIn = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/`,
+      },
+    })
+
+    if (error) {
+      console.error('Login error:', error)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center relative overflow-hidden">
       {/* Background sacred geometry */}
@@ -231,6 +245,7 @@ function LandingPage() {
 
         {/* CTA */}
         <button
+          onClick={handleSignIn}
           className="group relative px-10 py-4 rounded-2xl bg-gradient-to-r from-primary to-[hsl(267,60%,45%)] text-white font-semibold text-sm tracking-wider hover:opacity-90 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_30px_hsl(var(--primary)/0.4)]"
         >
           <span className="relative z-10 font-cinzel tracking-widest">
