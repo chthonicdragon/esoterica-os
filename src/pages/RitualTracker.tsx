@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
 import { useAudio } from '../contexts/AudioContext'
-// import { blink } from '../blink/client' // removed
+import { blink } from '../lib/supabaseCompat'
 import { getMoonPhase, moonEmoji, moonEnergy, moonEnergyRu } from '../utils/moonPhase'
 import { Plus, Moon, Trash2, TrendingUp } from 'lucide-react'
 import toast from 'react-hot-toast'

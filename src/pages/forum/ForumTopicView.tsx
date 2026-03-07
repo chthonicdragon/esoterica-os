@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { blink } from '../../blink/client'
+import { blink } from '../../lib/supabaseCompat'
 import { useLang } from '../../contexts/LanguageContext'
 import { useAudio } from '../../contexts/AudioContext'
 import type { ForumPost, ForumTopic, ForumView } from '../../types/forum'

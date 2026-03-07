@@ -6,7 +6,7 @@ import {
   BookOpen, ShoppingBag, Settings, LogOut, Hexagon, MessageSquare
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
-import { blink } from '../../blink/client'
+import { blink } from '../../lib/supabaseCompat'
 import { getUnreadNotificationCount } from '../../pages/forum/ForumNotifications'
 
 type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'journal' | 'forum' | 'marketplace' | 'settings'

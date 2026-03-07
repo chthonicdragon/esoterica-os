@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useLang } from '../contexts/LanguageContext'
 import { useAudio } from '../contexts/AudioContext'
-// import { blink } from '../blink/client' // removed
+import { blink } from '../lib/supabaseCompat'
 import { generateSigilSVG } from '../utils/sigilGenerator'
 import { Sparkles, Download, Zap, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'

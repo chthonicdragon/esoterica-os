@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { blink } from '../../blink/client'
+import { blink } from '../../lib/supabaseCompat'
 import { useLang } from '../../contexts/LanguageContext'
 import type { ForumNotification } from '../../types/forum'
 import { formatDistanceToNow } from 'date-fns'
