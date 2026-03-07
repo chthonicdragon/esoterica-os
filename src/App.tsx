@@ -14,7 +14,7 @@ import { supabase } from './lib/supabaseClient'
 
 type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'journal' | 'forum' | 'marketplace' | 'settings' | 'knowledge-graph'
 
-const BUILD_TAG = 'build 3a207df'
+const BUILD_TAG = 'build 1f6e1a8'
 
 const PAGE_TITLES: Record<Page, { en: string; ru: string }> = {
   dashboard: { en: 'Dashboard', ru: 'Главная' },
@@ -172,6 +172,9 @@ function LandingPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center relative overflow-hidden">
+      <div className="fixed bottom-3 right-3 z-50 px-2 py-1 rounded-md border border-primary/40 bg-primary/15 text-[10px] tracking-wider text-primary">
+        {BUILD_TAG}
+      </div>
       {/* Background sacred geometry */}
       <div className="absolute inset-0 pointer-events-none">
         <svg className="absolute inset-0 w-full h-full opacity-[0.03]" xmlns="http://www.w3.org/2000/svg">
