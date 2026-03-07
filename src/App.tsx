@@ -13,6 +13,31 @@ import { useIsMobile } from './hooks/use-mobile'
 import { supabase } from './lib/supabaseClient'
 
 type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'journal' | 'forum' | 'marketplace' | 'settings' | 'knowledge-graph'
+const PAGE_STORAGE_KEY = 'esoterica_current_page_v1'
+
+const ALL_PAGES: Page[] = [
+  'dashboard',
+  'altars',
+  'ai-mentor',
+  'ritual-tracker',
+  'sigil-lab',
+  'journal',
+  'forum',
+  'marketplace',
+  'settings',
+  'knowledge-graph',
+]
+
+const isValidPage = (value: string | null | undefined): value is Page => {
+  return !!value && ALL_PAGES.includes(value as Page)
+}
+
+const getPageFromHash = (): Page | null => {
+  if (typeof window === 'undefined') return null
+  const hash = window.location.hash || ''
+  const normalized = hash.startsWith('#/') ? hash.slice(2) : hash.startsWith('#') ? hash.slice(1) : hash
+  return isValidPage(normalized) ? normalized : null
+}
 
 const PAGE_TITLES: Record<Page, { en: string; ru: string }> = {
   dashboard: { en: 'Dashboard', ru: 'Главная' },
@@ -32,7 +57,15 @@ function AppContent() {
   const { lang } = useLang()
   const isMobile = useIsMobile()
   const { isMuted, setIsMuted, playAmbient, playUiSound } = useAudio()
-  const [currentPage, setCurrentPage] = useState<Page>('dashboard')
+  const [currentPage, setCurrentPage] = useState<Page>(() => {
+    const pageFromHash = getPageFromHash()
+    if (pageFromHash) return pageFromHash
+    if (typeof window !== 'undefined') {
+      const storedPage = window.localStorage.getItem(PAGE_STORAGE_KEY)
+      if (isValidPage(storedPage)) return storedPage
+    }
+    return 'dashboard'
+  })
   const [hasInteracted, setHasInteracted] = useState(false)
   const [isLandscapeOnMobile, setIsLandscapeOnMobile] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -67,6 +100,28 @@ function AppContent() {
       playUiSound('whoosh')
     }
   }, [currentPage, hasInteracted, playUiSound])
+
+  // Keep current page stable across reloads and allow direct open via hash URL.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(PAGE_STORAGE_KEY, currentPage)
+    const desiredHash = `#/${currentPage}`
+    if (window.location.hash !== desiredHash) {
+      window.history.replaceState(null, '', desiredHash)
+    }
+  }, [currentPage])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onHashChange = () => {
+      const pageFromHash = getPageFromHash()
+      if (pageFromHash) {
+        setCurrentPage(prev => (prev === pageFromHash ? prev : pageFromHash))
+      }
+    }
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
 
   const handleNavigate = (page: Page) => {
     setCurrentPage(page)
