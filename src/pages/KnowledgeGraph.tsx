@@ -10,6 +10,7 @@ import {
 import { extractGraph, GraphData, Node, Link } from '../services/openRouterService'
 import GraphVisualization from '../components/GraphVisualization'
 import AnalyticsPanel from '../components/AnalyticsPanel'
+import KnowledgeWebGuideModal from '../components/KnowledgeWebGuideModal'
 import { useLang } from '../contexts/LanguageContext'
 import { getKnowledgeWeavePoints, grantProgressionPoints, syncProgressionToDb } from '../altar/altarStore'
 
@@ -152,6 +153,7 @@ export function KnowledgeGraph({ user }: Props) {
   const [hideWeakFlows, setHideWeakFlows] = useState(false)
   const [showVizSettings, setShowVizSettings] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
+  const [showGuide, setShowGuide] = useState(false)
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(graphData))
@@ -457,17 +459,27 @@ export function KnowledgeGraph({ user }: Props) {
   }, [visibleTypes, showRitualsOnly])
 
   return (
+    <>
     <div className="flex flex-col lg:flex-row gap-4 h-full w-full overflow-hidden p-1">
       {/* Left Column: Controls */}
       <div className={`${isExpanded ? 'hidden' : 'flex'} flex-col gap-4 w-full lg:w-[360px] shrink-0 overflow-y-auto pr-1`}
         style={{ scrollbarWidth: 'thin' }}
       >
         {/* Header */}
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-primary/10 rounded-lg">
-            <Sparkles className="w-4 h-4 text-primary" />
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-primary/10 rounded-lg">
+              <Sparkles className="w-4 h-4 text-primary" />
+            </div>
+            <span className="text-xs font-mono uppercase tracking-widest text-primary/70">{t.subtitle}</span>
           </div>
-          <span className="text-xs font-mono uppercase tracking-widest text-primary/70">{t.subtitle}</span>
+          <button
+            onClick={() => setShowGuide(true)}
+            className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-primary transition-colors hover:bg-primary/20"
+          >
+            <Info className="w-3 h-3" />
+            {lang === 'ru' ? 'Как работает' : 'How it works'}
+          </button>
         </div>
 
         {/* Status messages */}
@@ -828,5 +840,11 @@ export function KnowledgeGraph({ user }: Props) {
         </div>
       </div>
     </div>
+    <KnowledgeWebGuideModal
+      open={showGuide}
+      lang={(lang === 'ru' ? 'ru' : 'en')}
+      onClose={() => setShowGuide(false)}
+    />
+    </>
   )
 }
