@@ -2,13 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
 import { supabase } from '../lib/supabaseClient'
 import toast from 'react-hot-toast'
-import { Globe, User, Sparkles, Layers, Lock, ChevronDown, Info, BookOpen, Shield, FileText, HelpCircle, Download } from 'lucide-react'
+import { Globe, User, Sparkles, Layers, Lock, ChevronDown, Info, BookOpen, Shield, FileText, HelpCircle } from 'lucide-react'
 import { cn } from '../lib/utils'
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
-}
 
 const ADMIN_CODE = 'esoterica2025' // Код администратора
 const ARCHETYPES = [
@@ -84,118 +79,8 @@ export function Settings({ user }: SettingsProps) {
   const [adminCodeInput, setAdminCodeInput] = useState('')
   const [showAdminCodeInput, setShowAdminCodeInput] = useState(false)
   const [openSection, setOpenSection] = useState<string | null>(null)
-  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
-  const [isAppInstalled, setIsAppInstalled] = useState(false)
-  const [isInstalling, setIsInstalling] = useState(false)
 
   useEffect(() => { loadProfile() }, [user.id])
-
-  useEffect(() => {
-    const isStandalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as Navigator & { standalone?: boolean }).standalone === true
-
-    setIsAppInstalled(isStandalone)
-
-    const onBeforeInstallPrompt = (event: Event) => {
-      event.preventDefault()
-      setDeferredInstallPrompt(event as BeforeInstallPromptEvent)
-    }
-
-    const onAppInstalled = () => {
-      setIsAppInstalled(true)
-      setDeferredInstallPrompt(null)
-      toast.success(lang === 'ru' ? 'Приложение установлено на домашний экран' : 'App installed to home screen')
-    }
-
-    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt as EventListener)
-    window.addEventListener('appinstalled', onAppInstalled)
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt as EventListener)
-      window.removeEventListener('appinstalled', onAppInstalled)
-    }
-  }, [lang])
-
-  async function handleInstallToHomeScreen() {
-    if (isInstalling) return
-
-    if (isAppInstalled) {
-      toast(lang === 'ru' ? 'Приложение уже добавлено на экран домой' : 'App is already added to home screen')
-      return
-    }
-
-    if (deferredInstallPrompt) {
-      setIsInstalling(true)
-      try {
-        await deferredInstallPrompt.prompt()
-        const choice = await deferredInstallPrompt.userChoice
-        if (choice.outcome === 'accepted') {
-          toast.success(lang === 'ru' ? 'Установка подтверждена' : 'Installation accepted')
-        } else {
-          toast(lang === 'ru' ? 'Установка отменена' : 'Installation dismissed')
-        }
-      } catch {
-        toast.error(lang === 'ru' ? 'Не удалось открыть окно установки' : 'Failed to open install prompt')
-      } finally {
-        setDeferredInstallPrompt(null)
-        setIsInstalling(false)
-      }
-      return
-    }
-
-    const ua = navigator.userAgent || ''
-    const isIOS = /iPhone|iPad|iPod/i.test(ua)
-    const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
-
-    if (isIOS) {
-      if (canShare) {
-        try {
-          await navigator.share({
-            title: 'Esoterica OS',
-            text: lang === 'ru' ? 'Добавьте Esoterica OS на экран домой' : 'Add Esoterica OS to your home screen',
-            url: window.location.href,
-          })
-          toast(
-            lang === 'ru'
-              ? 'Открыто меню Поделиться. Выберите: На экран Домой'
-              : 'Share sheet opened. Choose: Add to Home Screen',
-            { duration: 5000 }
-          )
-        } catch {
-          // User may cancel share sheet; keep silent to avoid noisy errors.
-        }
-        return
-      }
-
-      toast(
-        lang === 'ru'
-          ? 'На iPhone/iPad: Поделиться -> На экран Домой'
-          : 'On iPhone/iPad: Share -> Add to Home Screen',
-        { duration: 5000 }
-      )
-      return
-    }
-
-    if (canShare) {
-      try {
-        await navigator.share({
-          title: 'Esoterica OS',
-          text: lang === 'ru' ? 'Установите Esoterica OS на главный экран' : 'Install Esoterica OS to your home screen',
-          url: window.location.href,
-        })
-      } catch {
-        // Ignore if share is cancelled.
-      }
-    }
-
-    toast(
-      lang === 'ru'
-        ? 'Откройте меню браузера и выберите Установить приложение или Добавить на главный экран'
-        : 'Open browser menu and choose Install App or Add to Home Screen',
-      { duration: 5000 }
-    )
-  }
 
   async function loadProfile() {
     try {
@@ -292,15 +177,6 @@ export function Settings({ user }: SettingsProps) {
 
   if (loading) return <div className="p-6 text-muted-foreground">{t.loading}</div>
 
-  const isIOSDevice = /iPhone|iPad|iPod/i.test(navigator.userAgent || '')
-  const installButtonLabel = isAppInstalled
-    ? (lang === 'ru' ? 'Уже установлено' : 'Already Installed')
-    : deferredInstallPrompt
-      ? (lang === 'ru' ? 'Установить сейчас' : 'Install Now')
-      : isIOSDevice
-        ? (lang === 'ru' ? 'Открыть меню Поделиться' : 'Open Share Menu')
-        : (lang === 'ru' ? 'Сохранить на экран домой' : 'Save to Home Screen')
-
   return (
     <div className="p-6 max-w-2xl space-y-6 animate-fade-in">
       <h2 className="text-lg font-bold font-cinzel text-foreground">{t.settingsTitle}</h2>
@@ -342,37 +218,6 @@ export function Settings({ user }: SettingsProps) {
           className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm outline-none focus:border-primary/50"
         />
         <p className="text-xs text-muted-foreground">{user.email}</p>
-      </div>
-
-      {/* Install to Home Screen */}
-      <div className="rounded-2xl bg-card border border-border/40 p-5 space-y-3">
-        <div className="flex items-center gap-2 mb-1">
-          <Download className="w-4 h-4 text-primary" />
-          <h3 className="text-sm font-semibold text-foreground">
-            {lang === 'ru' ? 'Установить на экран домой' : 'Install to Home Screen'}
-          </h3>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {lang === 'ru'
-            ? 'Быстрый доступ к Esoterica OS как к приложению с домашнего экрана.'
-            : 'Get quick app-like access to Esoterica OS from your home screen.'}
-        </p>
-        <button
-          onClick={handleInstallToHomeScreen}
-          disabled={isAppInstalled || isInstalling}
-          className={cn(
-            'w-full rounded-xl py-2.5 text-sm font-medium transition-colors border',
-            isAppInstalled
-              ? 'bg-green-500/10 border-green-500/30 text-green-400 cursor-not-allowed'
-              : isInstalling
-                ? 'bg-primary/10 border-primary/20 text-primary/70 cursor-wait'
-                : 'bg-primary/10 border-primary/30 text-primary hover:bg-primary/20'
-          )}
-        >
-          {isInstalling
-            ? (lang === 'ru' ? 'Открываем установку...' : 'Opening install...')
-            : installButtonLabel}
-        </button>
       </div>
 
       {/* Archetype */}
