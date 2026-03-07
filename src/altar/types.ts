@@ -1,4 +1,4 @@
-export type ObjectCategory = 'candles' | 'crystals' | 'statues' | 'herbs' | 'incense' | 'cups' | 'coins' | 'models'
+export type ObjectCategory = 'candles' | 'crystals' | 'statues' | 'herbs' | 'incense' | 'cups' | 'coins' | 'tools' | 'decor'
 
 export type AltarTheme = 'stone' | 'wood' | 'obsidian' | 'mystical'
 

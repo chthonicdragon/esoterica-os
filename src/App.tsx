@@ -12,6 +12,7 @@ import { PageLoader } from './components/PageLoader'
 import { Maximize2 } from 'lucide-react'
 import { useIsMobile } from './hooks/use-mobile'
 import { supabase } from './lib/supabaseClient'
+import { registerFeatureOpened } from './lib/unlockNotifications'
 
 type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'journal' | 'forum' | 'marketplace' | 'settings' | 'knowledge-graph'
 const PAGE_STORAGE_KEY = 'esoterica_current_page_v1'
@@ -159,6 +160,10 @@ function AppContent() {
   }, [])
 
   const handleNavigate = (page: Page) => {
+    if (page !== 'dashboard') {
+      const title = PAGE_TITLES[page]
+      registerFeatureOpened(user.id, page, title.en, title.ru)
+    }
     setCurrentPage(page)
     setIsSidebarOpen(false)
   }

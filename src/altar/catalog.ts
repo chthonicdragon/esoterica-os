@@ -130,20 +130,22 @@ export const CATALOG: CatalogItem[] = [
   { id: 'coin_pentacle', category: 'coins', label: 'Pentacle Coin', labelRu: 'Монета пентакля', color: '#b8860b', emissive: '#884400', emissiveIntensity: 0.5, geometry: 'cylinder', scale: [0.12, 0.02, 0.12], effect: 'glow', unlockLevel: 3, points: 12 },
   { id: 'coin_pentagram_mark', category: 'coins', label: 'Pentagram Mark', labelRu: 'Пентаграмма', color: '#b8884b', emissive: '#8d5f30', emissiveIntensity: 0.36, geometry: 'custom', modelUrl: '/models/pentacle_pentagram.glb', scale: [0.18, 0.18, 0.18], effect: 'glow', unlockLevel: 3, points: 15 },
 
-  // External 3D models (optimized GLB)
-  { id: 'model_candles_set', category: 'models', label: 'Candles Set', labelRu: 'Набор свечей', color: '#d7c8a8', emissive: '#ff9b3d', emissiveIntensity: 0.2, geometry: 'custom', modelUrl: '/models/candles.glb', scale: [0.16, 0.16, 0.16], effect: 'flicker', unlockLevel: 1, points: 14 },
-  { id: 'model_artemis', category: 'models', label: 'Artemis', labelRu: 'Артемида', color: '#c8c9d2', emissive: '#7e89d6', emissiveIntensity: 0.25, geometry: 'custom', modelUrl: '/models/goddess_artemis.glb', scale: [0.28, 0.28, 0.28], unlockLevel: 3, points: 20 },
-  { id: 'model_candle_holder', category: 'models', label: 'Candle Holder', labelRu: 'Подсвечник', color: '#c8b08b', emissive: '#ff9d4f', emissiveIntensity: 0.2, geometry: 'custom', modelUrl: '/models/simple_candle_in_candle_holder.glb', scale: [0.14, 0.14, 0.14], effect: 'flicker', unlockLevel: 1, points: 16 },
-  { id: 'model_venus', category: 'models', label: 'Venus Goddess', labelRu: 'Богиня Венера', color: '#d5c8b8', emissive: '#9c8ad6', emissiveIntensity: 0.25, geometry: 'custom', modelUrl: '/models/venus_goddess.glb', scale: [0.24, 0.24, 0.24], unlockLevel: 3, points: 22 },
-  { id: 'model_hecate_triformis', category: 'models', label: 'Hecate Triformis', labelRu: 'Геката Триформида', color: '#b7b0a7', emissive: '#7b66bb', emissiveIntensity: 0.22, geometry: 'custom', modelUrl: '/models/hecate_triformis.glb', scale: [0.26, 0.26, 0.26], unlockLevel: 4, points: 26 },
-  { id: 'model_bowl_of_candles', category: 'models', label: 'Bowl of Candles', labelRu: 'Чаша свечей', color: '#d9bf9e', emissive: '#ff9b3d', emissiveIntensity: 0.22, geometry: 'custom', modelUrl: '/models/bowl_of_candles.glb', scale: [0.22, 0.22, 0.22], effect: 'flicker', unlockLevel: 2, points: 18 },
-  { id: 'model_candle_single', category: 'models', label: 'Single Candle', labelRu: 'Одиночная свеча', color: '#f5e9d6', emissive: '#ff9b3d', emissiveIntensity: 0.2, geometry: 'custom', modelUrl: '/models/just_a_candle.glb', scale: [0.12, 0.12, 0.12], effect: 'flicker', unlockLevel: 1, points: 12 },
-  { id: 'model_triple_moon', category: 'models', label: 'Triple Moon Emblem', labelRu: 'Тройная Луна', color: '#cfd4ef', emissive: '#7f94ff', emissiveIntensity: 0.25, geometry: 'custom', modelUrl: '/models/triple_moon_emblem.glb', scale: [0.2, 0.2, 0.2], effect: 'glow', unlockLevel: 2, points: 17 },
-  { id: 'model_candle_holder_classic', category: 'models', label: 'Classic Candle Holder', labelRu: 'Классический подсвечник', color: '#d0b38b', emissive: '#ff9d4f', emissiveIntensity: 0.2, geometry: 'custom', modelUrl: '/models/candle_holder.glb', scale: [0.16, 0.16, 0.16], effect: 'flicker', unlockLevel: 2, points: 15 },
-  { id: 'model_spell_book', category: 'models', label: 'Spell Book', labelRu: 'Книга заклинаний', color: '#4d3a2a', emissive: '#6f4e37', emissiveIntensity: 0.2, geometry: 'custom', modelUrl: '/models/spell_book.glb', scale: [0.2, 0.2, 0.2], placementYOffset: 0.01, placementRotationX: Math.PI / 2, unlockLevel: 3, points: 18 },
-  { id: 'model_crystal_ball', category: 'models', label: 'Crystal Ball', labelRu: 'Хрустальный шар', color: '#9dc1e8', emissive: '#6caeff', emissiveIntensity: 0.35, geometry: 'custom', modelUrl: '/models/crystal_ball.glb', scale: [0.2, 0.2, 0.2], effect: 'glow', placementYOffset: 0.02, unlockLevel: 4, points: 22 },
-  { id: 'model_obsidian_knife', category: 'models', label: 'Obsidian Knife', labelRu: 'Обсидиановый нож', color: '#15161d', emissive: '#2c2f3d', emissiveIntensity: 0.18, geometry: 'custom', modelUrl: '/models/obsidian_knife.glb', scale: [0.2, 0.2, 0.2], unlockLevel: 4, points: 21 },
-  { id: 'model_wooden_table_prop', category: 'models', label: 'Wooden Table Prop', labelRu: 'Деревянный стол (декор)', color: '#7a5b3d', emissive: '#5f452e', emissiveIntensity: 0.12, geometry: 'custom', modelUrl: '/models/wooden_table.glb', scale: [0.22, 0.22, 0.22], unlockLevel: 4, points: 18 },
+  // Custom GLB objects distributed by semantic categories
+  { id: 'model_candles_set', category: 'candles', label: 'Candles Set', labelRu: 'Набор свечей', color: '#d7c8a8', emissive: '#ff9b3d', emissiveIntensity: 0.2, geometry: 'custom', modelUrl: '/models/candles.glb', scale: [0.16, 0.16, 0.16], effect: 'flicker', unlockLevel: 1, points: 14 },
+  { id: 'model_candle_holder', category: 'candles', label: 'Candle Holder', labelRu: 'Подсвечник', color: '#c8b08b', emissive: '#ff9d4f', emissiveIntensity: 0.2, geometry: 'custom', modelUrl: '/models/simple_candle_in_candle_holder.glb', scale: [0.14, 0.14, 0.14], effect: 'flicker', unlockLevel: 1, points: 16 },
+  { id: 'model_bowl_of_candles', category: 'candles', label: 'Bowl of Candles', labelRu: 'Чаша свечей', color: '#d9bf9e', emissive: '#ff9b3d', emissiveIntensity: 0.22, geometry: 'custom', modelUrl: '/models/bowl_of_candles.glb', scale: [0.22, 0.22, 0.22], effect: 'flicker', unlockLevel: 2, points: 18 },
+  { id: 'model_candle_single', category: 'candles', label: 'Single Candle', labelRu: 'Одиночная свеча', color: '#f5e9d6', emissive: '#ff9b3d', emissiveIntensity: 0.2, geometry: 'custom', modelUrl: '/models/just_a_candle.glb', scale: [0.12, 0.12, 0.12], effect: 'flicker', unlockLevel: 1, points: 12 },
+  { id: 'model_candle_holder_classic', category: 'candles', label: 'Classic Candle Holder', labelRu: 'Классический подсвечник', color: '#d0b38b', emissive: '#ff9d4f', emissiveIntensity: 0.2, geometry: 'custom', modelUrl: '/models/candle_holder.glb', scale: [0.16, 0.16, 0.16], effect: 'flicker', unlockLevel: 2, points: 15 },
+
+  { id: 'model_artemis', category: 'statues', label: 'Artemis', labelRu: 'Артемида', color: '#c8c9d2', emissive: '#7e89d6', emissiveIntensity: 0.25, geometry: 'custom', modelUrl: '/models/goddess_artemis.glb', scale: [0.28, 0.28, 0.28], unlockLevel: 3, points: 20 },
+  { id: 'model_venus', category: 'statues', label: 'Venus Goddess', labelRu: 'Богиня Венера', color: '#d5c8b8', emissive: '#9c8ad6', emissiveIntensity: 0.25, geometry: 'custom', modelUrl: '/models/venus_goddess.glb', scale: [0.24, 0.24, 0.24], unlockLevel: 3, points: 22 },
+  { id: 'model_hecate_triformis', category: 'statues', label: 'Hecate Triformis', labelRu: 'Геката Триформида', color: '#b7b0a7', emissive: '#7b66bb', emissiveIntensity: 0.22, geometry: 'custom', modelUrl: '/models/hecate_triformis.glb', scale: [0.26, 0.26, 0.26], unlockLevel: 4, points: 26 },
+
+  { id: 'model_crystal_ball', category: 'crystals', label: 'Crystal Ball', labelRu: 'Хрустальный шар', color: '#9dc1e8', emissive: '#6caeff', emissiveIntensity: 0.35, geometry: 'custom', modelUrl: '/models/crystal_ball.glb', scale: [0.2, 0.2, 0.2], effect: 'glow', placementYOffset: 0.02, unlockLevel: 4, points: 22 },
+  { id: 'model_triple_moon', category: 'coins', label: 'Triple Moon Emblem', labelRu: 'Тройная Луна', color: '#cfd4ef', emissive: '#7f94ff', emissiveIntensity: 0.25, geometry: 'custom', modelUrl: '/models/triple_moon_emblem.glb', scale: [0.2, 0.2, 0.2], effect: 'glow', unlockLevel: 2, points: 17 },
+
+  { id: 'model_spell_book', category: 'tools', label: 'Spell Book', labelRu: 'Книга заклинаний', color: '#4d3a2a', emissive: '#6f4e37', emissiveIntensity: 0.2, geometry: 'custom', modelUrl: '/models/spell_book.glb', scale: [0.2, 0.2, 0.2], placementYOffset: -0.015, placementRotationX: 0, placementRotationZ: 0, unlockLevel: 3, points: 18 },
+  { id: 'model_obsidian_knife', category: 'tools', label: 'Obsidian Knife', labelRu: 'Обсидиановый нож', color: '#15161d', emissive: '#2c2f3d', emissiveIntensity: 0.18, geometry: 'custom', modelUrl: '/models/obsidian_knife.glb', scale: [0.2, 0.2, 0.2], placementYOffset: -0.02, placementRotationX: 0, placementRotationZ: Math.PI / 2, unlockLevel: 4, points: 21 },
 ]
 
 export const CATEGORY_LABELS: Record<string, { en: string; ru: string; emoji: string }> = {
@@ -154,7 +156,8 @@ export const CATEGORY_LABELS: Record<string, { en: string; ru: string; emoji: st
   incense:  { en: 'Incense',  ru: 'Благовония', emoji: '🌸' },
   cups:     { en: 'Cups',     ru: 'Чаши',       emoji: '🍷' },
   coins:    { en: 'Coins',    ru: 'Монеты',     emoji: '🪙' },
-  models:   { en: '3D Models', ru: '3D модели', emoji: '🧩' },
+  tools:    { en: 'Tools',    ru: 'Инструменты', emoji: '🗡️' },
+  decor:    { en: 'Decor',    ru: 'Декор',      emoji: '🏺' },
 }
 
 export interface ThemeConfig {

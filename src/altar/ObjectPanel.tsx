@@ -19,27 +19,9 @@ export function ObjectPanel({ lang, unlockedLevel, pendingDrop, onSelectForDrop 
 
   const items = useMemo(() => {
     const filtered = CATALOG.filter(c => c.category === activeCategory)
-    if (activeCategory !== 'models') {
-      return [...filtered].sort((a, b) => {
-        const byLevel = a.unlockLevel - b.unlockLevel
-        if (byLevel !== 0) return byLevel
-        return a.label.localeCompare(b.label)
-      })
-    }
-
-    const candlePriority = (id: string, label: string) => {
-      const key = `${id} ${label}`.toLowerCase()
-      // In 3D Models tab: show candle-related 3D assets before statues/other props.
-      return /(candle|candles|holder|bowl)/.test(key) ? 0 : 1
-    }
-
     return [...filtered].sort((a, b) => {
-      const byCandle = candlePriority(a.id, a.label) - candlePriority(b.id, b.label)
-      if (byCandle !== 0) return byCandle
-
       const byLevel = a.unlockLevel - b.unlockLevel
       if (byLevel !== 0) return byLevel
-
       return a.label.localeCompare(b.label)
     })
   }, [activeCategory])
@@ -47,38 +29,9 @@ export function ObjectPanel({ lang, unlockedLevel, pendingDrop, onSelectForDrop 
   const sectionLabel = {
     symbolic: lang === 'ru' ? 'Символические (базовые формы)' : 'Symbolic (Basic Shapes)',
     detailed: lang === 'ru' ? 'Детализированные 3D' : 'Detailed 3D',
-    modelCandles: lang === 'ru' ? 'Свечи и свет' : 'Candles & Light',
-    modelTools: lang === 'ru' ? 'Ритуальные инструменты' : 'Ritual Tools',
-    modelMythic: lang === 'ru' ? 'Мифологические статуи' : 'Mythic Statues',
-    modelDecor: lang === 'ru' ? 'Декор и прочее' : 'Decor & Other',
   }
 
   const sections = useMemo(() => {
-    if (activeCategory === 'models') {
-      const sectionForModel = (id: string, label: string) => {
-        const key = `${id} ${label}`.toLowerCase()
-        if (/(candle|candles|holder|bowl)/.test(key)) return 'modelCandles'
-        if (/(knife|book|ball|table|cloth|incense|cauldron)/.test(key)) return 'modelTools'
-        if (/(zeus|veles|perun|mercur|arachne|falcon|persephone|statuette|artemis|venus|hecate)/.test(key)) return 'modelMythic'
-        return 'modelDecor'
-      }
-
-      const grouped: Record<string, typeof items> = {
-        modelCandles: [],
-        modelTools: [],
-        modelMythic: [],
-        modelDecor: [],
-      }
-
-      items.forEach(item => {
-        grouped[sectionForModel(item.id, item.label)].push(item)
-      })
-
-      return (Object.keys(grouped) as Array<keyof typeof grouped>)
-        .filter(key => grouped[key].length > 0)
-        .map(key => ({ key, title: sectionLabel[key], items: grouped[key] }))
-    }
-
     const symbolic = items.filter(item => item.geometry !== 'custom')
     const detailed = items.filter(item => item.geometry === 'custom')
     const result = [] as Array<{ key: string; title: string; items: typeof items }>

@@ -2,7 +2,25 @@ import React, { useEffect, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
 import { getMoonPhase, moonEmoji, moonEnergy, moonEnergyRu } from '../utils/moonPhase'
 import { db } from '../lib/platformClient'
-import { FlameKindling, Sparkles, BookOpen, Moon, TrendingUp, Star, Zap, MessageSquare, Network } from 'lucide-react'
+import { FlameKindling, Sparkles, BookOpen, Moon, TrendingUp, Star, Zap, MessageSquare, Network, Bell, X } from 'lucide-react'
+import {
+  clearUnlockNotifications,
+  getUnlockNotifications,
+  getUnlockUnreadCount,
+  markAllUnlockNotificationsRead,
+  registerGlobalAnnouncement,
+  syncAltarUnlockNotifications,
+  unlockNotificationsEvent,
+  type UnlockNotification,
+} from '../lib/unlockNotifications'
+
+const RELEASE_ANNOUNCEMENT_ID = 'release-2026-03-07'
+const RELEASE_ANNOUNCEMENT = {
+  title: 'Update: New Altar Content',
+  titleRu: 'Обновление: Новый контент алтаря',
+  preview: 'Added: notification center, new altar models and categories. Improved: model optimization, placement, render stability, and object interaction.',
+  previewRu: 'Добавлено: центр уведомлений, новые модели и категории алтаря. Улучшено: оптимизация моделей, размещение, стабильность рендера и взаимодействие с объектами.',
+}
 
 interface Profile {
   initiationLevel: number
@@ -38,12 +56,52 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
   const { t, lang } = useLang()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [recentRituals, setRecentRituals] = useState<Ritual[]>([])
+  const [notifications, setNotifications] = useState<UnlockNotification[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [notificationFilter, setNotificationFilter] = useState<'all' | 'feature' | 'item' | 'base'>('all')
   const moonPhase = getMoonPhase()
   const energy = lang === 'ru' ? moonEnergyRu[moonPhase] : moonEnergy[moonPhase]
 
   useEffect(() => {
     loadData()
+    refreshNotifications()
   }, [user.id])
+
+  useEffect(() => {
+    const handleUpdate = () => refreshNotifications()
+    window.addEventListener(unlockNotificationsEvent, handleUpdate)
+    window.addEventListener('focus', handleUpdate)
+    return () => {
+      window.removeEventListener(unlockNotificationsEvent, handleUpdate)
+      window.removeEventListener('focus', handleUpdate)
+    }
+  }, [user.id])
+
+  function refreshNotifications() {
+    registerGlobalAnnouncement(
+      user.id,
+      RELEASE_ANNOUNCEMENT_ID,
+      RELEASE_ANNOUNCEMENT.title,
+      RELEASE_ANNOUNCEMENT.titleRu,
+      RELEASE_ANNOUNCEMENT.preview,
+      RELEASE_ANNOUNCEMENT.previewRu,
+    )
+    syncAltarUnlockNotifications(user.id)
+    setNotifications(getUnlockNotifications(user.id))
+    setUnreadCount(getUnlockUnreadCount(user.id))
+  }
+
+  function openNotifications() {
+    setShowNotifications(true)
+    markAllUnlockNotificationsRead(user.id)
+    refreshNotifications()
+  }
+
+  function clearNotifications() {
+    clearUnlockNotifications(user.id)
+    refreshNotifications()
+  }
 
   async function loadData() {
     try {
@@ -91,11 +149,35 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
     { icon: Network, label: (t as any).knowledgeGraph || 'Knowledge Graph', action: () => onNavigate('knowledge-graph'), color: 'text-cyan-400' },
   ]
 
+  const filteredNotifications = notifications.filter(note => {
+    if (notificationFilter === 'all') return true
+    return note.type === notificationFilter
+  })
+
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       {/* Welcome */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/20 via-background to-[hsl(var(--neon))/10] border border-primary/20 p-5 sm:p-6">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,hsl(var(--primary)/0.15),transparent_60%)]" />
+        <div className="absolute top-3 right-3 z-10">
+          <button
+            onClick={openNotifications}
+            className={`relative inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs transition-colors ${
+              unreadCount > 0
+                ? 'border-primary/60 bg-primary/20 text-primary shadow-[0_0_14px_hsl(var(--primary)/0.35)]'
+                : 'border-border/40 bg-background/70 text-muted-foreground hover:text-foreground'
+            }`}
+            title={lang === 'ru' ? 'Открыть уведомления' : 'Open notifications'}
+          >
+            <Bell className="w-4 h-4" />
+            <span>{lang === 'ru' ? 'Уведомления' : 'Notifications'}</span>
+            {unreadCount > 0 && (
+              <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-semibold">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </button>
+        </div>
         <div className="relative">
           <p className="text-[10px] sm:text-sm text-muted-foreground mb-1 uppercase tracking-widest font-medium opacity-70">{t.welcomeBack}</p>
           <h2 className="text-xl sm:text-2xl font-bold font-cinzel text-foreground mb-2 truncate">
@@ -110,6 +192,79 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
           </div>
         </div>
       </div>
+
+      {showNotifications && (
+        <div className="rounded-2xl border border-primary/30 bg-card/95 backdrop-blur-sm p-4 space-y-3 animate-fade-in">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground">
+              {lang === 'ru' ? 'Новые открытия' : 'New Unlocks'}
+            </h3>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={clearNotifications}
+                className="rounded-lg border border-border/40 px-2.5 py-1.5 text-[11px] text-muted-foreground hover:text-foreground hover:bg-white/5"
+              >
+                {lang === 'ru' ? 'Очистить' : 'Clear'}
+              </button>
+              <button
+                onClick={() => setShowNotifications(false)}
+                className="rounded-lg border border-border/40 p-1.5 text-muted-foreground hover:text-foreground hover:bg-white/5"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            {([
+              { key: 'all', en: 'All', ru: 'Все' },
+              { key: 'feature', en: 'Features', ru: 'Функции' },
+              { key: 'item', en: 'Items', ru: 'Предметы' },
+              { key: 'base', en: 'Bases', ru: 'Базы' },
+            ] as const).map(filter => (
+              <button
+                key={filter.key}
+                onClick={() => setNotificationFilter(filter.key)}
+                className={`rounded-lg border px-2.5 py-1.5 text-[11px] transition-colors ${
+                  notificationFilter === filter.key
+                    ? 'border-primary/50 bg-primary/15 text-primary'
+                    : 'border-border/40 bg-background/50 text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {lang === 'ru' ? filter.ru : filter.en}
+              </button>
+            ))}
+          </div>
+
+          {filteredNotifications.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {lang === 'ru' ? 'Нет уведомлений для выбранного фильтра.' : 'No notifications for selected filter.'}
+            </p>
+          ) : (
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {filteredNotifications.map(note => (
+                <div
+                  key={note.id}
+                  className={`rounded-xl border p-3 ${note.read ? 'border-border/30 bg-background/40' : 'border-primary/30 bg-primary/10'}`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {lang === 'ru' ? note.titleRu : note.title}
+                    </p>
+                    {!note.read && <span className="w-2 h-2 rounded-full bg-primary shrink-0" />}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {lang === 'ru' ? note.previewRu : note.preview}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground/70 mt-2">
+                    {new Date(note.createdAt).toLocaleString()}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

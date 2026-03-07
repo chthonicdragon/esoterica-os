@@ -151,6 +151,7 @@ export function AltarObject3D({
 }: AltarObject3DProps) {
   const groupRef = useRef<THREE.Group>(null!)
   const [hovered, setHovered] = useState(false)
+  const [pressing, setPressing] = useState(false)
   const isModel = Boolean(catalog.modelUrl)
 
   const geometry = useMemo(() => {
@@ -188,7 +189,7 @@ export function AltarObject3D({
       const t = Date.now() * 0.001
       groupRef.current.position.y = placed.position[1] + Math.sin(t * 1.5 + placed.position[0]) * 0.005
     }
-    if (hovered || selected) {
+    if (pressing) {
       groupRef.current.rotation.y += delta * 0.5
     }
   })
@@ -204,8 +205,10 @@ export function AltarObject3D({
       rotation={[placed.rotationX || 0, placed.rotationY, placed.rotationZ || 0]}
       scale={placed.scale}
       onClick={(e) => { e.stopPropagation(); onSelect(placed.id) }}
+      onPointerDown={(e) => { e.stopPropagation(); setPressing(true) }}
+      onPointerUp={() => setPressing(false)}
       onPointerOver={() => setHovered(true)}
-      onPointerOut={() => setHovered(false)}
+      onPointerOut={() => { setHovered(false); setPressing(false) }}
     >
       {isModel && catalog.modelUrl ? (
         <ModelErrorBoundary
