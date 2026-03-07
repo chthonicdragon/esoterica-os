@@ -49,15 +49,18 @@ export function ForumNotifications({ userId, onClose, onNavigateToTopic }: Props
       await Promise.all(
         unread.map(n => db.forumNotifications.update(n.id, { isRead: 1 }).catch(() => {}))
       )
-    } catch (e) {
-      console.error(e)
+    } catch (e: any) {
+      const msg = String(e?.message || '')
+      if (!msg.includes('could not find the table') && !msg.includes('does not exist')) {
+        console.error(e)
+      }
     } finally {
       setLoading(false)
     }
   }
 
   const getNotifText = (n: ForumNotification) => {
-    const name = n.fromUserName || lang === 'ru' ? 'Кто-то' : 'Someone'
+    const name = n.fromUserName || (lang === 'ru' ? 'Кто-то' : 'Someone')
     if (n.type === 'reply') {
       return lang === 'ru' ? `${name} ответил(а) на ваше сообщение` : `${name} replied to your post`
     }
@@ -131,4 +134,3 @@ export async function getUnreadNotificationCount(userId: string): Promise<number
     return 0
   }
 }
-

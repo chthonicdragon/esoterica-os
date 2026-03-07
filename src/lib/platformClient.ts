@@ -21,78 +21,148 @@ const TABLE_MAP: Record<string, string> = {
   forumReports: 'forum_reports',
 }
 
+const TABLE_FALLBACK_MAP: Record<string, string> = {
+  forumCategories: 'forumCategories',
+  forumTopics: 'forumTopics',
+  forumPosts: 'forumPosts',
+  forumNotifications: 'forumNotifications',
+  forumLikes: 'forumLikes',
+  forumReports: 'forumReports',
+}
+
 function mapTable(entity: string): string {
   return TABLE_MAP[entity] || entity
 }
 
-async function list(entity: string, options: ListOptions = {}) {
-  let query = supabase.from(mapTable(entity)).select('*')
+function isMissingTableError(error: any): boolean {
+  const message = String(error?.message || '').toLowerCase()
+  return (
+    error?.code === 'PGRST205' ||
+    error?.status === 404 ||
+    message.includes('could not find the table') ||
+    message.includes('does not exist')
+  )
+}
 
-  if (options.where) {
-    for (const [field, rawValue] of Object.entries(options.where)) {
-      if (rawValue !== null && typeof rawValue === 'object' && 'eq' in rawValue) {
-        query = query.eq(field, rawValue.eq)
-      } else {
-        query = query.eq(field, rawValue as string | number | boolean)
+function getTableCandidates(entity: string): string[] {
+  const primary = mapTable(entity)
+  const fallback = TABLE_FALLBACK_MAP[entity]
+  return [primary, fallback].filter((v, i, arr): v is string => !!v && arr.indexOf(v) === i)
+}
+
+async function list(entity: string, options: ListOptions = {}) {
+  const candidates = getTableCandidates(entity)
+  let lastError: any = null
+
+  for (const table of candidates) {
+    let query = supabase.from(table).select('*')
+
+    if (options.where) {
+      for (const [field, rawValue] of Object.entries(options.where)) {
+        if (rawValue !== null && typeof rawValue === 'object' && 'eq' in rawValue) {
+          query = query.eq(field, rawValue.eq)
+        } else {
+          query = query.eq(field, rawValue as string | number | boolean)
+        }
       }
     }
-  }
 
-  if (options.orderBy) {
-    const [field, direction] = Object.entries(options.orderBy)[0] || []
-    if (field) {
-      query = query.order(field, { ascending: direction !== 'desc' })
+    if (options.orderBy) {
+      const [field, direction] = Object.entries(options.orderBy)[0] || []
+      if (field) {
+        query = query.order(field, { ascending: direction !== 'desc' })
+      }
     }
+
+    if (typeof options.limit === 'number') {
+      const offset = options.offset || 0
+      query = query.range(offset, offset + options.limit - 1)
+    }
+
+    const { data, error } = await query
+    if (!error) return data || []
+
+    lastError = error
+    if (!isMissingTableError(error)) throw error
   }
 
-  if (typeof options.limit === 'number') {
-    const offset = options.offset || 0
-    query = query.range(offset, offset + options.limit - 1)
-  }
-
-  const { data, error } = await query
-  if (error) throw error
-  return data || []
+  throw lastError
 }
 
 async function get(entity: string, id: string) {
-  const { data, error } = await supabase
-    .from(mapTable(entity))
-    .select('*')
-    .eq('id', id)
-    .maybeSingle()
-  if (error) throw error
-  return data
+  const candidates = getTableCandidates(entity)
+  let lastError: any = null
+
+  for (const table of candidates) {
+    const { data, error } = await supabase
+      .from(table)
+      .select('*')
+      .eq('id', id)
+      .maybeSingle()
+    if (!error) return data
+
+    lastError = error
+    if (!isMissingTableError(error)) throw error
+  }
+
+  throw lastError
 }
 
 async function create(entity: string, payload: Record<string, unknown>) {
-  const { data, error } = await supabase
-    .from(mapTable(entity))
-    .insert(payload)
-    .select('*')
-    .maybeSingle()
-  if (error) throw error
-  return data
+  const candidates = getTableCandidates(entity)
+  let lastError: any = null
+
+  for (const table of candidates) {
+    const { data, error } = await supabase
+      .from(table)
+      .insert(payload)
+      .select('*')
+      .maybeSingle()
+    if (!error) return data
+
+    lastError = error
+    if (!isMissingTableError(error)) throw error
+  }
+
+  throw lastError
 }
 
 async function update(entity: string, id: string, payload: Record<string, unknown>) {
-  const { data, error } = await supabase
-    .from(mapTable(entity))
-    .update(payload)
-    .eq('id', id)
-    .select('*')
-    .maybeSingle()
-  if (error) throw error
-  return data
+  const candidates = getTableCandidates(entity)
+  let lastError: any = null
+
+  for (const table of candidates) {
+    const { data, error } = await supabase
+      .from(table)
+      .update(payload)
+      .eq('id', id)
+      .select('*')
+      .maybeSingle()
+    if (!error) return data
+
+    lastError = error
+    if (!isMissingTableError(error)) throw error
+  }
+
+  throw lastError
 }
 
 async function remove(entity: string, id: string) {
-  const { error } = await supabase
-    .from(mapTable(entity))
-    .delete()
-    .eq('id', id)
-  if (error) throw error
-  return true
+  const candidates = getTableCandidates(entity)
+  let lastError: any = null
+
+  for (const table of candidates) {
+    const { error } = await supabase
+      .from(table)
+      .delete()
+      .eq('id', id)
+    if (!error) return true
+
+    lastError = error
+    if (!isMissingTableError(error)) throw error
+  }
+
+  throw lastError
 }
 
 export const db = new Proxy(
