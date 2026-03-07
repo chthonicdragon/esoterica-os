@@ -93,7 +93,7 @@ export default function KnowledgeWebGuideModal({ open, lang, onClose }: Knowledg
             initial={{ opacity: 0, y: 18, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 18, scale: 0.98 }}
-            className="fixed inset-0 z-[90] flex h-[100dvh] w-screen flex-col overflow-hidden rounded-none border-0 bg-[hsl(var(--sidebar))]/98 shadow-2xl sm:inset-auto sm:left-[43%] sm:top-[42%] sm:h-[90dvh] sm:max-h-[900px] sm:w-[95vw] sm:max-w-[920px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:border-white/15 lg:left-[40%] lg:top-[40%]"
+            className="fixed inset-0 z-[90] flex h-[100dvh] w-screen flex-col overflow-hidden rounded-none border-0 bg-[hsl(var(--sidebar))]/98 shadow-2xl sm:inset-auto sm:left-[43%] sm:top-3 sm:h-[90dvh] sm:max-h-[900px] sm:w-[95vw] sm:max-w-[920px] sm:-translate-x-1/2 sm:translate-y-0 sm:rounded-2xl sm:border sm:border-white/15 lg:left-[40%] lg:top-4"
           >
             <div className="sticky top-0 z-10 border-b border-white/10 bg-[hsl(var(--sidebar))]/95 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-6 sm:py-4">
               <div className="flex items-start justify-between gap-4">
