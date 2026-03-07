@@ -250,13 +250,13 @@ function AppContent() {
                           ? 'Похоже, 3D-сцена перегрузила устройство. Вы можете восстановиться и вернуться на главную.'
                           : 'The 3D scene appears overloaded on this device. You can recover and return to dashboard.'}
                       </p>
-                      <div className="flex gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <button
                           onClick={() => {
                             reset()
                             recoverFromAltarCrash()
                           }}
-                          className="flex-1 rounded-xl bg-primary/15 border border-primary/30 text-primary px-3 py-2 text-xs font-medium hover:bg-primary/20 transition-colors"
+                          className="rounded-xl bg-primary/15 border border-primary/30 text-primary px-3 py-2 text-xs font-medium hover:bg-primary/20 transition-colors"
                         >
                           {lang === 'ru' ? 'Сбросить алтарь и выйти' : 'Reset altar and exit'}
                         </button>
@@ -265,9 +265,20 @@ function AppContent() {
                             reset()
                             handleNavigate('dashboard')
                           }}
-                          className="flex-1 rounded-xl border border-border/40 text-foreground px-3 py-2 text-xs font-medium hover:bg-white/5 transition-colors"
+                          className="rounded-xl border border-border/40 text-foreground px-3 py-2 text-xs font-medium hover:bg-white/5 transition-colors"
                         >
                           {lang === 'ru' ? 'На главную' : 'Go dashboard'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            reset()
+                            if (typeof window !== 'undefined') {
+                              window.location.reload()
+                            }
+                          }}
+                          className="rounded-xl border border-border/40 text-foreground px-3 py-2 text-xs font-medium hover:bg-white/5 transition-colors"
+                        >
+                          {lang === 'ru' ? 'Перезагрузить' : 'Reload'}
                         </button>
                       </div>
                     </div>
