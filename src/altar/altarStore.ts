@@ -1,8 +1,9 @@
-// import { blink } from '../blink/client' // removed
+import { supabase } from '../lib/supabaseClient'
 import type { AltarLayout, PlacedObject, Progression, AltarTheme } from './types'
 import { getLevelFromPoints, getStreakBonus, POINTS_PER_RITUAL } from './types'
 
 const STORAGE_KEY = 'esoterica_altar_v2'
+export type ProgressSource = 'ritual' | 'journal' | 'knowledge' | 'altar'
 
 export interface AltarStoreState {
   layouts: AltarLayout[]
@@ -16,12 +17,62 @@ const DEFAULT_PROGRESSION: Progression = {
   streak: 0,
   lastPracticeDate: null,
   totalRituals: 0,
+  ritualXp: 0,
+  journalXp: 0,
+  knowledgeXp: 0,
+  altarXp: 0,
 }
+
+function normalizeProgression(raw?: Partial<Progression>): Progression {
+  if (!raw || typeof raw !== 'object') return DEFAULT_PROGRESSION
+  return {
+    points: Number(raw.points || 0),
+    level: Number(raw.level || 1),
+    streak: Number(raw.streak || 0),
+    lastPracticeDate: raw.lastPracticeDate || null,
+    totalRituals: Number(raw.totalRituals || 0),
+    ritualXp: Number(raw.ritualXp || 0),
+    journalXp: Number(raw.journalXp || 0),
+    knowledgeXp: Number(raw.knowledgeXp || 0),
+    altarXp: Number(raw.altarXp || 0),
+  }
+}
+
+function withSourceXp(progression: Progression, source: ProgressSource, pointsEarned: number): Progression {
+  if (pointsEarned <= 0) return progression
+  if (source === 'ritual') return { ...progression, ritualXp: progression.ritualXp + pointsEarned }
+  if (source === 'journal') return { ...progression, journalXp: progression.journalXp + pointsEarned }
+  if (source === 'knowledge') return { ...progression, knowledgeXp: progression.knowledgeXp + pointsEarned }
+  return { ...progression, altarXp: progression.altarXp + pointsEarned }
+}
+
+export const ACTION_POINTS = {
+  createAltar: 30,
+  placeFirstObject: 14,
+  placeObjectBase: 6,
+  deleteObject: 2,
+  journalEntryBase: 8,
+  dreamEntryBonus: 4,
+  knowledgeWeaveBase: 6,
+} as const
 
 export function loadLocalState(): AltarStoreState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return JSON.parse(raw)
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<AltarStoreState>
+      if (!parsed || !Array.isArray(parsed.layouts)) {
+        return { layouts: [], activeLayoutId: null, progression: DEFAULT_PROGRESSION }
+      }
+
+      const progression = normalizeProgression(parsed.progression)
+
+      return {
+        layouts: parsed.layouts,
+        activeLayoutId: parsed.activeLayoutId || null,
+        progression,
+      }
+    }
   } catch {}
   return { layouts: [], activeLayoutId: null, progression: DEFAULT_PROGRESSION }
 }
@@ -69,10 +120,22 @@ export function removeObjectFromLayout(layout: AltarLayout, objId: string): Alta
 
 export function completeRitual(
   progression: Progression,
-  durationMinutes: number
-): { progression: Progression; pointsEarned: number; bonusMultiplier: number } {
+  durationMinutes: number,
+  mode: 'soft' | 'strict' = 'soft'
+): {
+  progression: Progression
+  pointsEarned: number
+  bonusMultiplier: number
+  basePoints: number
+  streakMultiplier: number
+  modeMultiplier: number
+} {
   const base = POINTS_PER_RITUAL[durationMinutes] || Math.round(durationMinutes * 4)
-  const multiplier = getStreakBonus(progression.streak)
+  const longSession = durationMinutes >= 30
+  const modeMultiplier = mode === 'strict' ? 1.2 : 1
+  // Short sessions keep momentum but do not drive major progression.
+  const streakMultiplier = longSession ? getStreakBonus(progression.streak) : 0.35
+  const multiplier = streakMultiplier * modeMultiplier
   const pointsEarned = Math.round(base * multiplier)
 
   const today = new Date().toDateString()
@@ -95,6 +158,7 @@ export function completeRitual(
 
   return {
     progression: {
+      ...withSourceXp(progression, 'ritual', pointsEarned),
       points: newPoints,
       level: newLevel,
       streak: newStreak,
@@ -103,22 +167,67 @@ export function completeRitual(
     },
     pointsEarned,
     bonusMultiplier: multiplier,
+    basePoints: base,
+    streakMultiplier,
+    modeMultiplier,
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function addProgressPoints(
+  progression: Progression,
+  rawPoints: number,
+  source: ProgressSource = 'altar'
+): { progression: Progression; pointsEarned: number } {
+  const pointsEarned = Math.max(0, Math.round(rawPoints))
+  const newPoints = progression.points + pointsEarned
+  const newLevel = getLevelFromPoints(newPoints)
+  const withSource = withSourceXp(progression, source, pointsEarned)
+
+  return {
+    progression: {
+      ...withSource,
+      points: newPoints,
+      level: newLevel,
+    },
+    pointsEarned,
+  }
+}
+
+export function grantProgressionPoints(
+  rawPoints: number,
+  source: ProgressSource = 'altar'
+): { progression: Progression; pointsEarned: number } {
+  const state = loadLocalState()
+  const result = addProgressPoints(state.progression, rawPoints, source)
+  saveLocalState({
+    ...state,
+    progression: result.progression,
+  })
+  return result
+}
+
+export function getKnowledgeWeavePoints(nodeCount: number, linkCount: number, ritualMode = false): number {
+  const complexity = nodeCount * 2 + linkCount
+  const cappedComplexity = Math.min(14, complexity)
+  const ritualBonus = ritualMode ? 3 : 0
+  return ACTION_POINTS.knowledgeWeaveBase + cappedComplexity + ritualBonus
+}
 
 export async function syncProgressionToDb(userId: string, progression: Progression) {
   try {
-    const profiles = await db.userProfiles.list({ where: { userId } })
-    if (profiles.length > 0) {
-      await db.userProfiles.update(profiles[0].id, {
+    const { data: profiles } = await supabase
+      .from('userProfiles')
+      .select('id')
+      .eq('userId', userId)
+      .limit(1)
+    if (profiles && profiles.length > 0) {
+      await supabase.from('userProfiles').update({
         initiationLevel: progression.level,
         practiceStreak: progression.streak,
         lastPracticeDate: progression.lastPracticeDate || '',
         totalRituals: progression.totalRituals,
         updatedAt: new Date().toISOString(),
-      })
+      }).eq('id', profiles[0].id)
     }
   } catch (e) {
     console.error('Failed to sync progression:', e)
@@ -127,15 +236,21 @@ export async function syncProgressionToDb(userId: string, progression: Progressi
 
 export async function loadProgressionFromDb(userId: string): Promise<Progression | null> {
   try {
-    const profiles = await db.userProfiles.list({ where: { userId } })
-    if (profiles.length > 0) {
+    const { data: profiles } = await supabase
+      .from('userProfiles')
+      .select('initiationLevel, practiceStreak, lastPracticeDate, totalRituals')
+      .eq('userId', userId)
+      .limit(1)
+    if (profiles && profiles.length > 0) {
       const p = profiles[0] as Record<string, unknown>
       return {
+        ...DEFAULT_PROGRESSION,
         points: (p.totalRituals as number || 0) * 50,
         level: (p.initiationLevel as number) || 1,
         streak: (p.practiceStreak as number) || 0,
         lastPracticeDate: (p.lastPracticeDate as string) || null,
         totalRituals: (p.totalRituals as number) || 0,
+        ritualXp: (p.totalRituals as number || 0) * 50,
       }
     }
   } catch {}

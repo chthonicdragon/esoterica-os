@@ -1,10 +1,12 @@
-import { useRef, useState, Suspense, useMemo } from 'react'
+import { useRef, Suspense, useMemo } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import type { AltarLayout } from './types'
 import { CATALOG, ALTAR_THEMES } from './catalog'
 import { AltarObject3D } from './AltarObject3D'
+
+type AltarVisualPreset = 'soft' | 'cinematic'
 
 // Animated ambient smoke / mist
 function AmbientMist({ active }: { active: boolean }) {
@@ -91,6 +93,70 @@ function AltarCloth({ themeKey }: { themeKey: string }) {
   )
 }
 
+// Soft contact shadow so the table does not look like it floats in space.
+function AltarGroundContact({
+  themeKey,
+  ritualActive,
+  candleGlowStrength,
+}: {
+  themeKey: string
+  ritualActive: boolean
+  candleGlowStrength: number
+}) {
+  const theme = ALTAR_THEMES[themeKey as keyof typeof ALTAR_THEMES]
+  const baseColor = themeKey === 'wood' ? '#120a03' : (theme?.floorColor || '#080914')
+  const candleGlowRef = useRef<THREE.Mesh>(null!)
+
+  useFrame(() => {
+    if (!candleGlowRef.current) return
+    const mat = candleGlowRef.current.material as THREE.MeshStandardMaterial
+    const t = Date.now() * 0.003
+    const pulse = 0.12 + Math.sin(t * 0.8) * 0.06
+    const activeBoost = ritualActive ? 1.35 : 1
+    mat.opacity = Math.max(0.06, (0.08 + pulse) * candleGlowStrength * activeBoost)
+  })
+
+  return (
+    <group position={[0, -0.598, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh receiveShadow>
+        <circleGeometry args={[1.05, 48]} />
+        <meshStandardMaterial
+          color={baseColor}
+          transparent
+          opacity={0.36}
+          roughness={1}
+          metalness={0}
+          depthWrite={false}
+        />
+      </mesh>
+      <mesh position={[0, -0.002, 0]}>
+        <circleGeometry args={[1.45, 48]} />
+        <meshStandardMaterial
+          color={baseColor}
+          transparent
+          opacity={0.16}
+          roughness={1}
+          metalness={0}
+          depthWrite={false}
+        />
+      </mesh>
+      <mesh ref={candleGlowRef} position={[0, -0.003, 0]}>
+        <circleGeometry args={[1.2, 48]} />
+        <meshStandardMaterial
+          color="#ffb56a"
+          emissive="#ff7a1a"
+          emissiveIntensity={0.3}
+          transparent
+          opacity={0.08}
+          roughness={1}
+          metalness={0}
+          depthWrite={false}
+        />
+      </mesh>
+    </group>
+  )
+}
+
 // Drop target plane (invisible, catches pointer events for placement)
 function DropPlane({ onDrop }: { onDrop: (pos: [number, number, number]) => void }) {
   return (
@@ -104,17 +170,6 @@ function DropPlane({ onDrop }: { onDrop: (pos: [number, number, number]) => void
     >
       <planeGeometry args={[2.0, 1.2]} />
       <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-    </mesh>
-  )
-}
-
-// Floor / environment
-function Floor({ themeKey }: { themeKey: string }) {
-  const theme = ALTAR_THEMES[themeKey as keyof typeof ALTAR_THEMES]
-  return (
-    <mesh position={[0, -0.65, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-      <planeGeometry args={[20, 20]} />
-      <meshStandardMaterial color={theme?.floorColor || '#0a0514'} roughness={0.95} metalness={0} />
     </mesh>
   )
 }
@@ -174,8 +229,8 @@ function ResponsiveCamera() {
 
   useMemo(() => {
     if (camera instanceof THREE.PerspectiveCamera) {
-      camera.position.set(0, isPortrait ? 1.8 : 1.4, isPortrait ? 3.0 : 2.2)
-      camera.fov = isPortrait ? 55 : 45
+      camera.position.set(0, isPortrait ? 1.7 : 1.15, isPortrait ? 2.95 : 1.7)
+      camera.fov = isPortrait ? 50 : 42
       camera.updateProjectionMatrix()
     }
   }, [isPortrait, camera])
@@ -183,8 +238,39 @@ function ResponsiveCamera() {
   return null
 }
 
+function SceneControls({ ritualActive }: { ritualActive: boolean }) {
+  const { size } = useThree()
+  const isPortrait = size.width < size.height
+  const controlsRef = useRef<any>(null)
+
+  return (
+    <OrbitControls
+      ref={controlsRef}
+      target={[0, 0.05, 0]}
+      enablePan={isPortrait && !ritualActive}
+      enableZoom={true}
+      minDistance={isPortrait ? 1.6 : 1.1}
+      maxDistance={isPortrait ? 4.4 : 2.6}
+      minPolarAngle={0.55}
+      maxPolarAngle={1.15}
+      minAzimuthAngle={-0.45}
+      maxAzimuthAngle={0.45}
+      dampingFactor={0.05}
+      enableDamping
+      onChange={() => {
+        if (!isPortrait || !controlsRef.current) return
+        const t = controlsRef.current.target
+        t.x = THREE.MathUtils.clamp(t.x, -0.4, 0.4)
+        t.y = 0.05
+        t.z = 0
+      }}
+    />
+  )
+}
+
 interface AltarScene3DProps {
   layout: AltarLayout
+  visualPreset: AltarVisualPreset
   selectedId: string | null
   ritualActive: boolean
   ritualProgress: number
@@ -196,6 +282,7 @@ interface AltarScene3DProps {
 
 export function AltarScene3D({
   layout,
+  visualPreset,
   selectedId,
   ritualActive,
   ritualProgress,
@@ -206,40 +293,88 @@ export function AltarScene3D({
 }: AltarScene3DProps) {
   const theme = ALTAR_THEMES[layout.theme]
   const catalogMap = Object.fromEntries(CATALOG.map(c => [c.id, c]))
+  const candleCount = layout.objects.reduce((acc, placed) => {
+    const cat = catalogMap[placed.catalogId]
+    return acc + (cat?.effect === 'flicker' ? 1 : 0)
+  }, 0)
+  const candleGlowStrength = Math.min(1, 0.2 + candleCount * 0.12)
+
+  const lighting = useMemo(() => {
+    if (visualPreset === 'soft') {
+      return {
+        ambientIntensity: Math.max(0.3, theme.ambientIntensity * 0.82),
+        keyColor: '#95afff',
+        keyIntensity: ritualActive ? 0.52 : 0.46,
+        fillColor: '#6f6ad8',
+        fillIntensity: ritualActive ? 0.24 : 0.18,
+        rimColor: '#86b9ff',
+        rimIntensity: ritualActive ? 0.28 : 0.2,
+        candleBase: 0.12,
+        candleBoost: 0.26,
+        fogNear: 5.8,
+        fogFar: 13.0,
+      }
+    }
+
+    return {
+      ambientIntensity: Math.max(0.24, theme.ambientIntensity * 0.66),
+      keyColor: '#8ea3ff',
+      keyIntensity: ritualActive ? 0.64 : 0.56,
+      fillColor: '#6c5bd6',
+      fillIntensity: ritualActive ? 0.3 : 0.22,
+      rimColor: '#8a63ff',
+      rimIntensity: ritualActive ? 0.44 : 0.3,
+      candleBase: 0.14,
+      candleBoost: 0.34,
+      fogNear: 5.2,
+      fogFar: 11.8,
+    }
+  }, [visualPreset, theme.ambientIntensity, ritualActive])
 
   return (
     <Canvas
-      shadows
+      shadows={THREE.PCFShadowMap}
+      gl={{ alpha: true, antialias: true }}
       camera={{ near: 0.1, far: 50 }}
       style={{ background: 'transparent' }}
+      onCreated={({ gl }) => {
+        gl.setClearColor(0x000000, 0)
+      }}
       onPointerMissed={() => onSelect(null)}
     >
       {/* Lighting */}
-      <ambientLight color={theme.ambientColor} intensity={theme.ambientIntensity} />
+      <ambientLight color={theme.ambientColor} intensity={lighting.ambientIntensity} />
       <directionalLight
-        position={[2, 4, 2]}
-        intensity={0.8}
+        position={[-2.3, 3.9, 2.1]}
+        color={lighting.keyColor}
+        intensity={lighting.keyIntensity}
         castShadow
         shadow-mapSize={[1024, 1024]}
         shadow-camera-near={0.5}
-        shadow-camera-far={10}
-        shadow-camera-left={-2}
-        shadow-camera-right={2}
-        shadow-camera-top={2}
-        shadow-camera-bottom={-2}
+        shadow-camera-far={9}
+        shadow-camera-left={-1.8}
+        shadow-camera-right={1.8}
+        shadow-camera-top={1.8}
+        shadow-camera-bottom={-1.8}
+        shadow-bias={-0.0003}
       />
-      <pointLight position={[-1, 2, -1]} color="#6622cc" intensity={0.3} />
-      <pointLight position={[1, 1.5, 1]} color="#00ffd1" intensity={ritualActive ? 0.3 : 0.05} />
+      <pointLight position={[0.15, 1.3, 1.15]} color={lighting.fillColor} intensity={lighting.fillIntensity} distance={5} decay={2} />
+      <pointLight position={[1.6, 1.2, -1.7]} color={lighting.rimColor} intensity={lighting.rimIntensity} distance={4.6} decay={2} />
+      <pointLight position={[0.1, 0.46, 0.08]} color="#ffb366" intensity={lighting.candleBase + candleGlowStrength * lighting.candleBoost} distance={1.5} decay={2} />
 
       {/* Fog */}
       {/* @ts-ignore */}
-      <fog attach="fog" args={[theme.fogColor, 6, 14]} />
+      <fog attach="fog" args={[theme.fogColor, lighting.fogNear, lighting.fogFar]} />
 
       {/* Altar */}
       <Suspense fallback={null}>
         <AltarTable themeKey={layout.theme} />
         <AltarCloth themeKey={layout.theme} />
-        <Floor themeKey={layout.theme} />
+        <AltarGroundContact
+          themeKey={layout.theme}
+          ritualActive={ritualActive}
+          candleGlowStrength={candleGlowStrength}
+        />
 
         {/* Ambient mist */}
         <AmbientMist active={ritualActive} />
@@ -268,17 +403,8 @@ export function AltarScene3D({
         {pendingDrop && <DropPlane onDrop={onDropPlaced} />}
       </Suspense>
 
-      {/* Camera controls — disable pan in ritual mode */}
-      <OrbitControls
-        enablePan={!ritualActive}
-        enableZoom={true}
-        minDistance={1.0}
-        maxDistance={5}
-        minPolarAngle={0.2}
-        maxPolarAngle={Math.PI / 2.2}
-        dampingFactor={0.05}
-        enableDamping
-      />
+      {/* Camera controls */}
+      <SceneControls ritualActive={ritualActive} />
       <ResponsiveCamera />
     </Canvas>
   )

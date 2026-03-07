@@ -1,0 +1,45 @@
+/* MobileAltar.css */
+
+/* Canvas алтаря занимает весь экран */
+#altar-canvas {
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  background-color: #1a1a1a; /* тёмный фон для магии 😏 */
+}
+
+/* Панель объектов снизу */
+#object-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 120px;
+  display: flex;
+  overflow-x: auto;
+  background-color: rgba(0,0,0,0.7);
+  padding: 10px 0;
+  z-index: 10;
+}
+
+/* Каждая иконка объекта */
+.object-item {
+  flex: 0 0 auto;
+  margin: 0 10px;
+  width: 80px;
+  height: 80px;
+  background-color: #333;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 12px;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.object-item:active {
+  transform: scale(0.95);
+}

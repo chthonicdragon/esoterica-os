@@ -12,7 +12,7 @@ import { Maximize2 } from 'lucide-react'
 import { useIsMobile } from './hooks/use-mobile'
 import { supabase } from './lib/supabaseClient'
 
-type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'journal' | 'forum' | 'marketplace' | 'settings'
+type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'journal' | 'forum' | 'marketplace' | 'settings' | 'knowledge-graph'
 
 const PAGE_TITLES: Record<Page, { en: string; ru: string }> = {
   dashboard: { en: 'Dashboard', ru: 'Главная' },
@@ -24,6 +24,7 @@ const PAGE_TITLES: Record<Page, { en: string; ru: string }> = {
   forum: { en: 'Forum', ru: 'Форум' },
   marketplace: { en: 'Marketplace', ru: 'Маркетплейс' },
   settings: { en: 'Settings', ru: 'Настройки' },
+  'knowledge-graph': { en: 'Knowledge Graph', ru: 'Граф Знаний' },
 }
 
 function AppContent() {
@@ -131,7 +132,7 @@ function AppContent() {
           userName={user.displayName || user.email} 
           onMenuClick={isMobile ? () => setIsSidebarOpen(true) : undefined}
         />
-        <main className={`flex-1 ${currentPage === 'altars' || currentPage === 'forum' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
+        <main className={`flex-1 ${currentPage === 'altars' || currentPage === 'forum' || currentPage === 'knowledge-graph' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
           <Suspense fallback={<PageLoader />}>
             {currentPage === 'dashboard' && <Pages.Dashboard user={user} onNavigate={(p) => handleNavigate(p as Page)} />}
             {currentPage === 'altars' && <Pages.Altars user={user} />}
@@ -142,6 +143,7 @@ function AppContent() {
             {currentPage === 'forum' && <Pages.ForumPage user={user} />}
             {currentPage === 'marketplace' && <Pages.Marketplace />}
             {currentPage === 'settings' && <Pages.Settings user={user} />}
+            {currentPage === 'knowledge-graph' && <div className="flex-1 p-4 overflow-hidden"><Pages.KnowledgeGraph user={user} /></div>}
           </Suspense>
         </main>
       </div>

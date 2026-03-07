@@ -3,13 +3,13 @@ import { useLang } from '../../contexts/LanguageContext'
 import { useAudio } from '../../contexts/AudioContext'
 import {
   LayoutDashboard, FlameKindling, Bot, Moon, Sparkles,
-  BookOpen, ShoppingBag, Settings, LogOut, Hexagon, MessageSquare
+  BookOpen, ShoppingBag, Settings, LogOut, Hexagon, MessageSquare, Network
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { auth } from '../../lib/platformClient'
 import { getUnreadNotificationCount } from '../../pages/forum/ForumNotifications'
 
-type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'journal' | 'forum' | 'marketplace' | 'settings'
+type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'journal' | 'forum' | 'marketplace' | 'settings' | 'knowledge-graph'
 
 interface SidebarProps {
   currentPage: Page
@@ -45,6 +45,7 @@ export function Sidebar({ currentPage, onNavigate, userId }: SidebarProps) {
     { id: 'journal' as Page, icon: BookOpen, label: t.journal },
     { id: 'forum' as Page, icon: MessageSquare, label: (t as any).forum || 'Forum', badge: forumBadge },
     { id: 'marketplace' as Page, icon: ShoppingBag, label: t.marketplace },
+    { id: 'knowledge-graph' as Page, icon: Network, label: (t as any).knowledgeGraph || 'Knowledge Graph' },
   ]
 
   const handleNavigate = (id: Page) => {

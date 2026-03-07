@@ -1,4 +1,4 @@
-export type ObjectCategory = 'candles' | 'crystals' | 'statues' | 'herbs' | 'incense' | 'cups' | 'coins'
+export type ObjectCategory = 'candles' | 'crystals' | 'statues' | 'herbs' | 'incense' | 'cups' | 'coins' | 'models'
 
 export type AltarTheme = 'stone' | 'wood' | 'obsidian' | 'mystical'
 
@@ -11,6 +11,7 @@ export interface CatalogItem {
   emissive: string
   emissiveIntensity: number
   geometry: 'cylinder' | 'box' | 'sphere' | 'cone' | 'torus' | 'custom'
+  modelUrl?: string
   scale: [number, number, number]
   effect?: 'flicker' | 'glow' | 'smoke' | 'sparkle'
   unlockLevel: number
@@ -40,6 +41,10 @@ export interface Progression {
   streak: number
   lastPracticeDate: string | null
   totalRituals: number
+  ritualXp: number
+  journalXp: number
+  knowledgeXp: number
+  altarXp: number
 }
 
 export interface RitualSession {
@@ -53,10 +58,10 @@ export interface RitualSession {
 }
 
 export const POINTS_PER_RITUAL: Record<number, number> = {
-  15: 50,
-  30: 120,
-  60: 250,
-  90: 400,
+  15: 24,
+  30: 85,
+  60: 190,
+  90: 320,
 }
 
 export const LEVEL_THRESHOLDS = [0, 100, 300, 700, 1500, 3000, 6000, 12000, 25000, 50000]
@@ -70,9 +75,9 @@ export function getLevelFromPoints(points: number): number {
 }
 
 export function getStreakBonus(streak: number): number {
-  if (streak >= 30) return 3.0
-  if (streak >= 14) return 2.0
-  if (streak >= 7) return 1.5
-  if (streak >= 3) return 1.2
+  if (streak >= 30) return 2.2
+  if (streak >= 14) return 1.8
+  if (streak >= 7) return 1.4
+  if (streak >= 3) return 1.15
   return 1.0
 }

@@ -1,0 +1,832 @@
+import { useState, useCallback, useEffect, useMemo } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  Sparkles, Send, Database, Share2, Info, Loader2, X,
+  Fingerprint, Tag, Layers, Download, Trash2, Search,
+  Filter, Eye, EyeOff, Link as LinkIcon, Activity,
+  FileJson, FileSpreadsheet, Image as ImageIcon, Upload,
+  Zap, ChevronDown, Maximize2, Minimize2
+} from 'lucide-react'
+import { extractGraph, GraphData, Node, Link } from '../services/openRouterService'
+import GraphVisualization from '../components/GraphVisualization'
+import AnalyticsPanel from '../components/AnalyticsPanel'
+import { useLang } from '../contexts/LanguageContext'
+import { getKnowledgeWeavePoints, grantProgressionPoints, syncProgressionToDb } from '../altar/altarStore'
+
+const STORAGE_KEY = 'esoteric_knowledge_web_v1'
+const ALL_TYPES = ['deity', 'spirit', 'ritual', 'symbol', 'concept', 'place', 'creature', 'artifact', 'spell']
+const TYPE_LABELS: Record<string, { en: string; ru: string }> = {
+  deity: { en: 'Deity', ru: 'Божество' },
+  spirit: { en: 'Spirit', ru: 'Дух' },
+  ritual: { en: 'Ritual', ru: 'Ритуал' },
+  symbol: { en: 'Symbol', ru: 'Символ' },
+  concept: { en: 'Concept', ru: 'Концепт' },
+  place: { en: 'Place', ru: 'Место' },
+  creature: { en: 'Creature', ru: 'Существо' },
+  artifact: { en: 'Artifact', ru: 'Артефакт' },
+  spell: { en: 'Spell', ru: 'Заклинание' },
+}
+
+const translations = {
+  en: {
+    subtitle: "Magical Knowledge Web",
+    searchPlaceholder: "Search entities...",
+    filters: "Filters",
+    ritualLayer: "Ritual Layer",
+    inputPlaceholder: "Describe a deity, a ritual, or a place of power...",
+    weaveBtn: "Weave",
+    nodes: "Nodes",
+    links: "Links",
+    downloadJson: "Download JSON",
+    exportCsv: "Export CSV",
+    exportPng: "Export PNG",
+    importJsons: "Import JSONs",
+    analytics: "Analytics",
+    clearTooltip: "Clear Graph",
+    clearConfirm: "Are you sure you want to clear the entire web? This action cannot be undone.",
+    importSuccess: "Successfully imported {count} file(s).",
+    error: "Failed to extract entities. Check your API key and try again.",
+    entityDetails: "Entity Details",
+    name: "Name",
+    type: "Type",
+    relation: "Relation",
+    source: "Source",
+    target: "Target",
+    ritualText: "Description / Ritual Text",
+    markAsRitual: "Mark as Ritual",
+    ritualName: "Ritual Name (optional)",
+    exportRitual: "Export Ritual JSON",
+    updateWeb: "Reorganize Web",
+    resetWeb: "Reset Web",
+    updateSuccess: "Web updated: {count} nodes merged, links recalculated.",
+    xpEarned: "Knowledge weave strengthened (+{xp} XP).",
+    resetConfirm: "Are you sure you want to reset the entire web? Data will be lost.",
+    close: "Close",
+    powerFlows: "Power Flows",
+    flowSpeed: "Flow Speed",
+    flowIntensity: "Intensity",
+    flowThickness: "Thickness",
+    hideWeak: "Hide weak flows",
+    vizSettings: "Visualization Settings",
+    expand: "Expand",
+    shrink: "Shrink"
+  },
+  ru: {
+    subtitle: "Магическая Сеть Знаний",
+    searchPlaceholder: "Поиск сущностей...",
+    filters: "Фильтры",
+    ritualLayer: "Слой Ритуалов",
+    inputPlaceholder: "Опишите божество, ритуал или место силы...",
+    weaveBtn: "Плести",
+    nodes: "Узлов",
+    links: "Связей",
+    downloadJson: "Скачать JSON",
+    exportCsv: "Экспорт CSV",
+    exportPng: "Экспорт PNG",
+    importJsons: "Импорт JSON",
+    analytics: "Аналитика",
+    clearTooltip: "Очистить граф",
+    clearConfirm: "Вы уверены, что хотите очистить всю паутину? Это действие необратимо.",
+    importSuccess: "Успешно импортировано файлов: {count}.",
+    error: "Не удалось извлечь сущности. Проверьте API ключ и повторите попытку.",
+    entityDetails: "Детали Сущности",
+    name: "Имя",
+    type: "Тип",
+    relation: "Связь",
+    source: "Источник",
+    target: "Цель",
+    ritualText: "Описание / Текст ритуала",
+    markAsRitual: "Отметить как ритуал",
+    ritualName: "Название ритуала (необязательно)",
+    exportRitual: "Экспорт Ритуала JSON",
+    updateWeb: "Обновить паутину",
+    resetWeb: "Сброс паутины",
+    updateSuccess: "Паутина обновлена: {count} узлов объединено, связи пересчитаны.",
+    xpEarned: "Паутина укреплена (+{xp} XP).",
+    resetConfirm: "Вы уверены, что хотите сбросить всю паутину? Данные будут потеряны.",
+    close: "Закрыть",
+    powerFlows: "Потоки Силы",
+    flowSpeed: "Скорость Потока",
+    flowIntensity: "Яркость",
+    flowThickness: "Толщина",
+    hideWeak: "Скрыть слабые потоки",
+    vizSettings: "Настройки Визуализации",
+    expand: "Развернуть",
+    shrink: "Свернуть"
+  }
+}
+
+interface Props {
+  user: any
+}
+
+export function KnowledgeGraph({ user }: Props) {
+  const { lang } = useLang()
+  const t = translations[lang as 'en' | 'ru'] ?? translations.en
+  const getTypeLabel = useCallback((type: string) => {
+    const labels = TYPE_LABELS[type]
+    if (!labels) return type
+    return lang === 'ru' ? labels.ru : labels.en
+  }, [lang])
+
+  const [inputText, setInputText] = useState('')
+  const [graphData, setGraphData] = useState<GraphData>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    return saved ? JSON.parse(saved) : { nodes: [], links: [] }
+  })
+  const [selectedNode, setSelectedNode] = useState<Node | null>(null)
+  const [selectedLink, setSelectedLink] = useState<Link | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [successMsg, setSuccessMsg] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [visibleTypes, setVisibleTypes] = useState<Set<string>>(new Set(ALL_TYPES))
+  const [showRitualsOnly, setShowRitualsOnly] = useState(false)
+  const [showAnalytics, setShowAnalytics] = useState(false)
+  const [isRitualMode, setIsRitualMode] = useState(false)
+  const [ritualNameInput, setRitualNameInput] = useState('')
+  const [showFlows, setShowFlows] = useState(true)
+  const [flowSpeed, setFlowSpeed] = useState(1)
+  const [flowIntensity, setFlowIntensity] = useState(1)
+  const [flowThickness] = useState(1)
+  const [hideWeakFlows, setHideWeakFlows] = useState(false)
+  const [showVizSettings, setShowVizSettings] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(graphData))
+  }, [graphData])
+
+  useEffect(() => {
+    if (successMsg) {
+      const timer = setTimeout(() => setSuccessMsg(null), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [successMsg])
+
+  const getSimilarity = (s1: string, s2: string) => {
+    const longer = s1.length < s2.length ? s2 : s1
+    const shorter = s1.length < s2.length ? s1 : s2
+    if (longer.length === 0) return 1.0
+    const costs: number[] = []
+    for (let i = 0; i <= longer.length; i++) {
+      let lastValue = i
+      for (let j = 0; j <= shorter.length; j++) {
+        if (i === 0) costs[j] = j
+        else if (j > 0) {
+          let newValue = costs[j - 1]
+          if (longer.charAt(i - 1) !== shorter.charAt(j - 1))
+            newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1
+          costs[j - 1] = lastValue
+          lastValue = newValue
+        }
+      }
+      if (i > 0) costs[shorter.length] = lastValue
+    }
+    return (longer.length - costs[shorter.length]) / longer.length
+  }
+
+  const SEMANTIC_GROUPS: Record<string, string> = {
+    'богатство': 'money_magic', 'денежная магия': 'money_magic', 'привлечение денег': 'money_magic',
+    'wealth': 'money_magic', 'prosperity': 'money_magic', 'abundance': 'money_magic',
+    'защита': 'protection_magic', 'оберег': 'protection_magic',
+    'protection': 'protection_magic', 'shielding': 'protection_magic', 'warding': 'protection_magic',
+    'любовь': 'love_magic', 'приворот': 'love_magic',
+    'love': 'love_magic', 'attraction': 'love_magic',
+  }
+
+  const mergeGraphData = useCallback((newData: GraphData) => {
+    setGraphData(prev => {
+      const newNodes = [...prev.nodes]
+      const nodeMap = new Map(prev.nodes.map(n => [n.id, n]))
+      const nameMap = new Map(prev.nodes.map(n => [n.name.toLowerCase(), n.id]))
+      const idMapping: Record<string, string> = {}
+
+      newData.nodes.forEach(node => {
+        const lowerName = node.name.toLowerCase()
+        let canonicalId = SEMANTIC_GROUPS[lowerName]
+        let existingId = canonicalId && nodeMap.has(canonicalId) ? canonicalId : (nodeMap.has(node.id) ? node.id : nameMap.get(lowerName))
+
+        if (!existingId) {
+          for (const [existingName, id] of nameMap.entries()) {
+            if (getSimilarity(lowerName, existingName) > 0.85) { existingId = id; break }
+          }
+        }
+
+        if (existingId) {
+          idMapping[node.id] = existingId
+          const existingNode = nodeMap.get(existingId)
+          if (existingNode && node.description && (!existingNode.description || node.description.length > existingNode.description.length)) {
+            existingNode.description = node.description
+          }
+        } else {
+          newNodes.push(node)
+          nodeMap.set(node.id, node)
+          nameMap.set(lowerName, node.id)
+          idMapping[node.id] = node.id
+        }
+      })
+
+      const existingLinks = new Set(prev.links.map(l => `${l.source}-${l.target}-${l.relation}`))
+      const newLinks = [...prev.links]
+
+      newData.links.forEach(link => {
+        const sourceId = idMapping[link.source] || link.source
+        const targetId = idMapping[link.target] || link.target
+        if (sourceId === targetId) return
+        const linkKey = `${sourceId}-${targetId}-${link.relation}`
+        if (!existingLinks.has(linkKey) && nodeMap.has(sourceId) && nodeMap.has(targetId)) {
+          newLinks.push({ ...link, source: sourceId, target: targetId })
+          existingLinks.add(linkKey)
+        }
+      })
+
+      return { nodes: newNodes, links: newLinks }
+    })
+  }, [])
+
+  const handleExtract = async () => {
+    if (!inputText.trim()) return
+    setIsLoading(true)
+    setError(null)
+    try {
+      const data = await extractGraph(inputText, lang as 'en' | 'ru', isRitualMode, ritualNameInput, graphData.nodes)
+      mergeGraphData(data)
+      const rawPoints = getKnowledgeWeavePoints(data.nodes.length, data.links.length, isRitualMode)
+      const { pointsEarned, progression } = grantProgressionPoints(rawPoints, 'knowledge')
+      syncProgressionToDb(user.id, progression)
+      setSuccessMsg(t.xpEarned.replace('{xp}', pointsEarned.toString()))
+      setInputText('')
+      setRitualNameInput('')
+      setIsRitualMode(false)
+    } catch (err) {
+      console.error(err)
+      setError(t.error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDownload = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(graphData, null, 2))
+    const a = document.createElement('a')
+    a.setAttribute("href", dataStr)
+    a.setAttribute("download", "magical_web.json")
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  }
+
+  const handleExportCSV = () => {
+    const nodeRows = [["id", "name", "type"], ...graphData.nodes.map(n => [n.id, n.name, n.type])]
+    const linkRows = [["source", "target", "relation"], ...graphData.links.map(l => [l.source, l.target, l.relation])]
+    const csvContent = "NODES\n" + nodeRows.map(r => r.join(",")).join("\n") + "\n\nLINKS\n" + linkRows.map(r => r.join(",")).join("\n")
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.setAttribute("href", url)
+    a.setAttribute("download", "magical_web.csv")
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }
+
+  const handleExportPNG = () => {
+    const svg = document.getElementById('main-graph-svg') as unknown as SVGSVGElement | null
+    if (!svg) return
+    const serializer = new XMLSerializer()
+    const svgBlob = new Blob([serializer.serializeToString(svg)], { type: 'image/svg+xml;charset=utf-8' })
+    const url = URL.createObjectURL(svgBlob)
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = svg.clientWidth * 2
+      canvas.height = svg.clientHeight * 2
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.fillStyle = '#0a0502'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        const a = document.createElement('a')
+        a.href = canvas.toDataURL('image/png')
+        a.download = 'magical_web.png'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+      }
+      URL.revokeObjectURL(url)
+    }
+    img.src = url
+  }
+
+  const handleImportJsons = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files) return
+    let processedCount = 0
+    Array.from(files).forEach(file => {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        try {
+          const data = JSON.parse(event.target?.result as string)
+          if (data.nodes && data.links) {
+            mergeGraphData(data)
+            processedCount++
+            if (processedCount === files.length) {
+              setSuccessMsg(t.importSuccess.replace('{count}', processedCount.toString()))
+            }
+          }
+        } catch (err) { console.error("Failed to parse JSON:", err) }
+      }
+      reader.readAsText(file)
+    })
+  }
+
+  const handleResetWeb = () => {
+    if (window.confirm(t.resetConfirm)) {
+      setGraphData({ nodes: [], links: [] })
+      setSelectedNode(null)
+      setSelectedLink(null)
+      localStorage.removeItem(STORAGE_KEY)
+    }
+  }
+
+  const reorganizeGraph = useCallback(() => {
+    setIsLoading(true)
+    setTimeout(() => {
+      setGraphData(prev => {
+        const nodes = [...prev.nodes]
+        const links = [...prev.links]
+        const idMapping: Record<string, string> = {}
+        const canonicalNodes: Node[] = []
+        const processed = new Set<string>()
+
+        nodes.forEach(node => {
+          if (processed.has(node.id)) return
+          const lowerName = node.name.toLowerCase()
+          const semanticId = SEMANTIC_GROUPS[lowerName]
+          const group = nodes.filter(other => {
+            if (processed.has(other.id)) return false
+            if (node.id === other.id) return true
+            const otherLower = other.name.toLowerCase()
+            if (lowerName === otherLower) return true
+            if (semanticId && SEMANTIC_GROUPS[otherLower] === semanticId) return true
+            return getSimilarity(lowerName, otherLower) > 0.85
+          })
+          const canonical = group.reduce((best, curr) => {
+            return (curr.description?.length || 0) > (best.description?.length || 0) ? curr : best
+          }, group[0])
+          canonicalNodes.push(canonical)
+          group.forEach(n => { idMapping[n.id] = canonical.id; processed.add(n.id) })
+        })
+
+        const newLinks: Link[] = []
+        const linkKeys = new Set<string>()
+        links.forEach(link => {
+          const sourceId = idMapping[link.source as string] || (typeof link.source === 'object' ? idMapping[(link.source as any).id] : link.source)
+          const targetId = idMapping[link.target as string] || (typeof link.target === 'object' ? idMapping[(link.target as any).id] : link.target)
+          if (!sourceId || !targetId || sourceId === targetId) return
+          const key = `${sourceId}-${targetId}-${link.relation}`
+          if (!linkKeys.has(key)) {
+            newLinks.push({ ...link, source: sourceId, target: targetId })
+            linkKeys.add(key)
+          }
+        })
+
+        const mergedCount = nodes.length - canonicalNodes.length
+        setSuccessMsg(t.updateSuccess.replace('{count}', mergedCount.toString()))
+        return { nodes: canonicalNodes, links: newLinks }
+      })
+      setIsLoading(false)
+    }, 100)
+  }, [t])
+
+  const handleClear = () => {
+    if (window.confirm(t.clearConfirm)) {
+      setGraphData({ nodes: [], links: [] })
+      setSelectedNode(null)
+      setSelectedLink(null)
+      localStorage.removeItem(STORAGE_KEY)
+    }
+  }
+
+  const handleExportRitual = (ritual: Node) => {
+    const ritualLinks = graphData.links.filter(l => l.source === ritual.id || l.target === ritual.id)
+    const linkedNodeIds = new Set([ritual.id, ...ritualLinks.map(l => l.source === ritual.id ? l.target : l.source)])
+    const exportData = { nodes: graphData.nodes.filter(n => linkedNodeIds.has(n.id as string)), links: ritualLinks }
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2))
+    const a = document.createElement('a')
+    a.setAttribute("href", dataStr)
+    a.setAttribute("download", `ritual_${ritual.id}.json`)
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  }
+
+  const toggleType = (type: string) => {
+    const next = new Set(visibleTypes)
+    if (next.has(type)) next.delete(type)
+    else next.add(type)
+    setVisibleTypes(next)
+  }
+
+  const colors: Record<string, string> = {
+    deity: "text-rose-400 border-rose-500/30 bg-rose-500/10",
+    spirit: "text-purple-400 border-purple-500/30 bg-purple-500/10",
+    ritual: "text-blue-400 border-blue-500/30 bg-blue-500/10",
+    symbol: "text-yellow-400 border-yellow-500/30 bg-yellow-500/10",
+    concept: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10",
+    place: "text-orange-400 border-orange-500/30 bg-orange-500/10",
+    creature: "text-cyan-400 border-cyan-500/30 bg-cyan-500/10",
+    artifact: "text-violet-400 border-violet-500/30 bg-violet-500/10",
+    spell: "text-pink-400 border-pink-500/30 bg-pink-500/10",
+  }
+
+  const handleNodeClick = useCallback((node: Node) => {
+    setSelectedNode(node)
+    setSelectedLink(null)
+  }, [])
+
+  const handleLinkClick = useCallback((link: Link) => {
+    setSelectedLink(link)
+    setSelectedNode(null)
+  }, [])
+
+  const activeVisibleTypes = useMemo(() => {
+    if (showRitualsOnly) return new Set(['ritual'])
+    return visibleTypes
+  }, [visibleTypes, showRitualsOnly])
+
+  return (
+    <div className="flex flex-col lg:flex-row gap-4 h-full w-full overflow-hidden p-1">
+      {/* Left Column: Controls */}
+      <div className={`${isExpanded ? 'hidden' : 'flex'} flex-col gap-4 w-full lg:w-[360px] shrink-0 overflow-y-auto pr-1`}
+        style={{ scrollbarWidth: 'thin' }}
+      >
+        {/* Header */}
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 bg-primary/10 rounded-lg">
+            <Sparkles className="w-4 h-4 text-primary" />
+          </div>
+          <span className="text-xs font-mono uppercase tracking-widest text-primary/70">{t.subtitle}</span>
+        </div>
+
+        {/* Status messages */}
+        <AnimatePresence>
+          {error && (
+            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              className="p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-destructive text-xs flex items-center gap-2">
+              <X className="w-3 h-3 shrink-0" />
+              {error}
+            </motion.div>
+          )}
+          {successMsg && (
+            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs">
+              {successMsg}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t.searchPlaceholder}
+            className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:border-primary/50 transition-colors text-foreground placeholder:text-muted-foreground"
+          />
+        </div>
+
+        {/* Filters */}
+        <div className="p-3 bg-white/5 border border-white/10 rounded-2xl">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Filter className="w-3 h-3 text-muted-foreground" />
+              <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t.filters}</span>
+            </div>
+            <button
+              onClick={() => setShowRitualsOnly(!showRitualsOnly)}
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] uppercase tracking-wider font-bold transition-colors ${showRitualsOnly ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-white/5 text-muted-foreground border border-white/10'}`}
+            >
+              <Activity className="w-2.5 h-2.5" />
+              {t.ritualLayer}
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {ALL_TYPES.map(type => (
+              <button
+                key={type}
+                onClick={() => toggleType(type)}
+                disabled={showRitualsOnly}
+                className={`px-2 py-0.5 rounded-lg text-[9px] uppercase tracking-wider font-bold border transition-all ${activeVisibleTypes.has(type) ? colors[type] : 'bg-white/5 text-muted-foreground/40 border-white/5 opacity-40'}`}
+              >
+                {getTypeLabel(type)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Visualization Settings */}
+        <div className="p-3 bg-white/5 border border-white/10 rounded-2xl">
+          <button onClick={() => setShowVizSettings(!showVizSettings)} className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-2">
+              <Zap className="w-3 h-3 text-primary/70" />
+              <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t.vizSettings}</span>
+            </div>
+            <ChevronDown className={`w-3 h-3 text-muted-foreground transition-transform ${showVizSettings ? 'rotate-180' : ''}`} />
+          </button>
+          {showVizSettings && (
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="pt-3 flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">{t.powerFlows}</span>
+                <button onClick={() => setShowFlows(!showFlows)} className={`w-9 h-5 rounded-full transition-all relative ${showFlows ? 'bg-primary' : 'bg-white/10'}`}>
+                  <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${showFlows ? 'left-5' : 'left-1'}`} />
+                </button>
+              </div>
+              {showFlows && (
+                <>
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex justify-between text-[9px] text-muted-foreground uppercase tracking-widest font-bold">
+                      <span>{t.flowSpeed}</span>
+                      <span className="text-primary">{flowSpeed.toFixed(1)}x</span>
+                    </div>
+                    <input type="range" min="0.1" max="3" step="0.1" value={flowSpeed}
+                      onChange={(e) => setFlowSpeed(parseFloat(e.target.value))}
+                      className="w-full accent-primary h-1 bg-white/10 rounded-lg appearance-none cursor-pointer" />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex justify-between text-[9px] text-muted-foreground uppercase tracking-widest font-bold">
+                      <span>{t.flowIntensity}</span>
+                      <span className="text-primary">{flowIntensity.toFixed(1)}x</span>
+                    </div>
+                    <input type="range" min="0.1" max="2" step="0.1" value={flowIntensity}
+                      onChange={(e) => setFlowIntensity(parseFloat(e.target.value))}
+                      className="w-full accent-primary h-1 bg-white/10 rounded-lg appearance-none cursor-pointer" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">{t.hideWeak}</span>
+                    <button onClick={() => setHideWeakFlows(!hideWeakFlows)} className={`w-9 h-5 rounded-full transition-all relative ${hideWeakFlows ? 'bg-primary' : 'bg-white/10'}`}>
+                      <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${hideWeakFlows ? 'left-5' : 'left-1'}`} />
+                    </button>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          )}
+        </div>
+
+        {/* Text Input */}
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={() => setIsRitualMode(!isRitualMode)}
+            className={`self-start flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border ${isRitualMode ? 'bg-purple-500/20 border-purple-500/50 text-purple-400' : 'bg-white/5 border-white/10 text-muted-foreground hover:text-foreground'}`}
+          >
+            <Activity className="w-3 h-3" />
+            {t.markAsRitual}
+          </button>
+          {isRitualMode && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="overflow-hidden">
+              <input
+                type="text"
+                value={ritualNameInput}
+                onChange={(e) => setRitualNameInput(e.target.value)}
+                placeholder={t.ritualName}
+                className="w-full bg-purple-500/5 border border-purple-500/20 rounded-xl py-2 px-3 text-sm focus:outline-none focus:border-purple-500/50 transition-colors text-purple-200 placeholder:text-purple-400/40 mb-1"
+              />
+            </motion.div>
+          )}
+          <div className="relative">
+            <textarea
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleExtract() }}
+              placeholder={t.inputPlaceholder}
+              rows={4}
+              className={`w-full bg-white/5 border rounded-2xl p-4 text-sm resize-none focus:outline-none transition-colors placeholder:text-muted-foreground/50 text-foreground ${isRitualMode ? 'border-purple-500/30 focus:border-purple-500/50' : 'border-white/10 focus:border-primary/50'}`}
+            />
+            <div className="absolute bottom-3 right-3">
+              <button
+                onClick={handleExtract}
+                disabled={isLoading || !inputText.trim()}
+                className={`flex items-center gap-1.5 font-medium px-4 py-2 rounded-xl transition-all shadow-lg text-sm ${isRitualMode ? 'bg-purple-500 hover:bg-purple-600 text-white' : 'bg-primary hover:bg-primary/90 text-primary-foreground'} disabled:opacity-30 disabled:cursor-not-allowed`}
+              >
+                {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                {t.weaveBtn}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Database className="w-3 h-3 text-emerald-500" />
+              <span className="text-[9px] uppercase tracking-wider font-bold text-emerald-500/70">{t.nodes}</span>
+            </div>
+            <div className="text-lg font-light text-foreground">{graphData.nodes.length}</div>
+          </div>
+          <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Share2 className="w-3 h-3 text-blue-500" />
+              <span className="text-[9px] uppercase tracking-wider font-bold text-blue-500/70">{t.links}</span>
+            </div>
+            <div className="text-lg font-light text-foreground">{graphData.links.length}</div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="grid grid-cols-2 gap-1.5">
+          <button onClick={handleDownload} disabled={graphData.nodes.length === 0}
+            className="flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-30 text-foreground/80 py-2 rounded-xl transition-all text-[10px] uppercase tracking-wider font-bold">
+            <FileJson className="w-3 h-3" /> JSON
+          </button>
+          <button onClick={handleExportCSV} disabled={graphData.nodes.length === 0}
+            className="flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-30 text-foreground/80 py-2 rounded-xl transition-all text-[10px] uppercase tracking-wider font-bold">
+            <FileSpreadsheet className="w-3 h-3" /> CSV
+          </button>
+          <button onClick={handleExportPNG} disabled={graphData.nodes.length === 0}
+            className="flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-30 text-foreground/80 py-2 rounded-xl transition-all text-[10px] uppercase tracking-wider font-bold">
+            <ImageIcon className="w-3 h-3" /> PNG
+          </button>
+          <label className="flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 cursor-pointer text-foreground/80 py-2 rounded-xl transition-all text-[10px] uppercase tracking-wider font-bold">
+            <Upload className="w-3 h-3" /> {lang === 'ru' ? 'Импорт' : 'Import'}
+            <input type="file" multiple accept=".json" onChange={handleImportJsons} className="hidden" />
+          </label>
+          <button onClick={reorganizeGraph} disabled={graphData.nodes.length === 0 || isLoading}
+            className="flex items-center justify-center gap-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 disabled:opacity-30 text-emerald-400 py-2 rounded-xl transition-all text-[10px] uppercase tracking-wider font-bold">
+            {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Layers className="w-3 h-3" />}
+            {lang === 'ru' ? 'Реорг.' : 'Reorg.'}
+          </button>
+          <button onClick={() => setShowAnalytics(!showAnalytics)}
+            className={`flex items-center justify-center gap-1.5 py-2 rounded-xl transition-all text-[10px] uppercase tracking-wider font-bold border ${showAnalytics ? 'bg-primary/20 border-primary/50 text-primary' : 'bg-white/5 border-white/10 text-foreground/60 hover:bg-white/10'}`}>
+            <Activity className="w-3 h-3" />
+            {lang === 'ru' ? 'Аналит.' : 'Analytics'}
+          </button>
+        </div>
+
+        <button onClick={handleResetWeb}
+          className="w-full flex items-center justify-center gap-2 bg-destructive/10 hover:bg-destructive/20 border border-destructive/20 text-destructive py-2 rounded-xl transition-all text-xs font-medium">
+          <Trash2 className="w-3.5 h-3.5" />
+          {t.resetWeb}
+        </button>
+
+        <footer className="text-[9px] text-muted-foreground/40 flex items-center gap-3 border-t border-white/5 pt-3 mt-auto">
+          <div className="flex items-center gap-1"><Info className="w-2.5 h-2.5" /><span>OpenRouter AI</span></div>
+          <span>Arachna v1.0</span>
+        </footer>
+      </div>
+
+      {/* Right Column: Graph */}
+      <div className="flex-1 relative flex min-h-[400px] lg:min-h-0">
+        <div className="flex-1 relative w-full h-full">
+          {/* Expand toggle */}
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="absolute top-3 right-3 z-40 p-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-muted-foreground hover:text-foreground transition-all"
+            title={isExpanded ? t.shrink : t.expand}
+          >
+            {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </button>
+
+          {graphData.nodes.length > 0 ? (
+            <>
+              <GraphVisualization
+                data={graphData}
+                onNodeClick={handleNodeClick}
+                onLinkClick={handleLinkClick}
+                searchQuery={searchQuery}
+                visibleTypes={activeVisibleTypes}
+                selectedNodeId={selectedNode?.id}
+                showFlows={showFlows}
+                flowSpeed={flowSpeed}
+                flowIntensity={flowIntensity}
+                flowThickness={flowThickness}
+                hideWeakFlows={hideWeakFlows}
+                isExpanded={isExpanded}
+              />
+
+              {/* Analytics panel */}
+              <AnimatePresence>
+                {showAnalytics && (
+                  <motion.div
+                    initial={{ x: 340, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 340, opacity: 0 }}
+                    className="absolute top-0 right-0 bottom-0 w-full max-w-[300px] z-30"
+                  >
+                    <AnalyticsPanel data={graphData} lang={lang as 'en' | 'ru'} onNodeSelect={(node) => { setSelectedNode(node); setSelectedLink(null) }} />
+                    <button onClick={() => setShowAnalytics(false)}
+                      className="absolute top-3 right-3 p-1.5 bg-black/40 hover:bg-black/60 rounded-full text-muted-foreground hover:text-foreground transition-colors z-40">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Node detail panel */}
+              <AnimatePresence>
+                {selectedNode && (
+                  <>
+                    {selectedNode.type === 'ritual' && (
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        onClick={() => setSelectedNode(null)}
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40" />
+                    )}
+                    <motion.div
+                      initial={selectedNode.type === 'ritual' ? { opacity: 0, scale: 0.9, y: 20 } : { x: 280, opacity: 0 }}
+                      animate={selectedNode.type === 'ritual' ? { opacity: 1, scale: 1, y: 0 } : { x: 0, opacity: 1 }}
+                      exit={selectedNode.type === 'ritual' ? { opacity: 0, scale: 0.9, y: 20 } : { x: 280, opacity: 0 }}
+                      className={`${selectedNode.type === 'ritual'
+                        ? 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[480px] max-h-[80vh] overflow-y-auto z-50'
+                        : 'absolute top-3 right-3 w-full max-w-[260px] z-20'
+                      } bg-[hsl(var(--sidebar))]/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl`}
+                    >
+                      <div className="p-5">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2">
+                            <Fingerprint className="w-3.5 h-3.5 text-primary" />
+                            <span className="text-[9px] uppercase tracking-widest font-bold text-muted-foreground">{t.entityDetails}</span>
+                          </div>
+                          <button onClick={() => setSelectedNode(null)} className="p-1 hover:bg-white/10 rounded-full transition-colors text-muted-foreground hover:text-foreground">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className="space-y-4">
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <Tag className="w-2.5 h-2.5 text-muted-foreground/50" />
+                              <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground/50">{t.name}</span>
+                            </div>
+                            <h3 className="text-lg font-cinzel font-light text-foreground">{selectedNode.name}</h3>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <Layers className="w-2.5 h-2.5 text-muted-foreground/50" />
+                              <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground/50">{t.type}</span>
+                            </div>
+                            <div className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[9px] font-medium uppercase tracking-wider ${colors[selectedNode.type]}`}>
+                              {getTypeLabel(selectedNode.type)}
+                            </div>
+                          </div>
+                          {selectedNode.description && (
+                            <div className="pt-3 border-t border-white/5">
+                              <div className="flex items-center gap-1.5 mb-2">
+                                <Sparkles className="w-2.5 h-2.5 text-purple-400" />
+                                <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground/50">{t.ritualText}</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground leading-relaxed">{selectedNode.description}</p>
+                            </div>
+                          )}
+                          {selectedNode.type === 'ritual' && (
+                            <button onClick={() => handleExportRitual(selectedNode)}
+                              className="w-full flex items-center justify-center gap-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 py-2 rounded-xl transition-all text-xs font-medium mt-2">
+                              <Download className="w-3 h-3" />
+                              {t.exportRitual}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+
+              {/* Link detail panel */}
+              <AnimatePresence>
+                {selectedLink && !selectedNode && (
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }}
+                    className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 bg-[hsl(var(--sidebar))]/95 backdrop-blur-2xl border border-white/10 rounded-2xl p-4 shadow-2xl max-w-[340px] w-full"
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <LinkIcon className="w-3 h-3 text-primary" />
+                        <span className="text-[9px] uppercase tracking-widest font-bold text-muted-foreground">{t.relation}</span>
+                      </div>
+                      <button onClick={() => setSelectedLink(null)} className="p-1 hover:bg-white/10 rounded-full transition-colors text-muted-foreground hover:text-foreground">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-foreground font-medium truncate">{typeof selectedLink.source === 'string' ? selectedLink.source : (selectedLink.source as any).name}</span>
+                      <span className="text-primary/60 text-[10px] px-2 py-0.5 bg-primary/10 rounded-full border border-primary/20 shrink-0">{selectedLink.relation}</span>
+                      <span className="text-foreground font-medium truncate">{typeof selectedLink.target === 'string' ? selectedLink.target : (selectedLink.target as any).name}</span>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </>
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-white/[0.02] rounded-2xl border border-white/10 border-dashed">
+              <Sparkles className="w-10 h-10 text-primary/20 mb-4" />
+              <p className="text-muted-foreground/50 text-sm text-center max-w-[220px]">
+                {lang === 'ru' ? 'Введите описание, чтобы начать плести знание' : 'Enter a description to start weaving knowledge'}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}

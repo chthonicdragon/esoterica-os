@@ -1,5 +1,6 @@
 import { useRef, useMemo, useState, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import type { CatalogItem, PlacedObject } from './types'
 
@@ -12,18 +13,54 @@ interface AltarObject3DProps {
   onPositionChange: (id: string, pos: [number, number, number]) => void
 }
 
+function ModelMesh({ modelUrl, color }: { modelUrl: string; color: string }) {
+  const gltf = useGLTF(modelUrl)
+  const model = useMemo(() => {
+    const cloned = gltf.scene.clone(true)
+
+    // Normalize arbitrary GLB authoring scale/origin so all models place consistently.
+    const sourceBox = new THREE.Box3().setFromObject(cloned)
+    const sourceSize = new THREE.Vector3()
+    sourceBox.getSize(sourceSize)
+    const maxSide = Math.max(sourceSize.x, sourceSize.y, sourceSize.z, 1e-6)
+    const fitScale = 1 / maxSide
+    cloned.scale.setScalar(fitScale)
+
+    // Recompute after scaling; translations in object space must use scaled bounds.
+    const normalizedBox = new THREE.Box3().setFromObject(cloned)
+    const normalizedCenter = new THREE.Vector3()
+    normalizedBox.getCenter(normalizedCenter)
+
+    // Center on X/Z and place model base on Y=0 so it stands on altar surface.
+    cloned.position.x -= normalizedCenter.x
+    cloned.position.y -= normalizedBox.min.y
+    cloned.position.z -= normalizedCenter.z
+
+    return cloned
+  }, [gltf.scene])
+
+  useEffect(() => {
+    model.traverse((node) => {
+      if (!(node instanceof THREE.Mesh)) return
+      node.castShadow = true
+      node.receiveShadow = true
+      if (node.material instanceof THREE.MeshStandardMaterial) {
+        node.material = node.material.clone()
+        node.material.color.multiply(new THREE.Color(color))
+      }
+    })
+  }, [model, color])
+
+  return <primitive object={model} />
+}
+
 // Flame particle for candles
 function Flame({ position, active }: { position: [number, number, number]; active: boolean }) {
-  const meshRef = useRef<THREE.Mesh>(null!)
   const lightRef = useRef<THREE.PointLight>(null!)
   const [offset] = useState(() => Math.random() * Math.PI * 2)
 
-  useFrame((_, delta) => {
-    if (!meshRef.current) return
+  useFrame(() => {
     const t = Date.now() * 0.003 + offset
-    meshRef.current.scale.x = 0.8 + Math.sin(t * 7) * 0.2
-    meshRef.current.scale.y = 0.9 + Math.sin(t * 5) * 0.15
-    meshRef.current.scale.z = 0.8 + Math.sin(t * 6) * 0.2
     if (lightRef.current) {
       lightRef.current.intensity = active ? 0.5 + Math.sin(t * 11) * 0.2 : 0
     }
@@ -31,16 +68,6 @@ function Flame({ position, active }: { position: [number, number, number]; activ
 
   return (
     <group position={position}>
-      <mesh ref={meshRef}>
-        <coneGeometry args={[0.025, 0.07, 6]} />
-        <meshStandardMaterial
-          color="#ff8800"
-          emissive="#ff4400"
-          emissiveIntensity={1.5}
-          transparent
-          opacity={0.9}
-        />
-      </mesh>
       <pointLight
         ref={lightRef}
         color="#ff8800"
@@ -115,6 +142,7 @@ export function AltarObject3D({
 }: AltarObject3DProps) {
   const groupRef = useRef<THREE.Group>(null!)
   const [hovered, setHovered] = useState(false)
+  const isModel = Boolean(catalog.modelUrl)
 
   const geometry = useMemo(() => {
     switch (catalog.geometry) {
@@ -162,7 +190,9 @@ export function AltarObject3D({
   })
 
   const [px, py, pz] = placed.position
-  const flamePos: [number, number, number] = [0, catalog.scale[1] / 2 + 0.01, 0]
+  const flamePos: [number, number, number] = isModel
+    ? [0, catalog.scale[1] + 0.03, 0]
+    : [0, catalog.scale[1] / 2 + 0.01, 0]
   const smokeOffset: [number, number, number] = [px, py + catalog.scale[1] / 2, pz]
 
   return (
@@ -175,12 +205,18 @@ export function AltarObject3D({
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
     >
-      <mesh
-        geometry={geometry}
-        material={material}
-        castShadow
-        receiveShadow
-      />
+      {isModel && catalog.modelUrl ? (
+        <group scale={catalog.scale}>
+          <ModelMesh modelUrl={catalog.modelUrl} color={catalog.color} />
+        </group>
+      ) : (
+        <mesh
+          geometry={geometry}
+          material={material}
+          castShadow
+          receiveShadow
+        />
+      )}
 
       {/* Selection ring */}
       {(selected || hovered) && (

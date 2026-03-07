@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { Flame, Timer, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
+import { useState, useCallback } from 'react'
+import { Flame, AlertTriangle, CheckCircle2, XCircle, Info } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useAudio } from '../contexts/AudioContext'
 import type { RitualSession } from './types'
@@ -20,7 +20,7 @@ function formatTime(seconds: number) {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
 }
 
-// Circular progress SVG
+// --- Circular progress component ---
 function CircularProgress({ progress, size = 120, stroke = 6, color = '#a855f7' }: {
   progress: number; size?: number; stroke?: number; color?: string
 }) {
@@ -45,25 +45,19 @@ function CircularProgress({ progress, size = 120, stroke = 6, color = '#a855f7' 
   )
 }
 
+// --- Main panel ---
 export function RitualPanel({ lang, session, onStart, onComplete, onInterrupt }: RitualPanelProps) {
   const [selectedDuration, setSelectedDuration] = useState(30)
   const [selectedMode, setSelectedMode] = useState<'soft' | 'strict'>('soft')
   const [customDuration, setCustomDuration] = useState('')
   const [showConfirm, setShowConfirm] = useState(false)
+  const [showRules, setShowRules] = useState(false)
   const { playUiSound } = useAudio()
-  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const elapsed = session.elapsed
   const totalSeconds = session.durationMinutes * 60
   const remaining = Math.max(0, totalSeconds - elapsed)
   const progress = elapsed / totalSeconds
-
-  // Auto-complete when timer hits zero
-  useEffect(() => {
-    if (session.active && remaining <= 0) {
-      onComplete()
-    }
-  }, [remaining, session.active, onComplete])
 
   const handleStart = useCallback(() => {
     playUiSound('click')
@@ -86,6 +80,23 @@ export function RitualPanel({ lang, session, onStart, onComplete, onInterrupt }:
     strict: lang === 'ru' ? 'Строгий' : 'Strict',
     softDesc: lang === 'ru' ? 'Пауза при выходе, прогресс сохраняется' : 'Pause on exit, progress saved',
     strictDesc: lang === 'ru' ? 'Выход отменяет сессию, очки не начисляются' : 'Exit cancels session, no points awarded',
+    rulesTitle: lang === 'ru' ? 'Правила ритуала' : 'Ritual Rules',
+    rulesBtn: lang === 'ru' ? 'О ритуале и правилах' : 'About ritual rules',
+    rulesIntro: lang === 'ru'
+      ? 'Цифровой алтарь - это символическая копия вашего реального пространства практики. Ритуал начинается здесь, но выполняется в реальной жизни.'
+      : 'The digital altar is a symbolic copy of your real practice space. The ritual starts here, but is performed in real life.',
+    rulesGoal: lang === 'ru'
+      ? 'После нажатия "Начать ритуал" рекомендуется отложить телефон и практиковать офлайн. Это сделано, чтобы поддерживать реальную дисциплину, а не экранный таймер.'
+      : 'After pressing "Begin Ritual", it is recommended to put your phone away and practice offline. The system is designed to reward real discipline, not screen time.',
+    rulesSoft: lang === 'ru'
+      ? 'Soft режим: поддерживающий формат. Вы можете вернуться к экрану без жёсткого сброса.'
+      : 'Soft mode: a supportive format. You can return to the screen without a hard reset.',
+    rulesStrict: lang === 'ru'
+      ? 'Strict режим: формат аскезы. При выходе из приложения/вкладки ритуал прерывается и прогресс сессии сбрасывается.'
+      : 'Strict mode: an ascetic format. Leaving the app/tab interrupts the ritual and resets session progress.',
+    rulesPoints: lang === 'ru'
+      ? 'Очки начисляются за практику и работу с алтарём, но основной вклад даёт завершённый ритуал.'
+      : 'Points are granted for practice and altar work, but completed rituals provide the main progression boost.',
     confirmQ: lang === 'ru' ? 'Вы полностью готовы к этой практике?' : 'Are you fully committed to this practice session?',
     yes: lang === 'ru' ? 'Да, я готов' : 'Yes, I am ready',
     no: lang === 'ru' ? 'Нет, позже' : 'Not yet',
@@ -96,15 +107,13 @@ export function RitualPanel({ lang, session, onStart, onComplete, onInterrupt }:
     custom: lang === 'ru' ? 'Своё' : 'Custom',
   }
 
-  // Show completion / interruption state
+  // --- Show session completion ---
   if (session.completed) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-4">
         <CheckCircle2 className="w-10 h-10 text-green-400" />
         <p className="text-sm font-medium text-green-400">{t.completed}</p>
-        <p className="text-xs text-muted-foreground">
-          {session.durationMinutes} {t.minutes}
-        </p>
+        <p className="text-xs text-muted-foreground">{session.durationMinutes} {t.minutes}</p>
       </div>
     )
   }
@@ -118,7 +127,7 @@ export function RitualPanel({ lang, session, onStart, onComplete, onInterrupt }:
     )
   }
 
-  // Pre-ritual confirmation
+  // --- Pre-ritual confirmation ---
   if (showConfirm) {
     return (
       <div className="flex flex-col items-center gap-4 py-2">
@@ -142,7 +151,31 @@ export function RitualPanel({ lang, session, onStart, onComplete, onInterrupt }:
     )
   }
 
-  // Active ritual state
+  if (showRules) {
+    return (
+      <div className="flex flex-col gap-3 py-2">
+        <div className="flex items-center gap-2">
+          <Info className="w-4 h-4 text-primary" />
+          <p className="text-sm font-medium text-foreground">{t.rulesTitle}</p>
+        </div>
+        <p className="text-xs text-foreground/90 leading-relaxed">{t.rulesIntro}</p>
+        <p className="text-xs text-muted-foreground leading-relaxed">{t.rulesGoal}</p>
+        <div className="rounded-xl border border-border/40 bg-card/50 p-2.5 space-y-1.5">
+          <p className="text-[11px] text-foreground">• {t.rulesSoft}</p>
+          <p className="text-[11px] text-foreground">• {t.rulesStrict}</p>
+          <p className="text-[11px] text-muted-foreground">• {t.rulesPoints}</p>
+        </div>
+        <button
+          onClick={() => { setShowRules(false); playUiSound('click') }}
+          className="mt-1 py-2 rounded-xl bg-primary/10 border border-primary/25 text-primary text-sm hover:bg-primary/20 transition-colors"
+        >
+          {lang === 'ru' ? 'Понятно' : 'Got it'}
+        </button>
+      </div>
+    )
+  }
+
+  // --- Active ritual state ---
   if (session.active) {
     return (
       <div className="flex flex-col items-center gap-3">
@@ -184,10 +217,18 @@ export function RitualPanel({ lang, session, onStart, onComplete, onInterrupt }:
     )
   }
 
-  // Setup state
+  // --- Setup / selection state ---
   return (
     <div className="flex flex-col gap-3">
-      {/* Duration */}
+      <button
+        onClick={() => { setShowRules(true); playUiSound('click') }}
+        className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-card border border-border/40 text-muted-foreground text-xs hover:text-foreground hover:border-primary/30 transition-colors"
+      >
+        <Info className="w-3.5 h-3.5" />
+        {t.rulesBtn}
+      </button>
+
+      {/* Duration selection */}
       <div>
         <p className="text-[10px] text-muted-foreground mb-1.5">{t.duration}</p>
         <div className="grid grid-cols-4 gap-1">
@@ -217,7 +258,7 @@ export function RitualPanel({ lang, session, onStart, onComplete, onInterrupt }:
         />
       </div>
 
-      {/* Mode */}
+      {/* Mode selection */}
       <div>
         <p className="text-[10px] text-muted-foreground mb-1.5">{t.focusMode}</p>
         <div className="grid grid-cols-2 gap-1.5">
@@ -235,36 +276,19 @@ export function RitualPanel({ lang, session, onStart, onComplete, onInterrupt }:
               )}
             >
               <span className="text-xs font-medium">{mode === 'soft' ? t.soft : t.strict}</span>
-              <span className="text-[9px] leading-tight opacity-70">
-                {mode === 'soft' ? t.softDesc : t.strictDesc}
-              </span>
+              <span className="text-[9px] leading-tight opacity-70">{mode === 'soft' ? t.softDesc : t.strictDesc}</span>
             </button>
           ))}
         </div>
-        {/* Explanation of rules */}
-        <p className="mt-1 text-[9px] text-muted-foreground leading-snug">
-          {lang === 'ru' 
-            ? 'Мягкий: можно прервать сессию и продолжить позже. Строгий: выход отменяет сессию, очки не начисляются.' 
-            : 'Soft: you can pause and resume later. Strict: exiting cancels session, no points awarded.'}
-        </p>
       </div>
 
-      {/* Begin button */}
+      {/* Begin ritual button */}
       <button
         onClick={() => { handleStart(); playUiSound('click') }}
         className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-primary to-purple-700 text-white text-sm font-medium hover:opacity-90 transition-all hover:shadow-[0_0_20px_hsl(267_80%_60%/0.4)]"
       >
         <Flame className="w-4 h-4" />
         {t.beginRitual}
-      </button>
-
-      {/* Create Altar button */}
-      <button className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm hover:bg-primary/20 transition-colors">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus w-4 h-4" aria-hidden="true">
-          <path d="M5 12h14"></path>
-          <path d="M12 5v14"></path>
-        </svg>
-        Создать алтарь
       </button>
     </div>
   )

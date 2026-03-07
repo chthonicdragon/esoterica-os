@@ -10,6 +10,7 @@ export const translations = {
     sigilLab: 'Sigil Lab',
     journal: 'Journal',
     forum: 'Forum',
+    knowledgeGraph: 'Knowledge Graph',
     marketplace: 'Marketplace',
     settings: 'Settings',
 
@@ -146,6 +147,7 @@ export const translations = {
     sigilLab: 'Лаборатория Сигил',
     journal: 'Журнал',
     forum: 'Форум',
+    knowledgeGraph: 'Граф Знаний',
     marketplace: 'Маркетплейс',
     settings: 'Настройки',
 

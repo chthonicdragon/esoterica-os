@@ -1,0 +1,396 @@
+// ── Public types ──────────────────────────────────────────────────────────────
+
+export interface Node {
+  id: string;
+  name: string;
+  type: "deity" | "spirit" | "ritual" | "symbol" | "concept" | "place" | "creature" | "artifact" | "spell";
+  description?: string;
+}
+
+export interface Link {
+  source: string;
+  target: string;
+  relation: "associated_with" | "controls" | "appears_in" | "teaches" | "symbol_of";
+}
+
+export interface GraphData {
+  nodes: Node[];
+  links: Link[];
+}
+
+// ── Config ────────────────────────────────────────────────────────────────────
+
+const API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const API_KEY = (import.meta.env.VITE_GROQ_API_KEY || import.meta.env.VITE_OPENROUTER_API_KEY) as string;
+
+// Fallback chain по скорости: быстрая → большая → запасная
+const MODELS = [
+  "llama-3.1-8b-instant",
+  "llama-3.3-70b-versatile",
+  "gemma2-9b-it",
+  "mixtral-8x7b-32768",
+];
+
+const COMMON_HEADERS = {
+  "Content-Type": "application/json",
+};
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+
+function extractJSON(raw: string): string {
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced) return fenced[1].trim();
+  const first = raw.indexOf("{");
+  const last = raw.lastIndexOf("}");
+  if (first !== -1 && last > first) return raw.slice(first, last + 1);
+  return raw.trim();
+}
+
+function removeTrailingCommaLikeArtifacts(input: string): string {
+  return input
+    .replace(/,\s*([}\]])/g, "$1")
+    .replace(/[\s,]+$/g, "")
+}
+
+function autoCloseJsonFragment(input: string): string {
+  const src = input.trim()
+  let out = ""
+  const stack: string[] = []
+  let inString = false
+  let escaped = false
+
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i]
+    out += ch
+
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (ch === "\\") {
+      escaped = true
+      continue
+    }
+    if (ch === '"') {
+      inString = !inString
+      continue
+    }
+    if (inString) continue
+
+    if (ch === "{" || ch === "[") {
+      stack.push(ch)
+      continue
+    }
+    if (ch === "}") {
+      if (stack.length && stack[stack.length - 1] === "{") stack.pop()
+      continue
+    }
+    if (ch === "]") {
+      if (stack.length && stack[stack.length - 1] === "[") stack.pop()
+    }
+  }
+
+  out = removeTrailingCommaLikeArtifacts(out)
+  if (inString) out += '"'
+
+  for (let i = stack.length - 1; i >= 0; i--) {
+    out += stack[i] === "{" ? "}" : "]"
+  }
+
+  return out
+}
+
+function salvageLinksArray(input: string): string | null {
+  const linksMarker = '"links"'
+  const markerIdx = input.indexOf(linksMarker)
+  if (markerIdx === -1) return null
+
+  const arrStart = input.indexOf("[", markerIdx)
+  if (arrStart === -1) return null
+
+  let inString = false
+  let escaped = false
+  let objDepth = 0
+  let arrDepth = 0
+  let lastCompleteObjEnd = -1
+
+  for (let i = arrStart; i < input.length; i++) {
+    const ch = input[i]
+
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (ch === "\\") {
+      escaped = true
+      continue
+    }
+    if (ch === '"') {
+      inString = !inString
+      continue
+    }
+    if (inString) continue
+
+    if (ch === "[") {
+      arrDepth++
+      continue
+    }
+    if (ch === "]") {
+      arrDepth--
+      if (arrDepth === 0) {
+        const candidate = input.slice(0, i + 1)
+        return autoCloseJsonFragment(candidate)
+      }
+      continue
+    }
+    if (ch === "{") {
+      objDepth++
+      continue
+    }
+    if (ch === "}") {
+      objDepth--
+      if (arrDepth >= 1 && objDepth === 0) {
+        lastCompleteObjEnd = i
+      }
+    }
+  }
+
+  if (lastCompleteObjEnd !== -1) {
+    const prefix = input.slice(0, arrStart + 1)
+    const completeLinks = input.slice(arrStart + 1, lastCompleteObjEnd + 1)
+    return autoCloseJsonFragment(`${prefix}${completeLinks}]}`)
+  }
+
+  return null
+}
+
+function parseGraphJsonWithRecovery(rawCandidate: string): GraphData {
+  const candidate = rawCandidate.replace(/^\uFEFF/, "").trim()
+  const attempts: string[] = []
+
+  attempts.push(candidate)
+  attempts.push(removeTrailingCommaLikeArtifacts(candidate))
+  attempts.push(autoCloseJsonFragment(candidate))
+
+  const linksSalvaged = salvageLinksArray(candidate)
+  if (linksSalvaged) attempts.push(linksSalvaged)
+
+  for (const attempt of attempts) {
+    try {
+      const parsed = JSON.parse(attempt) as GraphData
+      if (!parsed || !Array.isArray(parsed.nodes) || !Array.isArray(parsed.links)) continue
+      return parsed
+    } catch {
+      // try next strategy
+    }
+  }
+
+  throw new Error("Unable to recover valid graph JSON")
+}
+
+function parseLinksJsonWithRecovery(rawCandidate: string): Link[] {
+  const candidate = rawCandidate.replace(/^\uFEFF/, "").trim();
+  const attempts: string[] = [];
+
+  attempts.push(candidate);
+  attempts.push(removeTrailingCommaLikeArtifacts(candidate));
+  attempts.push(autoCloseJsonFragment(candidate));
+
+  const linksSalvaged = salvageLinksArray(candidate);
+  if (linksSalvaged) attempts.push(linksSalvaged);
+
+  for (const attempt of attempts) {
+    try {
+      const parsed = JSON.parse(attempt) as { links?: Link[] };
+      if (Array.isArray(parsed?.links)) return parsed.links;
+    } catch {
+      // try next strategy
+    }
+  }
+
+  throw new Error("Unable to recover valid links JSON");
+}
+
+async function extractMissingLinksFallback(
+  text: string,
+  nodes: Node[],
+  language: "en" | "ru",
+  isRitual: boolean,
+  ritualName?: string
+): Promise<Link[]> {
+  if (!nodes.length) return [];
+
+  const langInstruction = language === "ru"
+    ? "Use Russian entity context and names but keep IDs exactly as provided."
+    : "Use English entity context and names but keep IDs exactly as provided.";
+
+  const ritualInstruction = isRitual
+    ? `Context includes ritual mode (${ritualName || "Unknown Ritual"}). Prefer appears_in and associated_with.`
+    : "General context mode. Use semantically grounded links.";
+
+  const nodeList = JSON.stringify(nodes.map((n) => ({ id: n.id, name: n.name, type: n.type })), null, 2);
+
+  const systemPrompt = [
+    "You are repairing a partially truncated knowledge graph extraction.",
+    "Given a source text and a fixed node list, return ONLY valid JSON with links.",
+    "JSON schema: { \"links\": [{ \"source\": string, \"target\": string, \"relation\": \"associated_with\"|\"controls\"|\"appears_in\"|\"teaches\"|\"symbol_of\" }] }",
+    "Rules:",
+    "1) Use ONLY node IDs from the provided list.",
+    "2) No duplicate links.",
+    "3) No self-links (source !== target).",
+    langInstruction,
+    ritualInstruction,
+    `NODE LIST:\n${nodeList}`,
+  ].join("\n\n");
+
+  const rawText = await fetchWithFallback({
+    temperature: 0,
+    max_tokens: 1800,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: text },
+    ],
+  });
+
+  const jsonStr = extractJSON(rawText);
+  return parseLinksJsonWithRecovery(jsonStr);
+}
+
+// ── HTTP с fallback по моделям (при 429 или 404 — следующая модель) ─────────
+
+async function fetchWithFallback(body: object, modelIndex = 0): Promise<string> {
+  if (!API_KEY) {
+    throw new Error("[Groq] Missing API key. Set VITE_GROQ_API_KEY (or VITE_OPENROUTER_API_KEY for backward compatibility).");
+  }
+
+  if (modelIndex >= MODELS.length) {
+    throw new Error("[Groq] All models unavailable (rate limited or not found)");
+  }
+
+  const model = MODELS[modelIndex];
+  console.log(`[Groq] Trying model: ${model}`);
+
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${API_KEY}`,
+      ...COMMON_HEADERS,
+    },
+    body: JSON.stringify({ ...body, model }),
+  });
+
+  if (res.status === 429 || res.status === 404 || res.status === 400) {
+    console.warn(`[Groq] ${model} → ${res.status}, switching to next model...`);
+    return fetchWithFallback(body, modelIndex + 1);
+  }
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`[Groq] HTTP ${res.status}: ${errText}`);
+  }
+
+  const json = await res.json();
+  const text: string = json.choices?.[0]?.message?.content ?? "";
+  if (!text) throw new Error("[Groq] Empty response from model");
+
+  console.log(`[Groq] Success with model: ${model}`);
+  return text;
+}
+
+// ── AI Mentor ─────────────────────────────────────────────────────────────────
+
+export async function askOpenRouter(prompt: string): Promise<string | null> {
+  try {
+    return await fetchWithFallback({
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
+      max_tokens: 800,
+    });
+  } catch (error: any) {
+    console.error("[Groq] askOpenRouter failed:", error?.message ?? error);
+    return null;
+  }
+}
+
+// ── Knowledge Graph Extraction ────────────────────────────────────────────────
+
+const SYSTEM_INSTRUCTION = `
+You are an expert in esoteric knowledge and graph database structures.
+Your task is to extract entities and relationships from the provided text.
+
+Entity Types: deity, spirit, ritual, symbol, concept, place, creature, artifact, spell
+Relation Types: associated_with, controls, appears_in, teaches, symbol_of
+
+INTELLIGENT MERGING RULES:
+1. Normalize names to canonical form (e.g. "Hecate's" → "Hecate").
+2. Merge semantic synonyms: "wealth", "money magic", "prosperity" → id: "money_magic".
+3. Reuse existing node IDs if the entity matches.
+4. id = short lowercase slug, no spaces (e.g. "hecate", "money_magic").
+5. relation must be one of the specified types.
+
+CRITICAL: Return ONLY a valid JSON object — no markdown, no code fences, no extra text.
+Schema: { "nodes": [{ "id": string, "name": string, "type": string, "description"?: string }], "links": [{ "source": string, "target": string, "relation": string }] }
+`;
+
+export async function extractGraph(
+  text: string,
+  language: "en" | "ru" = "en",
+  isRitual: boolean = false,
+  ritualName?: string,
+  existingNodes: Node[] = []
+): Promise<GraphData> {
+  const langInstruction =
+    language === "ru"
+      ? "Extract entity names in Russian. Use nominative case (именительный падеж)."
+      : "Extract entity names in English.";
+
+  const existingNodesContext =
+    existingNodes.length > 0
+      ? `EXISTING NODES — reuse these IDs if they match: ${existingNodes.map((n) => `${n.name} (id: ${n.id})`).join(", ")}`
+      : "";
+
+  const ritualInstruction = isRitual
+    ? `The text describes a ritual named "${ritualName || "Unknown Ritual"}". Create a central "ritual" node. Link all other entities TO it via "appears_in" or "associated_with". Store the full text in the ritual node's "description".`
+    : "Extract general entities and relations.";
+
+  const systemPrompt = [SYSTEM_INSTRUCTION, langInstruction, ritualInstruction, existingNodesContext]
+    .filter(Boolean)
+    .join("\n\n");
+
+  const rawText = await fetchWithFallback({
+    temperature: 0,
+    max_tokens: 3500,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: text },
+    ],
+  });
+
+  const jsonStr = extractJSON(rawText);
+  try {
+    const parsed = parseGraphJsonWithRecovery(jsonStr);
+
+    // If output was likely truncated (few links vs many nodes), request a links-only repair pass.
+    const expectedMinLinks = Math.max(3, Math.floor(parsed.nodes.length * 0.2));
+    if (parsed.nodes.length >= 8 && parsed.links.length < expectedMinLinks) {
+      try {
+        const repairedLinks = await extractMissingLinksFallback(text, parsed.nodes, language, isRitual, ritualName);
+        const existing = new Set(parsed.links.map((l) => `${l.source}|${l.target}|${l.relation}`));
+        repairedLinks.forEach((l) => {
+          const key = `${l.source}|${l.target}|${l.relation}`;
+          if (!existing.has(key) && l.source !== l.target) {
+            parsed.links.push(l);
+            existing.add(key);
+          }
+        });
+      } catch (repairErr) {
+        console.warn("[Groq] Links repair pass failed:", repairErr);
+      }
+    }
+
+    return parsed;
+  } catch (err) {
+    console.error("[Groq] Failed to parse JSON:", jsonStr);
+    throw new Error(`[Groq] Invalid JSON: ${err}`);
+  }
+}

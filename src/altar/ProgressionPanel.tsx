@@ -39,6 +39,11 @@ export function ProgressionPanel({ lang, progression, lastPointsEarned }: Progre
     days: lang === 'ru' ? 'дней' : 'days',
     nextUnlock: lang === 'ru' ? 'Следующий разблок:' : 'Next unlock:',
     maxLevel: lang === 'ru' ? 'Макс. уровень' : 'Max Level',
+    sources: lang === 'ru' ? 'Источники XP' : 'XP Sources',
+    sourceRitual: lang === 'ru' ? 'Ритуалы' : 'Rituals',
+    sourceJournal: lang === 'ru' ? 'Журнал снов' : 'Dream Journal',
+    sourceKnowledge: lang === 'ru' ? 'Паутина знаний' : 'Knowledge Web',
+    sourceAltars: lang === 'ru' ? 'Алтари' : 'Altars',
   }
 
   return (
@@ -105,6 +110,28 @@ export function ProgressionPanel({ lang, progression, lastPointsEarned }: Progre
           </span>
         </div>
       )}
+
+      <div className="rounded-xl border border-border/30 bg-card/40 p-2.5 space-y-1.5">
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{t.sources}</p>
+        <div className="grid grid-cols-2 gap-1 text-[10px]">
+          <div className="flex items-center justify-between rounded-lg bg-background/40 px-2 py-1">
+            <span className="text-muted-foreground">{t.sourceRitual}</span>
+            <span className="font-medium text-foreground">{progression.ritualXp}</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-background/40 px-2 py-1">
+            <span className="text-muted-foreground">{t.sourceJournal}</span>
+            <span className="font-medium text-foreground">{progression.journalXp}</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-background/40 px-2 py-1">
+            <span className="text-muted-foreground">{t.sourceKnowledge}</span>
+            <span className="font-medium text-foreground">{progression.knowledgeXp}</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-background/40 px-2 py-1">
+            <span className="text-muted-foreground">{t.sourceAltars}</span>
+            <span className="font-medium text-foreground">{progression.altarXp}</span>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

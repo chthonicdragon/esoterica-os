@@ -41,6 +41,12 @@ export const CATALOG: CatalogItem[] = [
   { id: 'coin_gold', category: 'coins', label: 'Gold Coin', labelRu: 'Золотая монета', color: '#ffd700', emissive: '#cc9900', emissiveIntensity: 0.4, geometry: 'cylinder', scale: [0.1, 0.02, 0.1], effect: 'sparkle', unlockLevel: 1, points: 6 },
   { id: 'coin_silver', category: 'coins', label: 'Silver Coin', labelRu: 'Серебряная монета', color: '#c0c0c0', emissive: '#8888aa', emissiveIntensity: 0.3, geometry: 'cylinder', scale: [0.1, 0.02, 0.1], effect: 'sparkle', unlockLevel: 1, points: 6 },
   { id: 'coin_pentacle', category: 'coins', label: 'Pentacle Coin', labelRu: 'Монета пентакля', color: '#b8860b', emissive: '#884400', emissiveIntensity: 0.5, geometry: 'cylinder', scale: [0.12, 0.02, 0.12], effect: 'glow', unlockLevel: 3, points: 12 },
+
+  // External 3D models (GLB)
+  { id: 'model_candles_set', category: 'models', label: 'Candles Set', labelRu: 'Набор свечей', color: '#d7c8a8', emissive: '#ff9b3d', emissiveIntensity: 0.2, geometry: 'custom', modelUrl: '/models/candles.glb', scale: [0.16, 0.16, 0.16], effect: 'flicker', unlockLevel: 1, points: 14 },
+  { id: 'model_artemis', category: 'models', label: 'Artemis', labelRu: 'Артемида', color: '#c8c9d2', emissive: '#7e89d6', emissiveIntensity: 0.25, geometry: 'custom', modelUrl: '/models/goddess_artemis.glb', scale: [0.28, 0.28, 0.28], unlockLevel: 1, points: 20 },
+  { id: 'model_candle_holder', category: 'models', label: 'Candle Holder', labelRu: 'Подсвечник', color: '#c8b08b', emissive: '#ff9d4f', emissiveIntensity: 0.2, geometry: 'custom', modelUrl: '/models/simple_candle_in_candle_holder.glb', scale: [0.14, 0.14, 0.14], effect: 'flicker', unlockLevel: 1, points: 16 },
+  { id: 'model_venus', category: 'models', label: 'Venus Goddess', labelRu: 'Богиня Венера', color: '#d5c8b8', emissive: '#9c8ad6', emissiveIntensity: 0.25, geometry: 'custom', modelUrl: '/models/venus_goddess.glb', scale: [0.24, 0.24, 0.24], unlockLevel: 1, points: 22 },
 ]
 
 export const CATEGORY_LABELS: Record<string, { en: string; ru: string; emoji: string }> = {
@@ -51,6 +57,7 @@ export const CATEGORY_LABELS: Record<string, { en: string; ru: string; emoji: st
   incense:  { en: 'Incense',  ru: 'Благовония', emoji: '🌸' },
   cups:     { en: 'Cups',     ru: 'Чаши',       emoji: '🍷' },
   coins:    { en: 'Coins',    ru: 'Монеты',     emoji: '🪙' },
+  models:   { en: '3D Models', ru: '3D модели', emoji: '🧩' },
 }
 
 export interface ThemeConfig {

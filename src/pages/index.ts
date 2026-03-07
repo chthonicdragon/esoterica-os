@@ -9,3 +9,4 @@ export const Journal = lazy(() => import('./Journal').then(m => ({ default: m.Jo
 export const Marketplace = lazy(() => import('./Marketplace').then(m => ({ default: m.Marketplace })))
 export const Settings = lazy(() => import('./Settings').then(m => ({ default: m.Settings })))
 export const ForumPage = lazy(() => import('./forum/ForumPage').then(m => ({ default: m.ForumPage })))
+export const KnowledgeGraph = lazy(() => import('./KnowledgeGraph').then(m => ({ default: m.KnowledgeGraph })))
