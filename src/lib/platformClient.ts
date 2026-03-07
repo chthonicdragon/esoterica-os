@@ -13,21 +13,21 @@ const TABLE_MAP: Record<string, string> = {
   rituals: 'rituals',
   journals: 'journals',
   sigils: 'sigils',
-  forumCategories: 'forum_categories',
-  forumTopics: 'forum_topics',
-  forumPosts: 'forum_posts',
-  forumNotifications: 'forum_notifications',
-  forumLikes: 'forum_likes',
-  forumReports: 'forum_reports',
-}
-
-const TABLE_FALLBACK_MAP: Record<string, string> = {
   forumCategories: 'forumCategories',
   forumTopics: 'forumTopics',
   forumPosts: 'forumPosts',
   forumNotifications: 'forumNotifications',
   forumLikes: 'forumLikes',
   forumReports: 'forumReports',
+}
+
+const TABLE_FALLBACK_MAP: Record<string, string> = {
+  forumCategories: 'forum_categories',
+  forumTopics: 'forum_topics',
+  forumPosts: 'forum_posts',
+  forumNotifications: 'forum_notifications',
+  forumLikes: 'forum_likes',
+  forumReports: 'forum_reports',
 }
 
 function mapTable(entity: string): string {

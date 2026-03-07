@@ -66,7 +66,7 @@ export function ForumNotifications({ userId, onClose, onNavigateToTopic }: Props
   }
 
   const getNotifText = (n: ForumNotification) => {
-    const name = n.fromUserName || lang === 'ru' ? 'Кто-то' : 'Someone'
+    const name = n.fromUserName || (lang === 'ru' ? 'Кто-то' : 'Someone')
     if (n.type === 'reply') {
       return lang === 'ru' ? `${name} ответил(а) на ваше сообщение` : `${name} replied to your post`
     }
