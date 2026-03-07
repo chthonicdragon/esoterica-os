@@ -20,20 +20,43 @@ export interface GraphData {
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const API_KEY = (import.meta.env.VITE_GROQ_API_KEY || import.meta.env.VITE_OPENROUTER_API_KEY) as string;
+type Provider = "groq" | "openrouter";
 
-// Fallback chain по скорости: быстрая → большая → запасная
-const MODELS = [
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+
+const GROQ_API_KEY = (import.meta.env.VITE_GROQ_API_KEY as string | undefined)?.trim();
+const OPENROUTER_API_KEY = (import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined)?.trim();
+
+const PROVIDER: Provider | null = GROQ_API_KEY ? "groq" : OPENROUTER_API_KEY ? "openrouter" : null;
+const API_URL = PROVIDER === "groq" ? GROQ_API_URL : PROVIDER === "openrouter" ? OPENROUTER_API_URL : "";
+const API_KEY = PROVIDER === "groq" ? GROQ_API_KEY || "" : PROVIDER === "openrouter" ? OPENROUTER_API_KEY || "" : "";
+
+// Fallback chain по скорости: быстрая → большая → запасная.
+const GROQ_MODELS = [
   "llama-3.1-8b-instant",
   "llama-3.3-70b-versatile",
   "gemma2-9b-it",
   "mixtral-8x7b-32768",
 ];
 
-const COMMON_HEADERS = {
+const OPENROUTER_MODELS = [
+  "meta-llama/llama-3.1-8b-instruct:free",
+  "google/gemma-2-9b-it:free",
+  "mistralai/mistral-7b-instruct:free",
+  "openai/gpt-4o-mini",
+];
+
+const MODELS = PROVIDER === "openrouter" ? OPENROUTER_MODELS : GROQ_MODELS;
+
+const COMMON_HEADERS: Record<string, string> = {
   "Content-Type": "application/json",
 };
+
+if (PROVIDER === "openrouter") {
+  COMMON_HEADERS["HTTP-Referer"] = typeof window !== "undefined" ? window.location.origin : "https://localhost";
+  COMMON_HEADERS["X-Title"] = "Esoterica OS";
+}
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
@@ -259,16 +282,16 @@ async function extractMissingLinksFallback(
 // ── HTTP с fallback по моделям (при 429 или 404 — следующая модель) ─────────
 
 async function fetchWithFallback(body: object, modelIndex = 0): Promise<string> {
-  if (!API_KEY) {
-    throw new Error("[Groq] Missing API key. Set VITE_GROQ_API_KEY (or VITE_OPENROUTER_API_KEY for backward compatibility).");
+  if (!API_KEY || !PROVIDER || !API_URL) {
+    throw new Error("[AI] Missing API key. Set VITE_GROQ_API_KEY or VITE_OPENROUTER_API_KEY in environment variables.");
   }
 
   if (modelIndex >= MODELS.length) {
-    throw new Error("[Groq] All models unavailable (rate limited or not found)");
+    throw new Error(`[AI:${PROVIDER}] All models unavailable (rate limited or not found)`);
   }
 
   const model = MODELS[modelIndex];
-  console.log(`[Groq] Trying model: ${model}`);
+  console.log(`[AI:${PROVIDER}] Trying model: ${model}`);
 
   const res = await fetch(API_URL, {
     method: "POST",
@@ -280,20 +303,20 @@ async function fetchWithFallback(body: object, modelIndex = 0): Promise<string> 
   });
 
   if (res.status === 429 || res.status === 404 || res.status === 400) {
-    console.warn(`[Groq] ${model} → ${res.status}, switching to next model...`);
+    console.warn(`[AI:${PROVIDER}] ${model} -> ${res.status}, switching to next model...`);
     return fetchWithFallback(body, modelIndex + 1);
   }
 
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`[Groq] HTTP ${res.status}: ${errText}`);
+    throw new Error(`[AI:${PROVIDER}] HTTP ${res.status}: ${errText}`);
   }
 
   const json = await res.json();
   const text: string = json.choices?.[0]?.message?.content ?? "";
-  if (!text) throw new Error("[Groq] Empty response from model");
+  if (!text) throw new Error(`[AI:${PROVIDER}] Empty response from model`);
 
-  console.log(`[Groq] Success with model: ${model}`);
+  console.log(`[AI:${PROVIDER}] Success with model: ${model}`);
   return text;
 }
 
@@ -307,7 +330,7 @@ export async function askOpenRouter(prompt: string): Promise<string | null> {
       max_tokens: 800,
     });
   } catch (error: any) {
-    console.error("[Groq] askOpenRouter failed:", error?.message ?? error);
+    console.error("[AI] askOpenRouter failed:", error?.message ?? error);
     return null;
   }
 }
