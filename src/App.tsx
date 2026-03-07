@@ -231,7 +231,28 @@ function LandingPage() {
       return
     }
 
-    const redirectTo = rawRedirect || `${window.location.origin}/`
+    const normalizeRedirect = (candidate: string) => {
+      const parsed = new URL(candidate, window.location.origin)
+      parsed.pathname = '/'
+      parsed.search = ''
+      parsed.hash = ''
+      return parsed.toString()
+    }
+
+    let redirectTo = `${window.location.origin}/`
+    if (rawRedirect) {
+      try {
+        const parsed = new URL(rawRedirect)
+        // Prevent stale deploy domains or hash routes from breaking OAuth callback flow.
+        if (parsed.origin === window.location.origin) {
+          redirectTo = normalizeRedirect(rawRedirect)
+        } else {
+          console.warn('Ignoring VITE_AUTH_REDIRECT_URL with different origin:', parsed.origin)
+        }
+      } catch {
+        redirectTo = normalizeRedirect(rawRedirect)
+      }
+    }
 
     try {
       // Validate URL format early so user gets a clear error before OAuth request.
