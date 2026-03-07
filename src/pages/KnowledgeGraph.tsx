@@ -15,6 +15,7 @@ import { useLang } from '../contexts/LanguageContext'
 import { getKnowledgeWeavePoints, grantProgressionPoints, syncProgressionToDb } from '../altar/altarStore'
 import { mapAiErrorMessage } from '../lib/aiErrorMessages'
 import { SpiderWebIcon } from '../components/icons/SpiderWebIcon'
+import { syncGraph, pushToRemote } from '../services/knowledgeGraphSync'
 import { getRelationLabel } from '../lib/relationLabels'
 
 const STORAGE_KEY = 'esoteric_knowledge_web_v1'
@@ -168,6 +169,13 @@ export function KnowledgeGraph({ user }: Props) {
   const [selectedLink, setSelectedLink] = useState<Link | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Supabase sync: load on mount
+  useEffect(() => {
+    syncGraph(user.id).then(synced => {
+      if (synced.nodes.length > 0) setGraphData(synced)
+    })
+  }, [user.id])
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [visibleTypes, setVisibleTypes] = useState<Set<string>>(new Set(ALL_TYPES))
@@ -196,7 +204,12 @@ export function KnowledgeGraph({ user }: Props) {
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(graphData))
-  }, [graphData])
+    // Debounced push to Supabase
+    const timer = setTimeout(() => {
+      if (graphData.nodes.length > 0) pushToRemote(user.id, graphData)
+    }, 3000)
+    return () => clearTimeout(timer)
+  }, [graphData, user.id])
 
   useEffect(() => {
     if (successMsg) {

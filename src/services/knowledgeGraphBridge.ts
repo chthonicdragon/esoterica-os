@@ -4,6 +4,7 @@
  * into the shared graph without importing the full KnowledgeGraph page.
  */
 import { extractGraph, type GraphData, type Node } from './openRouterService'
+import { pushToRemote } from './knowledgeGraphSync'
 
 const STORAGE_KEY = 'esoteric_knowledge_web_v1'
 
@@ -103,12 +104,17 @@ export async function extractAndMerge(
   text: string,
   lang: 'en' | 'ru',
   contextLabel?: string,
+  userId?: string,
 ): Promise<{ added: number } | null> {
   try {
     const existing = loadGraph()
     const data = await extractGraph(text, lang, false, contextLabel || '', existing.nodes)
     if (!data.nodes.length) return { added: 0 }
     const added = mergeIntoGraph(data)
+    // Background push to Supabase if userId provided
+    if (userId && added > 0) {
+      pushToRemote(userId).catch(() => {})
+    }
     return { added }
   } catch (e) {
     console.warn('[knowledgeGraphBridge] extraction failed:', e)

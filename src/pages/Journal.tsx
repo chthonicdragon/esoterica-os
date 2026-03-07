@@ -85,7 +85,7 @@ export function Journal({ user }: JournalProps) {
 
         // Background: extract entities from journal text and merge into Knowledge Graph
         const fullText = `${form.title}. ${form.content}`
-        extractAndMerge(fullText, lang as 'en' | 'ru', form.type === 'dream' ? 'dream' : 'journal').then(result => {
+        extractAndMerge(fullText, lang as 'en' | 'ru', form.type === 'dream' ? 'dream' : 'journal', user.id).then(result => {
           if (result && result.added > 0) {
             toast.success(
               lang === 'ru'

@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
 import { getMoonPhase, moonEmoji, moonEnergy, moonEnergyRu } from '../utils/moonPhase'
 import { db } from '../lib/platformClient'
-import { FlameKindling, Sparkles, BookOpen, Moon, TrendingUp, Star, Zap, MessageSquare, ChevronUp, ChevronDown } from 'lucide-react'
+import { FlameKindling, Sparkles, BookOpen, Moon, TrendingUp, Star, Zap, MessageSquare, ChevronUp, ChevronDown, Activity } from 'lucide-react'
 import { SpiderWebIcon } from '../components/icons/SpiderWebIcon'
 import { ProgressionPanel } from '../altar/ProgressionPanel'
 import { loadLocalState } from '../altar/altarStore'
+import { supabase } from '../lib/supabaseClient'
+import { loadGraph } from '../services/knowledgeGraphBridge'
 import {
   clearUnlockNotifications,
   getUnlockNotifications,
@@ -41,6 +43,15 @@ interface Ritual {
   energyLevel: number
 }
 
+interface FeedItem {
+  id: string
+  icon: string
+  label: string
+  detail: string
+  date: string
+  color: string
+}
+
 interface DashboardProps {
   user: { id: string; email?: string; displayName?: string }
   onNavigate: (page: string) => void
@@ -59,6 +70,7 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
   const { t, lang } = useLang()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [recentRituals, setRecentRituals] = useState<Ritual[]>([])
+  const [activityFeed, setActivityFeed] = useState<FeedItem[]>([])
   const [notifications, setNotifications] = useState<UnlockNotification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [showNotifications, setShowNotifications] = useState(false)
@@ -137,6 +149,81 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
         limit: 5,
       }) as Ritual[]
       setRecentRituals(rituals)
+
+      // Build unified activity feed
+      const feed: FeedItem[] = []
+
+      // Rituals
+      for (const r of rituals) {
+        feed.push({
+          id: `r-${r.id}`,
+          icon: '🌙',
+          label: r.title || (lang === 'ru' ? 'Ритуал' : 'Ritual'),
+          detail: `⚡ ${r.energyLevel}/10`,
+          date: r.createdAt,
+          color: 'text-blue-400',
+        })
+      }
+
+      // Journals
+      try {
+        const { data: journals } = await supabase
+          .from('journals')
+          .select('id, title, type, createdAt')
+          .eq('userId', user.id)
+          .order('createdAt', { ascending: false })
+          .limit(5)
+        if (journals) {
+          for (const j of journals) {
+            feed.push({
+              id: `j-${j.id}`,
+              icon: j.type === 'dream' ? '💭' : '📓',
+              label: j.title || (lang === 'ru' ? 'Запись' : 'Entry'),
+              detail: j.type === 'dream'
+                ? (lang === 'ru' ? 'Сон' : 'Dream')
+                : (lang === 'ru' ? 'Заметка' : 'Note'),
+              date: j.createdAt,
+              color: 'text-green-400',
+            })
+          }
+        }
+      } catch { /* journals table may not exist */ }
+
+      // Sigils
+      try {
+        const sigils = await db.sigils.list({
+          where: { userId: user.id },
+          orderBy: { createdAt: 'desc' },
+          limit: 3,
+        }) as { id: string; intention: string; isCharged: number; createdAt: string }[]
+        for (const s of sigils) {
+          feed.push({
+            id: `s-${s.id}`,
+            icon: '✨',
+            label: s.intention?.slice(0, 40) || (lang === 'ru' ? 'Сигил' : 'Sigil'),
+            detail: s.isCharged ? (lang === 'ru' ? 'Заряжен' : 'Charged') : (lang === 'ru' ? 'Создан' : 'Created'),
+            date: s.createdAt,
+            color: 'text-yellow-400',
+          })
+        }
+      } catch { /* sigils table may not exist */ }
+
+      // Knowledge Graph stats
+      const graph = loadGraph()
+      if (graph.nodes.length > 0) {
+        feed.push({
+          id: 'kg-stats',
+          icon: '🕸',
+          label: lang === 'ru' ? 'Паутина знаний' : 'Knowledge Web',
+          detail: `${graph.nodes.length} ${lang === 'ru' ? 'узлов' : 'nodes'} · ${graph.links.length} ${lang === 'ru' ? 'связей' : 'links'}`,
+          date: new Date().toISOString(),
+          color: 'text-cyan-400',
+        })
+      }
+
+      // Sort by date descending, take 10
+      feed.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      setActivityFeed(feed.slice(0, 10))
     } catch (err) {
       console.error(err)
     }
@@ -336,24 +423,27 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
         </div>
       </div>
 
-      {/* Recent Rituals */}
+      {/* Activity Feed */}
       <div>
-        <h3 className="text-sm font-medium text-muted-foreground mb-3">{t.recentRituals}</h3>
-        {recentRituals.length === 0 ? (
+        <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+          <Activity className="w-4 h-4" />
+          {lang === 'ru' ? 'Лента активности' : 'Activity Feed'}
+        </h3>
+        {activityFeed.length === 0 ? (
           <div className="rounded-xl bg-card border border-dashed border-border/40 p-8 text-center">
             <Moon className="w-8 h-8 text-muted-foreground/40 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">{t.noRituals}</p>
+            <p className="text-sm text-muted-foreground">{lang === 'ru' ? 'Начните практику, чтобы увидеть активность' : 'Start practicing to see activity'}</p>
           </div>
         ) : (
           <div className="space-y-2">
-            {recentRituals.map((ritual) => (
-              <div key={ritual.id} className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border/40">
-                <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_6px_hsl(var(--primary))]" />
+            {activityFeed.map((item) => (
+              <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border/40 hover:border-primary/20 transition-colors">
+                <span className="text-base">{item.icon}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{ritual.title}</p>
-                  <p className="text-xs text-muted-foreground">{new Date(ritual.createdAt).toLocaleDateString()}</p>
+                  <p className="text-sm font-medium text-foreground truncate">{item.label}</p>
+                  <p className="text-xs text-muted-foreground">{new Date(item.date).toLocaleDateString()}</p>
                 </div>
-                <div className="text-xs text-primary">⚡ {ritual.energyLevel}/10</div>
+                <span className={`text-xs ${item.color}`}>{item.detail}</span>
               </div>
             ))}
           </div>

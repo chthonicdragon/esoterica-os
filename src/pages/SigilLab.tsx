@@ -88,7 +88,8 @@ export function SigilLab({ user }: SigilLabProps) {
       extractAndMerge(
         `Sigil intention: ${currentIntention}`,
         lang as 'en' | 'ru',
-        'sigil'
+        'sigil',
+        user.id
       ).then(result => {
         if (result && result.added > 0) {
           toast.success(
