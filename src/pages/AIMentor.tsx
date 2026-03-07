@@ -429,7 +429,6 @@ Respond in English in 4 blocks:
           ))}
 
           {loading && (
-          )}
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-full bg-card border border-border/40 flex items-center justify-center text-sm flex-shrink-0">
                 {archetypeInfo.emoji}
@@ -438,6 +437,7 @@ Respond in English in 4 blocks:
                 <Loader2 className="w-4 h-4 text-primary animate-spin" />
               </div>
             </div>
+          )}
           )}
           <div ref={messagesEndRef} />
         </div>
