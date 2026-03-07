@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useLang } from '../contexts/LanguageContext'
 import { useAudio } from '../contexts/AudioContext'
 import { db } from '../lib/platformClient'
@@ -803,6 +804,35 @@ export function RitualTracker({ user }: RitualTrackerProps) {
     return { topMoon, topHour, topDeities, ratedCount: rated.length }
   }, [rituals])
 
+  const hecateDetailsModal =
+    selectedHecateDay && typeof document !== 'undefined'
+      ? createPortal(
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center p-4 pt-8 sm:pt-12">
+          <div className="w-full max-w-sm rounded-2xl bg-card border border-primary/20 shadow-2xl p-4 animate-fade-in">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-xl">{selectedHecateDay.icon}</span>
+                <p className="text-sm font-semibold text-foreground truncate">
+                  {lang === 'ru' ? selectedHecateDay.titleRu : selectedHecateDay.titleEn}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedHecateDay(null)}
+                className="p-1 rounded-md hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-[11px] text-primary/80 mb-2">{selectedHecateDay.date.toLocaleDateString()}</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {lang === 'ru' ? selectedHecateDay.detailsRu : selectedHecateDay.detailsEn}
+            </p>
+          </div>
+        </div>,
+        document.body
+      )
+      : null
+
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       {/* Moon energy */}
@@ -850,30 +880,7 @@ export function RitualTracker({ user }: RitualTrackerProps) {
         </div>
       </div>
 
-      {selectedHecateDay && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-card border border-primary/20 shadow-2xl p-4 animate-fade-in">
-            <div className="flex items-center justify-between gap-3 mb-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xl">{selectedHecateDay.icon}</span>
-                <p className="text-sm font-semibold text-foreground truncate">
-                  {lang === 'ru' ? selectedHecateDay.titleRu : selectedHecateDay.titleEn}
-                </p>
-              </div>
-              <button
-                onClick={() => setSelectedHecateDay(null)}
-                className="p-1 rounded-md hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <p className="text-[11px] text-primary/80 mb-2">{selectedHecateDay.date.toLocaleDateString()}</p>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              {lang === 'ru' ? selectedHecateDay.detailsRu : selectedHecateDay.detailsEn}
-            </p>
-          </div>
-        </div>
-      )}
+      {hecateDetailsModal}
 
       {/* Planetary Hours */}
       <div className="rounded-2xl bg-card border border-border/40 p-5 space-y-3">
