@@ -1,9 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useLang } from '../contexts/LanguageContext'
-import { Send, User, Loader2, Network } from 'lucide-react'
+import { Send, User, Loader2, Network, Compass } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { askOpenRouter } from '../services/openRouterService'
 import { mapAiErrorMessage } from '../lib/aiErrorMessages'
+import { db } from '../lib/platformClient'
+import { supabase } from '../lib/supabaseClient'
+import { loadLocalState } from '../altar/altarStore'
+import { loadGraph } from '../services/knowledgeGraphBridge'
 
 const ARCHETYPES = {
   hecate: {
@@ -49,16 +53,83 @@ interface AIMentorProps {
   user: { id: string }
 }
 
+const CHAT_STORAGE_PREFIX = 'esoterica_mentor_chat_'
+
+function loadChatHistory(archetype: ArchetypeKey): Message[] {
+  try {
+    const raw = localStorage.getItem(CHAT_STORAGE_PREFIX + archetype)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.slice(-30) : []
+  } catch { return [] }
+}
+
+function saveChatHistory(archetype: ArchetypeKey, messages: Message[]) {
+  try {
+    localStorage.setItem(CHAT_STORAGE_PREFIX + archetype, JSON.stringify(messages.slice(-30)))
+  } catch { /* ignore */ }
+}
+
+async function buildPracticeContext(userId: string, lang: string): Promise<string> {
+  const parts: string[] = []
+
+  // Altar progression
+  const state = loadLocalState()
+  const p = state.progression
+  parts.push(`Progression: Level ${p.level}, ${p.points} points, streak ${p.streak} days, ${p.totalRituals} rituals total.`)
+  parts.push(`XP sources — ritual: ${p.ritualXp}, journal: ${p.journalXp}, knowledge: ${p.knowledgeXp}, altar: ${p.altarXp}.`)
+
+  // Knowledge Graph stats
+  const graph = loadGraph()
+  if (graph.nodes.length > 0) {
+    const types: Record<string, number> = {}
+    graph.nodes.forEach(n => { types[n.type] = (types[n.type] || 0) + 1 })
+    parts.push(`Knowledge Web: ${graph.nodes.length} nodes, ${graph.links.length} links. Types: ${JSON.stringify(types)}.`)
+  }
+
+  // Recent journal entries
+  try {
+    const { data } = await supabase
+      .from('journals')
+      .select('title, type, mood, createdAt')
+      .eq('userId', userId)
+      .order('createdAt', { ascending: false })
+      .limit(3)
+    if (data && data.length > 0) {
+      parts.push('Recent journal entries: ' + data.map((e: any) => `"${e.title}" (${e.type}, ${e.mood || ''})`).join('; ') + '.')
+    }
+  } catch { /* ignore */ }
+
+  // Recent rituals
+  try {
+    const rituals = await db.rituals.list({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      limit: 5,
+    }) as any[]
+    if (rituals.length > 0) {
+      parts.push('Recent rituals: ' + rituals.map(r => `"${r.title}" (${r.type || 'general'})`).join('; ') + '.')
+    }
+  } catch { /* ignore */ }
+
+  return parts.join('\n')
+}
+
 export function AIMentor({ user }: AIMentorProps) {
   const { t, lang } = useLang()
   const [selectedArchetype, setSelectedArchetype] = useState<ArchetypeKey>('hecate')
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<Message[]>(() => loadChatHistory('hecate'))
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const archetype = ARCHETYPES[selectedArchetype]
   const archetypeInfo = lang === 'ru' ? archetype.ru : archetype.en
+
+  // Persist chat on every message change
+  useEffect(() => {
+    saveChatHistory(selectedArchetype, messages)
+  }, [messages, selectedArchetype])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -182,9 +253,10 @@ Respond in English in 4 blocks:
     setLoading(true)
 
     try {
+      const practiceCtx = await buildPracticeContext(user.id, lang)
       const history = newMessages.slice(-10).map(m => `${m.role === 'user' ? 'Seeker' : archetypeInfo.name}: ${m.content}`).join('\n')
       const langInstruction = lang === 'ru' ? ' IMPORTANT: Always respond in Russian.' : ' Always respond in English.'
-      const prompt = `${archetype.systemPrompt}${langInstruction}\n\nConversation:\n${history}\n\n${archetypeInfo.name}:`
+      const prompt = `${archetype.systemPrompt}${langInstruction}\n\nSeeker's practice context:\n${practiceCtx}\n\nConversation:\n${history}\n\n${archetypeInfo.name}:`
 
       const text = await askOpenRouter(prompt)
       const cleaned = text.trim()
@@ -211,6 +283,46 @@ Respond in English in 4 blocks:
     }
   }
 
+  async function analyzeMyPath() {
+    if (loading) return
+    setLoading(true)
+
+    const userMsg: Message = {
+      role: 'user',
+      content: lang === 'ru' ? 'Проанализируй мой путь практики.' : 'Analyze my practice path.',
+    }
+    setMessages(prev => [...prev, userMsg])
+
+    try {
+      const practiceCtx = await buildPracticeContext(user.id, lang)
+      const langInstruction = lang === 'ru' ? ' IMPORTANT: Always respond in Russian.' : ' Always respond in English.'
+      const pathPrompt = lang === 'ru'
+        ? `На основе контекста практики ниже дай персональный анализ в 4 блоках:
+1) Сильные стороны практики
+2) Что стоит развить (слабые зоны)
+3) Рекомендации на следующую неделю
+4) Конкретный ритуал, идеальный для текущего уровня`
+        : `Based on the practice context below, give a personal analysis in 4 blocks:
+1) Practice strengths
+2) Areas to develop
+3) Recommendations for the next week
+4) A specific ritual ideal for the current level`
+
+      const prompt = `${archetype.systemPrompt}${langInstruction}\n\nSeeker's practice context:\n${practiceCtx}\n\n${pathPrompt}\n\n${archetypeInfo.name}:`
+
+      const text = await askOpenRouter(prompt)
+      const cleaned = text.trim()
+      if (!cleaned) throw new Error('empty_ai_response')
+      setMessages(prev => [...prev, { role: 'assistant', content: cleaned }])
+    } catch (e: any) {
+      const reason = typeof e?.message === 'string' ? e.message : ''
+      const detailed = mapAiErrorMessage(reason, lang as 'en' | 'ru', 'mentor')
+      setMessages(prev => [...prev, { role: 'assistant', content: detailed }])
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="flex h-full min-w-0 flex-col md:flex-row">
       {/* Archetype selector */}
@@ -222,7 +334,7 @@ Respond in English in 4 blocks:
           return (
             <button
               key={key}
-              onClick={() => { setSelectedArchetype(key); setMessages([]) }}
+              onClick={() => { setSelectedArchetype(key); setMessages(loadChatHistory(key)) }}
               className={cn(
                 'min-w-[170px] md:min-w-0 md:w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-left transition-all',
                 selectedArchetype === key
@@ -252,14 +364,24 @@ Respond in English in 4 blocks:
             <p className={cn('font-semibold', archetypeInfo.color)}>{archetypeInfo.name}</p>
             <p className="text-xs text-muted-foreground">{archetypeInfo.title}</p>
           </div>
-          <button
-            onClick={analyzeKnowledgeWeb}
-            disabled={loading}
-            className="ml-auto inline-flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary hover:bg-primary/20 disabled:opacity-50"
-          >
-            <Network className="w-3.5 h-3.5" />
-            {lang === 'ru' ? 'Анализ паутины' : 'Analyze Web'}
-          </button>
+          <div className="ml-auto flex gap-1.5">
+            <button
+              onClick={analyzeMyPath}
+              disabled={loading}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-amber-400 hover:bg-amber-500/20 disabled:opacity-50"
+            >
+              <Compass className="w-3.5 h-3.5" />
+              {lang === 'ru' ? 'Мой путь' : 'My Path'}
+            </button>
+            <button
+              onClick={analyzeKnowledgeWeb}
+              disabled={loading}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary hover:bg-primary/20 disabled:opacity-50"
+            >
+              <Network className="w-3.5 h-3.5" />
+              {lang === 'ru' ? 'Анализ паутины' : 'Analyze Web'}
+            </button>
+          </div>
         </div>
 
         {/* Messages */}

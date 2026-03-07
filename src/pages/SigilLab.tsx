@@ -6,6 +6,8 @@ import { generateSigilSVG } from '../utils/sigilGenerator'
 import { Sparkles, Download, Zap, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { cn } from '../lib/utils'
+import { grantProgressionPoints, syncProgressionToDb } from '../altar/altarStore'
+import { extractAndMerge } from '../services/knowledgeGraphBridge'
 
 interface Sigil {
   id: string
@@ -71,7 +73,32 @@ export function SigilLab({ user }: SigilLabProps) {
         createdAt: new Date().toISOString(),
       }) as Sigil
       setSigils(prev => [sigil, ...prev])
-      toast.success(lang === 'ru' ? 'Сигил сохранён' : 'Sigil saved')
+
+      // Grant XP for sigil creation (+ bonus if charged)
+      const xpAmount = chargeLevel >= 100 ? 12 : 8
+      const { pointsEarned, progression } = grantProgressionPoints(xpAmount, 'altar')
+      syncProgressionToDb(user.id, progression)
+      toast.success(
+        lang === 'ru'
+          ? `Сигил сохранён (+${pointsEarned} XP)`
+          : `Sigil saved (+${pointsEarned} XP)`
+      )
+
+      // Background: extract intention into Knowledge Graph
+      extractAndMerge(
+        `Sigil intention: ${currentIntention}`,
+        lang as 'en' | 'ru',
+        'sigil'
+      ).then(result => {
+        if (result && result.added > 0) {
+          toast.success(
+            lang === 'ru'
+              ? `🕸 Паутина: +${result.added} из сигила`
+              : `🕸 Web: +${result.added} from sigil`,
+            { duration: 2500 }
+          )
+        }
+      })
     } catch (e) { toast.error(t.error) }
   }
 
@@ -84,7 +111,14 @@ export function SigilLab({ user }: SigilLabProps) {
         if (prev >= 100) {
           clearInterval(chargeInterval.current!)
           setCharging(false)
-          toast.success(t.sigilCharged + ' ✨')
+          // Grant bonus XP for completing the charge
+          const { pointsEarned, progression } = grantProgressionPoints(5, 'altar')
+          syncProgressionToDb(user.id, progression)
+          toast.success(
+            lang === 'ru'
+              ? `${t.sigilCharged} ✨ (+${pointsEarned} XP)`
+              : `${t.sigilCharged} ✨ (+${pointsEarned} XP)`
+          )
           return 100
         }
         return prev + 2
