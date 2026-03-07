@@ -3,7 +3,7 @@ import { useLang } from '../contexts/LanguageContext'
 import { useAudio } from '../contexts/AudioContext'
 import { db } from '../lib/platformClient'
 import { getMoonPhase, moonEmoji, moonEnergy, moonEnergyRu } from '../utils/moonPhase'
-import { Plus, Moon, Trash2, TrendingUp } from 'lucide-react'
+import { Plus, Moon, Trash2, TrendingUp, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { cn } from '../lib/utils'
 
@@ -19,6 +19,16 @@ interface Ritual {
   createdAt: string
 }
 
+interface FestivalDay {
+  id: string
+  nameRu: string
+  nameEn: string
+  date: string
+  emoji: string
+  infoRu: string
+  infoEn: string
+}
+
 const RITUAL_TYPES = ['banishing', 'invocation', 'manifestation', 'divination', 'healing', 'protection', 'gratitude', 'shadow-work']
 const RITUAL_TYPES_RU: Record<string, string> = {
   banishing: 'Очищение',
@@ -31,11 +41,175 @@ const RITUAL_TYPES_RU: Record<string, string> = {
   'shadow-work': 'Работа с тенью',
 }
 
-const WHEEL_SLAVIC = [
-  { name: 'Коляда', nameEn: 'Kolyada', date: 'Dec 21', emoji: '☀️' },
-  { name: 'Масленица', nameEn: 'Maslenitsa', date: 'Mar 1', emoji: '🌾' },
-  { name: 'Купала', nameEn: 'Kupala', date: 'Jun 21', emoji: '🔥' },
-  { name: 'Перунов День', nameEn: "Perun's Day", date: 'Aug 2', emoji: '⚡' },
+const WHEEL_SLAVIC: FestivalDay[] = [
+  {
+    id: 'kolyada',
+    nameRu: 'Коляда',
+    nameEn: 'Kolyada',
+    date: 'Dec 21',
+    emoji: '☀️',
+    infoRu: 'Праздник зимнего солнцестояния и рождения нового солнечного цикла. Время обновления клятв, очищения дома и призыва достатка.',
+    infoEn: 'Winter solstice feast marking the rebirth of the solar cycle. A day for renewal vows, home cleansing, and prosperity rites.',
+  },
+  {
+    id: 'maslenitsa',
+    nameRu: 'Масленица',
+    nameEn: 'Maslenitsa',
+    date: 'Mar 1',
+    emoji: '🌾',
+    infoRu: 'Переход от зимы к весне, обрядовое прощание со старым. Подходит для ритуалов освобождения и призыва плодородия.',
+    infoEn: 'Transition from winter to spring and ritual farewell to the old season. Ideal for release work and fertility intentions.',
+  },
+  {
+    id: 'kupala',
+    nameRu: 'Купала',
+    nameEn: 'Kupala',
+    date: 'Jun 21',
+    emoji: '🔥',
+    infoRu: 'Огненно-водный праздник летнего солнцестояния. День силы, очищения через стихии и любовно-защитной магии.',
+    infoEn: 'Fire-and-water summer solstice celebration. A high-power day for elemental purification and love/protection work.',
+  },
+  {
+    id: 'perun-day',
+    nameRu: 'Перунов День',
+    nameEn: "Perun's Day",
+    date: 'Aug 2',
+    emoji: '⚡',
+    infoRu: 'Чествование громовержца и силы воли. Хорош для ритуалов защиты, дисциплины, справедливости и укрепления границ.',
+    infoEn: 'Honors the thunder god and disciplined will. Strong timing for protection, justice, boundary-setting, and oath work.',
+  },
+]
+
+const WHEEL_NEOPAGAN: FestivalDay[] = [
+  {
+    id: 'yule',
+    nameRu: 'Йоль',
+    nameEn: 'Yule',
+    date: 'Dec 21',
+    emoji: '🕯️',
+    infoRu: 'Зимнее солнцестояние. Поворот колеса к свету, ритуалы надежды, восстановления и закладки намерений года.',
+    infoEn: 'Winter solstice. The wheel turns toward light; ideal for hope, restoration, and year-seeding intentions.',
+  },
+  {
+    id: 'imbolc',
+    nameRu: 'Имболк',
+    nameEn: 'Imbolc',
+    date: 'Feb 1',
+    emoji: '🕯',
+    infoRu: 'Пробуждение огня и очищение пространства. День ясности, домашней магии и обновления духовной дисциплины.',
+    infoEn: 'Awakening fire and purification. A day for clarity, hearth magic, and refreshing spiritual discipline.',
+  },
+  {
+    id: 'ostara',
+    nameRu: 'Остара',
+    nameEn: 'Ostara',
+    date: 'Mar 21',
+    emoji: '🌱',
+    infoRu: 'Весеннее равноденствие, баланс света и тьмы. Подходит для гармонизации сфер жизни и старта новых проектов.',
+    infoEn: 'Spring equinox and light-dark balance. Great for harmonizing life areas and launching new projects.',
+  },
+  {
+    id: 'beltane',
+    nameRu: 'Белтейн',
+    nameEn: 'Beltane',
+    date: 'May 1',
+    emoji: '🔥',
+    infoRu: 'Праздник жизненной силы, творчества и союза. День усиления страсти, инициативы и плодотворных связей.',
+    infoEn: 'Festival of vitality, creativity, and union. Boosts passion, initiative, and fertile partnerships.',
+  },
+  {
+    id: 'litha',
+    nameRu: 'Лита',
+    nameEn: 'Litha',
+    date: 'Jun 21',
+    emoji: '☀️',
+    infoRu: 'Летнее солнцестояние, пик солнечной силы. Время ритуалов успеха, укрепления энергии и защиты.',
+    infoEn: 'Summer solstice and peak solar force. Favorable for success rites, empowerment, and protection.',
+  },
+  {
+    id: 'lughnasadh',
+    nameRu: 'Лугнасад',
+    nameEn: 'Lughnasadh',
+    date: 'Aug 1',
+    emoji: '🌾',
+    infoRu: 'Первый урожай и благодарность за результаты. Подходит для закрепления плодов труда и обрядов изобилия.',
+    infoEn: 'First harvest and gratitude for results. Ideal for consolidating gains and abundance-focused work.',
+  },
+  {
+    id: 'mabon',
+    nameRu: 'Мабон',
+    nameEn: 'Mabon',
+    date: 'Sep 21',
+    emoji: '🍂',
+    infoRu: 'Осеннее равноденствие, подведение итогов и баланс обмена. Хорош для магии благодарности и завершений.',
+    infoEn: 'Autumn equinox, harvest reflection, and exchange balance. Great for gratitude and completion rituals.',
+  },
+  {
+    id: 'samhain',
+    nameRu: 'Самайн',
+    nameEn: 'Samhain',
+    date: 'Oct 31',
+    emoji: '🕸️',
+    infoRu: 'Пороговый праздник предков и теневой работы. Сильное время для отпускания старого и глубокой внутренней магии.',
+    infoEn: 'Threshold feast of ancestors and shadow work. Powerful for release, endings, and deep inner magic.',
+  },
+]
+
+const WHEEL_HELLENIC: FestivalDay[] = [
+  {
+    id: 'noumenia',
+    nameRu: 'Нумения',
+    nameEn: 'Noumenia',
+    date: 'Monthly New Moon',
+    emoji: '🌑',
+    infoRu: 'Начало нового лунного месяца в эллинской практике. День домашних подношений, порядка и настройки намерений.',
+    infoEn: 'Start of the lunar month in Hellenic practice. A day for household offerings, order, and intention-setting.',
+  },
+  {
+    id: 'anthesteria',
+    nameRu: 'Антестерии',
+    nameEn: 'Anthesteria',
+    date: 'Feb / Mar',
+    emoji: '🍷',
+    infoRu: 'Праздник Диониса, вина и обновления жизни. Подходит для ритуалов творческого потока и освобождения эмоций.',
+    infoEn: 'Festival of Dionysus, wine, and life renewal. Supports creative flow and emotional release rituals.',
+  },
+  {
+    id: 'thargelia',
+    nameRu: 'Фаргелии',
+    nameEn: 'Thargelia',
+    date: 'May / Jun',
+    emoji: '🌿',
+    infoRu: 'Праздник Аполлона и Артемиды, очищения и благодарности за плоды. День ритуалов здоровья и гармонии.',
+    infoEn: 'Festival of Apollo and Artemis, purification and first fruits. Good for health and harmony workings.',
+  },
+  {
+    id: 'kronia',
+    nameRu: 'Кронии',
+    nameEn: 'Kronia',
+    date: 'Jul',
+    emoji: '⏳',
+    infoRu: 'Праздник Кроноса, времени и равенства. Время для ритуалов пересмотра циклов, договоренностей и обязанностей.',
+    infoEn: 'Festival of Kronos, time, and social leveling. Useful for reviewing cycles, duties, and agreements.',
+  },
+  {
+    id: 'panathenaia',
+    nameRu: 'Панафинеи',
+    nameEn: 'Panathenaia',
+    date: 'Jul / Aug',
+    emoji: '🦉',
+    infoRu: 'Главный праздник Афины, мудрости и мастерства. Благоприятен для интеллектуальной магии, стратегий и ремесла.',
+    infoEn: 'Major festival of Athena, wisdom, and craft. Great for strategic, scholarly, and craft-centered magic.',
+  },
+  {
+    id: 'eleusinia',
+    nameRu: 'Элевсинии',
+    nameEn: 'Eleusinia',
+    date: 'Sep',
+    emoji: '🌾',
+    infoRu: 'Праздники Деметры и Персефоны о циклах жизни и возвращения. Подходят для ритуалов трансформации и посвящения.',
+    infoEn: 'Festivals of Demeter and Persephone about descent and return cycles. Strong for transformation and initiation.',
+  },
 ]
 
 interface RitualTrackerProps {
@@ -48,8 +222,22 @@ export function RitualTracker({ user }: RitualTrackerProps) {
   const [rituals, setRituals] = useState<Ritual[]>([])
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [activeWheel, setActiveWheel] = useState<'slavic' | 'neopagan' | 'hellenic'>('slavic')
+  const [selectedFestival, setSelectedFestival] = useState<FestivalDay | null>(null)
   const moonPhase = getMoonPhase()
   const energy = lang === 'ru' ? moonEnergyRu[moonPhase] : moonEnergy[moonPhase]
+
+  const wheelOptions = [
+    { id: 'slavic' as const, label: lang === 'ru' ? 'Славянское' : 'Slavic' },
+    { id: 'neopagan' as const, label: lang === 'ru' ? 'Неоязыческое' : 'Neopagan' },
+    { id: 'hellenic' as const, label: lang === 'ru' ? 'Эллинское' : 'Hellenic' },
+  ]
+
+  const activeWheelData = activeWheel === 'slavic'
+    ? WHEEL_SLAVIC
+    : activeWheel === 'neopagan'
+      ? WHEEL_NEOPAGAN
+      : WHEEL_HELLENIC
 
   const [form, setForm] = useState({
     title: '', type: 'manifestation', intention: '',
@@ -134,17 +322,64 @@ export function RitualTracker({ user }: RitualTrackerProps) {
 
       {/* Wheel of Year */}
       <div>
-        <p className="text-xs text-muted-foreground mb-3">{t.wheelOfYear} — Slavic</p>
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <p className="text-xs text-muted-foreground">{t.wheelOfYear}</p>
+          <div className="flex items-center gap-1 p-1 rounded-xl border border-border/40 bg-card">
+            {wheelOptions.map((option) => (
+              <button
+                key={option.id}
+                onClick={() => setActiveWheel(option.id)}
+                className={cn(
+                  'px-2.5 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider transition-colors',
+                  activeWheel === option.id
+                    ? 'bg-primary/15 text-primary border border-primary/30'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {WHEEL_SLAVIC.map(s => (
-            <div key={s.name} className="rounded-xl bg-card border border-border/40 p-3 text-center hover:border-primary/30 transition-colors">
-              <div className="text-2xl mb-1">{s.emoji}</div>
-              <p className="text-xs font-medium text-foreground">{lang === 'ru' ? s.name : s.nameEn}</p>
-              <p className="text-[10px] text-muted-foreground">{s.date}</p>
-            </div>
+          {activeWheelData.map((day) => (
+            <button
+              type="button"
+              key={day.id}
+              onClick={() => setSelectedFestival(day)}
+              className="rounded-xl bg-card border border-border/40 p-3 text-center hover:border-primary/30 transition-colors"
+            >
+              <div className="text-2xl mb-1">{day.emoji}</div>
+              <p className="text-xs font-medium text-foreground">{lang === 'ru' ? day.nameRu : day.nameEn}</p>
+              <p className="text-[10px] text-muted-foreground">{day.date}</p>
+            </button>
           ))}
         </div>
       </div>
+
+      {selectedFestival && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-card border border-primary/20 shadow-2xl p-4 animate-fade-in">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-xl">{selectedFestival.emoji}</span>
+                <p className="text-sm font-semibold text-foreground truncate">{lang === 'ru' ? selectedFestival.nameRu : selectedFestival.nameEn}</p>
+              </div>
+              <button
+                onClick={() => setSelectedFestival(null)}
+                className="p-1 rounded-md hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-[11px] text-primary/80 mb-2">{selectedFestival.date}</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {lang === 'ru' ? selectedFestival.infoRu : selectedFestival.infoEn}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
