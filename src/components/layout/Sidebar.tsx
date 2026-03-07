@@ -40,13 +40,13 @@ export function Sidebar({ currentPage, onNavigate, userId }: SidebarProps) {
   const navItems = [
     { id: 'dashboard' as Page, icon: LayoutDashboard, label: t.dashboard },
     { id: 'altars' as Page, icon: FlameKindling, label: t.altars },
+    { id: 'knowledge-graph' as Page, icon: SpiderWebIcon, label: (t as any).knowledgeGraph || 'Knowledge Graph' },
     { id: 'ai-mentor' as Page, icon: Bot, label: t.aiMentor },
     { id: 'ritual-tracker' as Page, icon: Moon, label: t.ritualTracker },
     { id: 'sigil-lab' as Page, icon: Sparkles, label: t.sigilLab },
     { id: 'journal' as Page, icon: BookOpen, label: t.journal },
     { id: 'forum' as Page, icon: MessageSquare, label: (t as any).forum || 'Forum', badge: forumBadge },
     { id: 'marketplace' as Page, icon: ShoppingBag, label: t.marketplace },
-    { id: 'knowledge-graph' as Page, icon: SpiderWebIcon, label: (t as any).knowledgeGraph || 'Knowledge Graph' },
   ]
 
   const handleNavigate = (id: Page) => {
