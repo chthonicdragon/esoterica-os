@@ -621,13 +621,7 @@ export function KnowledgeGraph({ user }: Props) {
               </button>
             </div>
             // ...existing code...
-            {/* Подсказка о пустой паутине отображается над основным UI, не заменяя его */}
-            {graphData.nodes.length === 0 && graphData.links.length === 0 && (
-              <div className="mb-4 p-4 bg-white/5 border border-white/10 rounded-xl text-center">
-                <h3 className="text-lg font-bold mb-2 text-primary">{lang === 'ru' ? 'Паутина знаний пуста' : 'Knowledge Web is empty'}</h3>
-                <p className="mb-2 text-muted-foreground">{lang === 'ru' ? 'Начните с добавления первого узла или ритуала. Все функции доступны ниже.' : 'Start by adding your first node or ritual. All features are available below.'}</p>
-              </div>
-            )}
+            // ...existing code...
             {/* ...весь основной UI KnowledgeGraph (фильтры, ввод, визуализация, экспорт, аналитика, предпросмотр, работа с узлами и связями) всегда отображается ниже... */}
           </div>
           {/* ...остальной UI и визуализация остаются без изменений... */}
