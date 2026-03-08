@@ -63,7 +63,9 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    strictPort: true,
+    // позволяем Vite автоматически выбирать следующий свободный порт (3001, 3002, …),
+    // чтобы не падать, если 3000 занят другим процессом
+    strictPort: false,
     host: true,
     allowedHosts: true,
   }

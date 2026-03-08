@@ -96,6 +96,7 @@ function AppContent() {
   const [hasInteracted, setHasInteracted] = useState(false)
   const [isLandscapeOnMobile, setIsLandscapeOnMobile] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [showLandscapeHint, setShowLandscapeHint] = useState(true)
 
   useEffect(() => {
     if (typeof window === 'undefined' || !safeModeRequested) return
@@ -230,17 +231,17 @@ function AppContent() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background" onClick={handleInteraction}>
-      {isLandscapeOnMobile && (
-        <div className="fixed inset-0 z-[100] bg-background flex flex-col items-center justify-center p-6 text-center animate-fade-in">
-          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4 animate-bounce">
-            <Maximize2 className="w-8 h-8 text-primary rotate-90" />
-          </div>
-          <h2 className="text-xl font-cinzel font-bold mb-2">
-            {lang === 'ru' ? 'Поверните устройство' : 'Rotate Device'}
-          </h2>
-          <p className="text-muted-foreground text-sm max-w-[200px]">
-            {lang === 'ru' ? 'Пожалуйста, используйте портретный режим для лучшего опыта' : 'Please use portrait mode for the best experience'}
-          </p>
+      {isLandscapeOnMobile && showLandscapeHint && (
+        <div className="pointer-events-auto fixed top-3 left-1/2 -translate-x-1/2 z-[60] px-3 py-2 rounded-xl border border-white/10 bg-black/40 backdrop-blur text-xs text-muted-foreground flex items-center gap-2">
+          <Maximize2 className="w-3.5 h-3.5 text-primary rotate-90" />
+          <span>{lang === 'ru' ? 'Оптимально в портретном режиме' : 'Portrait gives best experience'}</span>
+          <button
+            onClick={() => setShowLandscapeHint(false)}
+            aria-label="Dismiss orientation hint"
+            className="ml-1 p-1 rounded hover:bg-white/10 text-foreground/70"
+          >
+            ×
+          </button>
         </div>
       )}
 
