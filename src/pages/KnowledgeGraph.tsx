@@ -1120,7 +1120,7 @@ export function KnowledgeGraph({ user }: Props) {
       </div>
       {/* Right Column: Graph */}
       <div className="flex-1 relative flex min-h-[400px] lg:min-h-0">
-        <div className="flex-1 relative w-full h-full">
+        <div className="flex-1 relative w-full min-h-[400px] lg:h-full">
           {/* Expand toggle */}
           <button
             onClick={() => setIsExpanded(!isExpanded)}

@@ -496,7 +496,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
   };
 
   return (
-    <div className="w-full h-full bg-black/40 rounded-2xl overflow-hidden border border-white/10 shadow-2xl backdrop-blur-sm relative">
+    <div className="w-full min-h-[400px] lg:h-full bg-black/40 rounded-2xl overflow-hidden border border-white/10 shadow-2xl backdrop-blur-sm relative">
       <div className="absolute top-4 left-4 flex flex-col gap-2 z-10">
         <button onClick={handleZoomIn} className="p-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-colors text-white/70" title="Zoom In">
           <ZoomIn className="w-4 h-4" />
@@ -508,7 +508,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           <Maximize className="w-4 h-4" />
         </button>
       </div>
-      <svg id="main-graph-svg" ref={svgRef} className="w-full h-full touch-none" />
+      <svg id="main-graph-svg" ref={svgRef} className="w-full min-h-[400px] lg:h-full touch-none" />
     </div>
   );
 };
