@@ -778,11 +778,13 @@ export function KnowledgeGraph({ user }: Props) {
                   rows={8}
                   className={`w-full min-h-[190px] bg-white/5 border rounded-2xl p-4 text-sm resize-y focus:outline-none transition-colors placeholder:text-muted-foreground/50 text-foreground ${isRitualMode ? 'border-purple-500/30 focus:border-purple-500/50' : 'border-white/10 focus:border-primary/50'}`}
                 />
-                <div className="absolute bottom-3 right-3">
+                <div className="absolute bottom-3 right-3 z-20 pointer-events-auto">
                   <button
+                    type="button"
                     onClick={handleExtract}
                     disabled={isLoading || !inputText.trim()}
-                    className={`flex items-center gap-1.5 font-medium px-4 py-2 rounded-xl transition-all shadow-lg text-sm ${isRitualMode ? 'bg-purple-500 hover:bg-purple-600 text-white' : 'bg-primary hover:bg-primary/90 text-primary-foreground'} disabled:opacity-30 disabled:cursor-not-allowed`}
+                    className={`flex items-center gap-1.5 font-medium px-4 py-2 rounded-xl transition-all shadow-lg text-sm touch-manipulation ${isRitualMode ? 'bg-purple-500 hover:bg-purple-600 text-white' : 'bg-primary hover:bg-primary/90 text-primary-foreground'} disabled:opacity-30 disabled:cursor-not-allowed`}
+                    onTouchEnd={(e) => { e.preventDefault(); if (!isLoading && inputText.trim()) handleExtract() }}
                   >
                     {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                     {t.weaveBtn}
