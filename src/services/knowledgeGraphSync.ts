@@ -109,6 +109,16 @@ export async function syncGraph(userId: string): Promise<GraphData> {
       return remote.data
     }
 
+    // Защита: если локальный граф пуст, а удалённый не пуст — не затирать данные
+    if (localSize === 0 && remoteSize === 0) {
+      // Оба графа пусты — ничего не синхронизируем
+      return { nodes: [], links: [] }
+    }
+    if (localSize === 0 && remoteSize > 0) {
+      // Локальный пуст, удалённый есть — не пушим пустой
+      saveLocal(remote.data)
+      return remote.data
+    }
     // Local is authoritative — push to remote
     await pushToRemote(userId, local)
     return local
