@@ -678,26 +678,6 @@ export function KnowledgeGraph({ user }: Props) {
                     {lang === 'ru' ? 'Сброс фильтров' : 'Reset Filters'}
                   </button>
                   <button
-                    onClick={async () => {
-                      setIsLoading(true);
-                      setError(null);
-                      try {
-                        const synced = await syncGraph(user.id);
-                        setGraphData(synced);
-                        setSuccessMsg(lang === 'ru' ? 'Паутина синхронизирована!' : 'Web synchronized!');
-                      } catch (err) {
-                        setError(lang === 'ru' ? 'Ошибка синхронизации!' : 'Sync error!');
-                      } finally {
-                        setIsLoading(false);
-                      }
-                    }}
-                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] uppercase tracking-wider font-bold transition-colors bg-green-500/20 text-green-700 border border-green-500/30"
-                    disabled={isLoading}
-                  >
-                    <Database className="w-3 h-3" />
-                    {lang === 'ru' ? 'Синхронизировать паутину' : 'Sync Web'}
-                  </button>
-                  <button
                     onClick={() => setShowRitualsOnly(!showRitualsOnly)}
                     className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] uppercase tracking-wider font-bold transition-colors ${showRitualsOnly ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-white/5 text-muted-foreground border border-white/10'}`}
                   >
@@ -858,6 +838,28 @@ export function KnowledgeGraph({ user }: Props) {
                 {lang === 'ru' ? 'Аналит.' : 'Analytics'}
               </button>
             </div>
+
+            {/* Sync button near Reset */}
+            <button
+              onClick={async () => {
+                setIsLoading(true);
+                setError(null);
+                try {
+                  const synced = await syncGraph(user.id);
+                  setGraphData(synced);
+                  setSuccessMsg(lang === 'ru' ? 'Паутина синхронизирована!' : 'Web synchronized!');
+                } catch (err) {
+                  setError(lang === 'ru' ? 'Ошибка синхронизации!' : 'Sync error!');
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
+              className="w-full mt-2 flex items-center justify-center gap-1.5 bg-green-500/15 hover:bg-green-500/25 border border-green-500/25 text-green-600 py-2 rounded-xl transition-all text-[10px] uppercase tracking-wider font-bold disabled:opacity-30"
+              disabled={isLoading}
+            >
+              <Database className="w-3 h-3" />
+              {lang === 'ru' ? 'Синхронизировать паутину' : 'Sync Web'}
+            </button>
 
             <button onClick={handleResetWeb}
               className="w-full flex items-center justify-center gap-2 bg-destructive/10 hover:bg-destructive/20 border border-destructive/20 text-destructive py-2 rounded-xl transition-all text-xs font-medium">
