@@ -119,7 +119,7 @@ const translations = {
     activeLinks: "Активные связи",
     noRitualTags: "Для этого ритуала пока нет извлеченных тегов.",
     noActiveLinks: "Для этого ритуала активные связи пока не найдены."
-  }
+  // }
 }
 
 interface Props {
@@ -866,8 +866,11 @@ export function KnowledgeGraph({ user }: Props) {
           <div className="flex items-center gap-1"><Info className="w-2.5 h-2.5" /><span>OpenRouter AI</span></div>
           <span>Arachna v1.0</span>
         </footer>
+    <div className="flex w-full min-h-[400px] lg:min-h-0">
+      {/* Left Column */}
+      <div className="flex flex-col gap-3 w-[320px] min-w-[320px] max-w-[340px] bg-[hsl(var(--sidebar))]/95 border border-white/10 rounded-2xl shadow-2xl p-4">
+        ...existing code...
       </div>
-
       {/* Right Column: Graph */}
       <div className="flex-1 relative flex min-h-[400px] lg:min-h-0">
         <div className="flex-1 relative w-full h-full">
