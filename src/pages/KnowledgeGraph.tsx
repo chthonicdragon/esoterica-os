@@ -778,10 +778,11 @@ export function KnowledgeGraph({ user }: Props) {
                   rows={8}
                   className={`w-full min-h-[190px] bg-white/5 border rounded-2xl p-4 text-sm resize-y focus:outline-none transition-colors placeholder:text-muted-foreground/50 text-foreground ${isRitualMode ? 'border-purple-500/30 focus:border-purple-500/50' : 'border-white/10 focus:border-primary/50'}`}
                 />
-                <div className="absolute bottom-3 right-3 z-20 pointer-events-auto">
+                <div className="absolute bottom-3 right-3 z-50 pointer-events-auto">
                   <button
                     type="button"
                     onClick={handleExtract}
+                    onMouseDown={(e) => { e.stopPropagation() }}
                     disabled={isLoading || !inputText.trim()}
                     className={`flex items-center gap-1.5 font-medium px-4 py-2 rounded-xl transition-all shadow-lg text-sm touch-manipulation ${isRitualMode ? 'bg-purple-500 hover:bg-purple-600 text-white' : 'bg-primary hover:bg-primary/90 text-primary-foreground'} disabled:opacity-30 disabled:cursor-not-allowed`}
                     onTouchEnd={(e) => { e.preventDefault(); if (!isLoading && inputText.trim()) handleExtract() }}
@@ -1085,34 +1086,40 @@ export function KnowledgeGraph({ user }: Props) {
         </div>
       )}
 
-        {/* Status messages */}
-        <AnimatePresence>
-          {error && (
-            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              className="p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-destructive text-xs flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 min-w-0">
-              <X className="w-3 h-3 shrink-0" />
-                <span className="truncate">{error}</span>
-              </div>
-              {lastAttempt && (
-                <button
-                  onClick={handleRetryLastAttempt}
-                  disabled={isLoading}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-destructive/40 bg-destructive/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-destructive hover:bg-destructive/20 disabled:opacity-50"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                  {lang === 'ru' ? 'Повторить' : 'Retry'}
-                </button>
-              )}
-            </motion.div>
-          )}
-          {successMsg && (
-            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs">
-              {successMsg}
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Status toasts (top-right) */}
+        <div className="fixed top-3 right-3 z-[80] space-y-2 pointer-events-none">
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                className="pointer-events-auto max-w-xs px-3 py-2 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-[11px] leading-tight shadow-2xl backdrop-blur"
+              >
+                <div className="flex items-center gap-2">
+                  <X className="w-3 h-3 shrink-0" />
+                  <span className="truncate">{error}</span>
+                  {lastAttempt && (
+                    <button
+                      onClick={handleRetryLastAttempt}
+                      disabled={isLoading}
+                      className="ml-2 inline-flex shrink-0 items-center gap-1 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-[2px] text-[10px] font-bold uppercase tracking-wider text-destructive hover:bg-destructive/20 disabled:opacity-50"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      {lang === 'ru' ? 'Повторить' : 'Retry'}
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            )}
+            {successMsg && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                className="pointer-events-auto max-w-xs px-3 py-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-emerald-400 text-[11px] leading-tight shadow-2xl backdrop-blur"
+              >
+                {successMsg}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
     <AnimatePresence>
       {showRitualPreview && pendingRitualAttempt && (
