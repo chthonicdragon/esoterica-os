@@ -22,8 +22,9 @@ export interface GraphData {
 
 type Provider = "groq" | "openrouter";
 
-const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+const DEV = import.meta.env.DEV;
+const GROQ_API_URL = DEV ? "/_groq/chat/completions" : "/api/groq";
+const OPENROUTER_API_URL = DEV ? "/_openrouter/chat/completions" : "/api/openrouter";
 
 const GROQ_API_KEY = (import.meta.env.VITE_GROQ_API_KEY as string | undefined)?.trim();
 const OPENROUTER_API_KEY = (import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined)?.trim();
@@ -58,34 +59,7 @@ const MENTOR_CIRCUIT_COOLDOWN_MS = 45000;
 let mentorFailureCount = 0;
 let mentorCircuitOpenUntil = 0;
 
-const COMMON_HEADERS: Record<string, string> = {
-  "Content-Type": "application/json",
-};
-
-if (PROVIDER === "openrouter") {
-  const ENV_SITE_URL = (import.meta.env.VITE_SITE_URL as string | undefined)?.trim();
-  const ENV_SITE_TITLE = (import.meta.env.VITE_SITE_TITLE as string | undefined)?.trim();
-  const FALLBACK_SITE_URL = "https://esoterica-os.vercel.app";
-
-  let siteUrl = FALLBACK_SITE_URL;
-  try {
-    if (typeof window !== "undefined") {
-      const origin = window.location.origin;
-      if (/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.)/i.test(origin)) {
-        siteUrl = ENV_SITE_URL || FALLBACK_SITE_URL;
-      } else {
-        siteUrl = origin;
-      }
-    } else {
-      siteUrl = ENV_SITE_URL || FALLBACK_SITE_URL;
-    }
-  } catch {
-    siteUrl = ENV_SITE_URL || FALLBACK_SITE_URL;
-  }
-
-  COMMON_HEADERS["HTTP-Referer"] = siteUrl;
-  COMMON_HEADERS["X-Title"] = ENV_SITE_TITLE || "Esoterica OS";
-}
+const COMMON_HEADERS: Record<string, string> = { "Content-Type": "application/json" };
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -369,12 +343,26 @@ async function fetchWithFallback(body: object, modelIndex = 0): Promise<string> 
   const model = MODELS[modelIndex];
   console.log(`[AI:${PROVIDER}] Trying model: ${model}`);
 
+  const headers: Record<string, string> = { ...COMMON_HEADERS };
+  const usingServerless = API_URL.startsWith('/api/')
+  if (!DEV && !usingServerless) {
+    headers.Authorization = `Bearer ${API_KEY}`;
+    if (PROVIDER === "openrouter") {
+      const ENV_SITE_URL = (import.meta.env.VITE_SITE_URL as string | undefined)?.trim();
+      const ENV_SITE_TITLE = (import.meta.env.VITE_SITE_TITLE as string | undefined)?.trim();
+      const FALLBACK_SITE_URL = "https://esoterica-os.vercel.app";
+      let siteUrl = typeof window !== "undefined" ? window.location.origin : (ENV_SITE_URL || FALLBACK_SITE_URL);
+      if (/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.)/i.test(siteUrl)) {
+        siteUrl = ENV_SITE_URL || FALLBACK_SITE_URL;
+      }
+      headers["HTTP-Referer"] = siteUrl;
+      headers["X-Title"] = ENV_SITE_TITLE || "Esoterica OS";
+    }
+  } // when using serverless, Authorization and Referer headers are added on the server
+
   const res = await fetchWithTimeout(API_URL, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${API_KEY}`,
-      ...COMMON_HEADERS,
-    },
+    headers,
     body: JSON.stringify({ ...body, model }),
   }, REQUEST_TIMEOUT_MS);
 

@@ -68,5 +68,35 @@ export default defineConfig({
     strictPort: false,
     host: true,
     allowedHosts: true,
+    proxy: {
+      '/_openrouter': {
+        target: 'https://openrouter.ai/api/v1',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/_openrouter/, ''),
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
+            const siteUrl = process.env.VITE_SITE_URL?.trim() || 'https://esoterica-os.vercel.app'
+            const siteTitle = process.env.VITE_SITE_TITLE?.trim() || 'Esoterica OS'
+            const apiKey = process.env.VITE_OPENROUTER_API_KEY?.trim() || ''
+            if (apiKey) proxyReq.setHeader('Authorization', `Bearer ${apiKey}`)
+            proxyReq.setHeader('HTTP-Referer', siteUrl)
+            proxyReq.setHeader('X-Title', siteTitle)
+          })
+        },
+      },
+      '/_groq': {
+        target: 'https://api.groq.com/openai/v1',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/_groq/, ''),
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
+            const apiKey = process.env.VITE_GROQ_API_KEY?.trim() || ''
+            if (apiKey) proxyReq.setHeader('Authorization', `Bearer ${apiKey}`)
+          })
+        },
+      },
+    },
   }
 });
