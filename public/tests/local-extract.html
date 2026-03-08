@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Local Extract Self-Test</title>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; background: #0b0f1e; color: #d1d5db; padding: 24px; }
+    .card { max-width: 920px; margin: 0 auto; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; }
+    h1 { font-size: 18px; margin: 0 0 12px; color: #e5e7eb; }
+    textarea { width: 100%; min-height: 140px; background: #0f172a; color: #e5e7eb; border: 1px solid #334155; border-radius: 8px; padding: 10px; }
+    button { background: #0ea5e9; color: #0b0f1e; border: 0; border-radius: 8px; padding: 10px 14px; margin-top: 12px; cursor: pointer; font-weight: 600; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+    pre { background: #0f172a; color: #93c5fd; padding: 10px; border-radius: 8px; overflow: auto; font-size: 12px; }
+    .small { font-size: 12px; opacity: 0.8; }
+    .ok { color: #34d399; }
+    .fail { color: #f87171; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Local Extract Self-Test</h1>
+    <div class="small">Dev-only page for quick validation of local heuristic extraction.</div>
+    <div class="row">
+      <div>
+        <div class="small">English sample</div>
+        <textarea id="en">Hecate is associated with crossroads and magic. The ritual invokes Hecate at midnight using three candles near the ancient temple of Selene.</textarea>
+      </div>
+      <div>
+        <div class="small">Русский образец</div>
+        <textarea id="ru">Ритуал посвящён Гекате и перекрёсткам. Опишите символы и места силы, включая храм Селены и три свечи.</textarea>
+      </div>
+    </div>
+    <button id="run">Run Self-Test</button>
+    <div id="out" class="row">
+      <div>
+        <div class="small">EN result</div>
+        <pre id="enOut"></pre>
+      </div>
+      <div>
+        <div class="small">RU result</div>
+        <pre id="ruOut"></pre>
+      </div>
+    </div>
+    <div id="kpi" class="small" style="margin-top:12px;"></div>
+  </div>
+  <script type="module">
+    import { extractGraphLocally } from '/src/services/localExtract.ts'
+
+    const $ = (id) => document.getElementById(id)
+    const enc = (v) => JSON.stringify(v, null, 2)
+
+    async function run() {
+      const enIn = $('en').value
+      const ruIn = $('ru').value
+      const t0 = performance.now()
+      const en = await extractGraphLocally(enIn, true, 'Midnight Rite', [])
+      const t1 = performance.now()
+      const ru = await extractGraphLocally(ruIn, true, 'Ночной Ритуал', [])
+      const t2 = performance.now()
+      $('enOut').textContent = enc(en)
+      $('ruOut').textContent = enc(ru)
+      const okEn = en.nodes.length > 0 && en.links.length > 0
+      const okRu = ru.nodes.length > 0 && ru.links.length > 0
+      const kpi = `EN: nodes=${en.nodes.length}, links=${en.links.length}, ${(t1 - t0).toFixed(1)}ms — ${okEn ? 'OK' : 'FAIL'} | ` +
+                  `RU: nodes=${ru.nodes.length}, links=${ru.links.length}, ${(t2 - t1).toFixed(1)}ms — ${okRu ? 'OK' : 'FAIL'}`
+      $('kpi').innerHTML = (okEn && okRu) ? `<span class="ok">${kpi}</span>` : `<span class="fail">${kpi}</span>`
+      console.log('[Self-Test] EN', en, 'RU', ru)
+    }
+
+    $('run').addEventListener('click', run)
+  </script>
+</body>
+</html>
