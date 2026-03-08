@@ -76,6 +76,11 @@ export async function pushToRemote(userId: string, graphData?: GraphData): Promi
  * - Otherwise → push local (local is the primary editing surface)
  */
 export async function syncGraph(userId: string): Promise<GraphData> {
+  console.log('[graphSync] syncGraph called, userId=', userId);
+  if (!userId) {
+    console.warn('[graphSync] missing userId');
+    return { nodes: [], links: [] };
+  }
   const local = loadLocal()
 
   try {

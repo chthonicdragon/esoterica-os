@@ -17,6 +17,7 @@ import { mapAiErrorMessage } from '../lib/aiErrorMessages'
 import { SpiderWebIcon } from '../components/icons/SpiderWebIcon'
 import { syncGraph, pushToRemote } from '../services/knowledgeGraphSync'
 import { getRelationLabel } from '../lib/relationLabels'
+import { testSupabaseConnection } from '../lib/supabaseClient'
 
 const STORAGE_KEY = 'esoteric_knowledge_web_v1'
 const ALL_TYPES = ['deity', 'spirit', 'ritual', 'symbol', 'concept', 'place', 'creature', 'artifact', 'spell']
@@ -170,12 +171,20 @@ export function KnowledgeGraph({ user }: Props) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Supabase sync: load on mount
+  // Автоматическая синхронизация: при заходе загружаем из Supabase, сохраняем в localStorage, любые изменения пушим обратно
   useEffect(() => {
-    syncGraph(user.id).then(synced => {
-      if (synced.nodes.length > 0) setGraphData(synced)
-    })
-  }, [user.id])
+    if (user && user.id) {
+      syncGraph(user.id).then(synced => {
+        setGraphData(synced)
+      })
+    }
+  }, [user?.id])
+
+  useEffect(() => {
+    if (user && user.id && graphData.nodes.length > 0) {
+      pushToRemote(user.id, graphData)
+    }
+  }, [graphData, user?.id])
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [visibleTypes, setVisibleTypes] = useState<Set<string>>(new Set(ALL_TYPES))
@@ -601,27 +610,44 @@ export function KnowledgeGraph({ user }: Props) {
 
   return (
     <>
-    <div className="flex flex-col lg:flex-row gap-4 h-full w-full overflow-y-auto lg:overflow-hidden p-1">
-      {/* Left Column: Controls */}
-      <div className={`${isExpanded ? 'hidden' : 'flex'} flex-col gap-4 w-full lg:w-[360px] shrink-0 overflow-y-auto pr-1`}
-        style={{ scrollbarWidth: 'thin' }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-primary/10 rounded-lg">
-              <SpiderWebIcon className="w-4 h-4 text-primary" />
+    {/* Guest mode: если нет user.id, показываем ограниченный UI */}
+    {!user || !user.id ? (
+      <div className="flex flex-col items-center justify-center h-full w-full p-8">
+        <h2 className="text-xl font-bold mb-4">Гостевой режим</h2>
+        <p className="mb-4">Вы не авторизованы. Для полного доступа к паутине знаний войдите через Google.</p>
+        <button
+          className="px-4 py-2 bg-primary text-white rounded-lg"
+          onClick={() => window.location.href = 'https://esoterica-os.supabase.co/auth/v1/authorize?provider=google&redirect_to=' + encodeURIComponent(window.location.origin)}
+        >Войти через Google</button>
+        <div className="mt-8 text-sm text-gray-500">В гостевом режиме доступна только визуализация, редактирование и синхронизация отключены.</div>
+      </div>
+    ) : (
+      <div className="flex flex-col lg:flex-row gap-4 h-full w-full overflow-y-auto lg:overflow-hidden p-1">
+        {/* Left Column: Controls */}
+        <div className={`${isExpanded ? 'hidden' : 'flex'} flex-col gap-4 w-full lg:w-[360px] shrink-0 overflow-y-auto pr-1`}
+          style={{ scrollbarWidth: 'thin' }}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-primary/10 rounded-lg">
+                <SpiderWebIcon className="w-4 h-4 text-primary" />
+              </div>
+              <span className="text-xs font-mono uppercase tracking-widest text-primary/70">{t.subtitle}</span>
             </div>
-            <span className="text-xs font-mono uppercase tracking-widest text-primary/70">{t.subtitle}</span>
+            <button
+              onClick={() => setShowGuide(true)}
+              className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-primary transition-colors hover:bg-primary/20"
+            >
+              <Info className="w-3 h-3" />
+              {lang === 'ru' ? 'Как работает' : 'How it works'}
+            </button>
           </div>
-          <button
-            onClick={() => setShowGuide(true)}
-            className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-primary transition-colors hover:bg-primary/20"
-          >
-            <Info className="w-3 h-3" />
-            {lang === 'ru' ? 'Как работает' : 'How it works'}
-          </button>
+          {/* ...остальной функционал для авторизованных пользователей... */
         </div>
+        {/* ...остальной UI ... */
+      </div>
+    )}
 
         {/* Status messages */}
         <AnimatePresence>
