@@ -333,6 +333,8 @@ function AppContent() {
   )
 }
 
+import AuthForm from './components/AuthForm';
+
 function LandingPage() {
   const { lang, setLang } = useLang()
   const [authError, setAuthError] = useState<string | null>(null)
@@ -504,17 +506,22 @@ function LandingPage() {
         </div>
 
         {/* CTA */}
-        <button
-          onClick={handleSignIn}
-          disabled={isSigningIn}
-          className="group relative px-10 py-4 rounded-2xl bg-gradient-to-r from-primary to-[hsl(267,60%,45%)] text-white font-semibold text-sm tracking-wider hover:opacity-90 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_30px_hsl(var(--primary)/0.4)]"
-        >
-          <span className="relative z-10 font-cinzel tracking-widest">
-            {isSigningIn
-              ? (lang === 'ru' ? 'ПЕРЕНАПРАВЛЕНИЕ...' : 'REDIRECTING...')
-              : (lang === 'ru' ? 'ВОЙТИ В СИСТЕМУ' : 'ENTER THE SYSTEM')}
-          </span>
-        </button>
+        <div className="flex flex-col items-center gap-6 mb-6">
+          <button
+            onClick={handleSignIn}
+            disabled={isSigningIn}
+            className="group relative px-10 py-4 rounded-2xl bg-gradient-to-r from-primary to-[hsl(267,60%,45%)] text-white font-semibold text-sm tracking-wider hover:opacity-90 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_30px_hsl(var(--primary)/0.4)]"
+          >
+            <span className="relative z-10 font-cinzel tracking-widest">
+              {isSigningIn
+                ? (lang === 'ru' ? 'ПЕРЕНАПРАВЛЕНИЕ...' : 'REDIRECTING...')
+                : (lang === 'ru' ? 'ВОЙТИ В СИСТЕМУ' : 'ENTER THE SYSTEM')}
+            </span>
+          </button>
+          <div className="w-full max-w-xs mx-auto">
+            <AuthForm />
+          </div>
+        </div>
 
         {authError && (
           <p className="mt-4 text-xs text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2 inline-block max-w-md">
