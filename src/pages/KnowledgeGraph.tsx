@@ -8,6 +8,65 @@ import {
   Zap, ChevronDown, Maximize2, Minimize2, RotateCcw
 } from 'lucide-react'
 import { extractGraph, GraphData, Node, Link } from '../services/openRouterService'
+
+const stop = new Set([
+  'the','and','for','with','from','that','this','into','your','you','are','was','were',
+  'из','для','что','это','как','при','или','они','она','он','мы','вы','эти','тоже','ещё','есть','над','под','через'
+])
+
+function slugify(s: string) {
+  return s.toLowerCase().replace(/[^a-z0-9а-яё\s_-]/gi, '').trim().replace(/\s+/g, '_').replace(/_+/g, '_').slice(0, 48)
+}
+
+function pickTokens(text: string, limit = 10): string[] {
+  const freq = new Map<string, number>()
+  text
+    .toLowerCase()
+    .split(/[^a-zA-Zа-яА-ЯёЁ0-9_-]+/)
+    .filter(t => t.length >= 4 && !stop.has(t))
+    .forEach(t => freq.set(t, (freq.get(t) ?? 0) + 1))
+  return [...freq.entries()].sort((a,b)=>b[1]-a[1]).slice(0, limit).map(([t])=>t)
+}
+
+export async function extractGraphLocally(
+  text: string,
+  isRitual: boolean,
+  ritualName?: string,
+  existingNodes: Node[] = []
+): Promise<GraphData> {
+  const tokens = pickTokens(text, isRitual ? 12 : 8)
+  const existByName = new Map(existingNodes.map(n => [n.name.toLowerCase(), n]))
+  const nodes: Node[] = []
+  const links: { source: string; target: string; relation: 'associated_with'|'controls'|'appears_in'|'teaches'|'symbol_of' }[] = []
+
+  for (const t of tokens) {
+    const found = existByName.get(t)
+    if (found) {
+      nodes.push(found)
+    } else {
+      nodes.push({ id: slugify(t), name: t, type: 'concept' })
+    }
+  }
+
+  if (isRitual) {
+    const rid = slugify(`ritual_${ritualName || 'Ritual'}`)
+    const ritual: Node = { id: rid, name: ritualName?.trim() || 'Ritual', type: 'ritual', description: text.trim() }
+    const uniq = new Set(nodes.map(n => n.id))
+    const finalNodes = uniq.has(ritual.id) ? nodes : [...nodes, ritual]
+    for (const n of nodes) {
+      if (n.id !== ritual.id) links.push({ source: n.id, target: ritual.id, relation: 'appears_in' })
+    }
+    return { nodes: finalNodes, links }
+  }
+
+  for (let i = 0; i < Math.min(6, nodes.length - 1); i++) {
+    const a = nodes[i]
+    const b = nodes[i + 1]
+    if (a && b && a.id !== b.id) links.push({ source: a.id, target: b.id, relation: 'associated_with' })
+  }
+
+  return { nodes, links }
+}
 import GraphVisualization from '../components/GraphVisualization'
 import AnalyticsPanel from '../components/AnalyticsPanel'
 import KnowledgeWebGuideModal from '../components/KnowledgeWebGuideModal'
@@ -334,7 +393,22 @@ export function KnowledgeGraph({ user }: Props) {
     } catch (err) {
       console.error(err)
       const reason = err instanceof Error ? err.message : String(err ?? '')
-      setError(mapAiErrorMessage(reason, lang as 'en' | 'ru', 'knowledge', t.error))
+      const useLocal = (import.meta.env.VITE_LOCAL_FALLBACK === '1') || /timeout|network|failed to fetch|circuit breaker open|missing api key/i.test(reason)
+      if (useLocal) {
+        try {
+          const data = await extractGraphLocally(attempt.input, attempt.ritualMode, attempt.ritualName, graphData.nodes)
+          mergeGraphData(data)
+          const rawPoints = getKnowledgeWeavePoints(data.nodes.length, data.links.length, attempt.ritualMode)
+          const { pointsEarned, progression } = grantProgressionPoints(rawPoints, 'knowledge')
+          syncProgressionToDb(user.id, progression)
+          setSuccessMsg(t.xpEarned.replace('{xp}', pointsEarned.toString()))
+          setError(null)
+        } catch {
+          setError(mapAiErrorMessage(reason, lang as 'en' | 'ru', 'knowledge', t.error))
+        }
+      } else {
+        setError(mapAiErrorMessage(reason, lang as 'en' | 'ru', 'knowledge', t.error))
+      }
     } finally {
       setIsLoading(false)
     }

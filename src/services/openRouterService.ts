@@ -23,8 +23,10 @@ export interface GraphData {
 type Provider = "groq" | "openrouter";
 
 const DEV = import.meta.env.DEV;
-const GROQ_API_URL = DEV ? "/_groq/chat/completions" : "/api/groq";
-const OPENROUTER_API_URL = DEV ? "/_openrouter/chat/completions" : "/api/openrouter";
+const AI_GATEWAY_MODE = (import.meta.env.VITE_AI_GATEWAY_MODE as string | undefined)?.trim()?.toLowerCase() || 'direct';
+const USE_GATEWAY = AI_GATEWAY_MODE === 'gateway';
+const GROQ_API_URL = USE_GATEWAY ? "/api/groq" : "https://api.groq.com/openai/v1/chat/completions";
+const OPENROUTER_API_URL = USE_GATEWAY ? "/api/openrouter" : "https://openrouter.ai/api/v1/chat/completions";
 
 const GROQ_API_KEY = (import.meta.env.VITE_GROQ_API_KEY as string | undefined)?.trim();
 const OPENROUTER_API_KEY = (import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined)?.trim();
