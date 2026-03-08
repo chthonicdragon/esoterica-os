@@ -620,6 +620,7 @@ export function KnowledgeGraph({ user }: Props) {
                 {lang === 'ru' ? 'Как работает' : 'How it works'}
               </button>
             </div>
+            // ...existing code...
             {/* Подсказка о пустой паутине отображается над основным UI, не заменяя его */}
             {graphData.nodes.length === 0 && graphData.links.length === 0 && (
               <div className="mb-4 p-4 bg-white/5 border border-white/10 rounded-xl text-center">
