@@ -17,7 +17,6 @@ import { mapAiErrorMessage } from '../lib/aiErrorMessages'
 import { SpiderWebIcon } from '../components/icons/SpiderWebIcon'
 import { syncGraph, pushToRemote } from '../services/knowledgeGraphSync'
 import { getRelationLabel } from '../lib/relationLabels'
-import { testSupabaseConnection } from '../lib/supabaseClient'
 
 const STORAGE_KEY = 'esoteric_knowledge_web_v1'
 const ALL_TYPES = ['deity', 'spirit', 'ritual', 'symbol', 'concept', 'place', 'creature', 'artifact', 'spell']

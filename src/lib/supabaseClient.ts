@@ -10,12 +10,3 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   },
 });
 
-// Тестовая функция для проверки подключения
-export async function testSupabaseConnection() {
-  const { data, error } = await supabase.from('knowledge_nodes').select().limit(1);
-  if (error) {
-    console.error('Supabase error:', error);
-  } else {
-    console.log('Supabase data:', data);
-  }
-}
