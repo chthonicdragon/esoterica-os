@@ -664,13 +664,33 @@ export function KnowledgeGraph({ user }: Props) {
           />
         </div>
 
-        {/* Filters */}
+        {/* Filters + Sync Button */}
         <div className="p-3 bg-white/5 border border-white/10 rounded-2xl">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <Filter className="w-3 h-3 text-muted-foreground" />
               <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t.filters}</span>
             </div>
+            <button
+              onClick={async () => {
+                setIsLoading(true);
+                setError(null);
+                try {
+                  const synced = await syncGraph(user.id);
+                  setGraphData(synced);
+                  setSuccessMsg(lang === 'ru' ? 'Паутина синхронизирована!' : 'Web synchronized!');
+                } catch (err) {
+                  setError(lang === 'ru' ? 'Ошибка синхронизации!' : 'Sync error!');
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] uppercase tracking-wider font-bold transition-colors bg-green-500/20 text-green-700 border border-green-500/30"
+              disabled={isLoading}
+            >
+              <Database className="w-3 h-3" />
+              {lang === 'ru' ? 'Синхронизировать паутину' : 'Sync Web'}
+            </button>
             <button
               onClick={() => setShowRitualsOnly(!showRitualsOnly)}
               className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] uppercase tracking-wider font-bold transition-colors ${showRitualsOnly ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-white/5 text-muted-foreground border border-white/10'}`}
