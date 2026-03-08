@@ -3,8 +3,13 @@
 export interface Node {
   id: string;
   name: string;
-  type: "deity" | "spirit" | "ritual" | "symbol" | "concept" | "place" | "creature" | "artifact" | "spell";
+  type: "deity" | "spirit" | "ritual" | "symbol" | "concept" | "place" | "creature" | "artifact" | "spell" | "sigil";
   description?: string;
+  aliases?: string[];
+  tags?: string[];
+  sigil_id?: string;
+  image_url?: string;
+  linked_entity_id?: string;
 }
 
 export interface Link {
@@ -374,7 +379,7 @@ async function fetchWithFallback(body: object, modelIndex = 0): Promise<string> 
 
   const headers: Record<string, string> = { ...COMMON_HEADERS };
   const usingServerless = API_URL.startsWith('/api/')
-  if (!DEV && !usingServerless) {
+  if (!usingServerless) {
     headers.Authorization = `Bearer ${API_KEY}`;
     if (PROVIDER === "openrouter") {
       const ENV_SITE_URL = (import.meta.env.VITE_SITE_URL as string | undefined)?.trim();
@@ -470,7 +475,7 @@ const SYSTEM_INSTRUCTION = `
 You are an expert in esoteric knowledge and graph database structures.
 Your task is to extract entities and relationships from the provided text.
 
-Entity Types: deity, spirit, ritual, symbol, concept, place, creature, artifact, spell
+Entity Types: deity, spirit, ritual, symbol, concept, place, creature, artifact, spell, sigil
 Relation Types: associated_with, controls, appears_in, teaches, symbol_of
 
 INTELLIGENT MERGING RULES:
@@ -551,8 +556,8 @@ export async function extractGraph(
       : "";
 
   const ritualInstruction = isRitual
-    ? `The text describes a ritual named "${ritualName || "Unknown Ritual"}". Extract only primary ritual tags (deities, spirits, symbols, places, artifacts, concepts, spells, creatures) and one central "ritual" node. Keep extraction concise and high-signal. Link discovered entities to the ritual node using "appears_in" or "associated_with". Store the FULL original ritual text in the ritual node's "description".`
-    : "Extract general entities and relations.";
+    ? `The text describes a ritual named "${ritualName || "Unknown Ritual"}". Extract only primary ritual tags (deities, spirits, symbols, places, artifacts, concepts, spells, creatures, sigils) and one central "ritual" node. Keep extraction concise and high-signal. Link discovered entities to the ritual node using "appears_in" or "associated_with". Store the FULL original ritual text in the ritual node's "description".`
+    : "Extract general entities and relations. If the text refers to a sigil explicitly, use type \"sigil\" and include image or name references in description.";
 
   const systemPrompt = [SYSTEM_INSTRUCTION, langInstruction, ritualInstruction, existingNodesContext]
     .filter(Boolean)

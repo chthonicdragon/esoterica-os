@@ -8,65 +8,7 @@ import {
   Zap, ChevronDown, Maximize2, Minimize2, RotateCcw
 } from 'lucide-react'
 import { extractGraph, GraphData, Node, Link } from '../services/openRouterService'
-
-const stop = new Set([
-  'the','and','for','with','from','that','this','into','your','you','are','was','were',
-  'из','для','что','это','как','при','или','они','она','он','мы','вы','эти','тоже','ещё','есть','над','под','через'
-])
-
-function slugify(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9а-яё\s_-]/gi, '').trim().replace(/\s+/g, '_').replace(/_+/g, '_').slice(0, 48)
-}
-
-function pickTokens(text: string, limit = 10): string[] {
-  const freq = new Map<string, number>()
-  text
-    .toLowerCase()
-    .split(/[^a-zA-Zа-яА-ЯёЁ0-9_-]+/)
-    .filter(t => t.length >= 4 && !stop.has(t))
-    .forEach(t => freq.set(t, (freq.get(t) ?? 0) + 1))
-  return [...freq.entries()].sort((a,b)=>b[1]-a[1]).slice(0, limit).map(([t])=>t)
-}
-
-export async function extractGraphLocally(
-  text: string,
-  isRitual: boolean,
-  ritualName?: string,
-  existingNodes: Node[] = []
-): Promise<GraphData> {
-  const tokens = pickTokens(text, isRitual ? 12 : 8)
-  const existByName = new Map(existingNodes.map(n => [n.name.toLowerCase(), n]))
-  const nodes: Node[] = []
-  const links: { source: string; target: string; relation: 'associated_with'|'controls'|'appears_in'|'teaches'|'symbol_of' }[] = []
-
-  for (const t of tokens) {
-    const found = existByName.get(t)
-    if (found) {
-      nodes.push(found)
-    } else {
-      nodes.push({ id: slugify(t), name: t, type: 'concept' })
-    }
-  }
-
-  if (isRitual) {
-    const rid = slugify(`ritual_${ritualName || 'Ritual'}`)
-    const ritual: Node = { id: rid, name: ritualName?.trim() || 'Ritual', type: 'ritual', description: text.trim() }
-    const uniq = new Set(nodes.map(n => n.id))
-    const finalNodes = uniq.has(ritual.id) ? nodes : [...nodes, ritual]
-    for (const n of nodes) {
-      if (n.id !== ritual.id) links.push({ source: n.id, target: ritual.id, relation: 'appears_in' })
-    }
-    return { nodes: finalNodes, links }
-  }
-
-  for (let i = 0; i < Math.min(6, nodes.length - 1); i++) {
-    const a = nodes[i]
-    const b = nodes[i + 1]
-    if (a && b && a.id !== b.id) links.push({ source: a.id, target: b.id, relation: 'associated_with' })
-  }
-
-  return { nodes, links }
-}
+import { extractGraphLocally } from '../services/localExtract'
 import GraphVisualization from '../components/GraphVisualization'
 import AnalyticsPanel from '../components/AnalyticsPanel'
 import KnowledgeWebGuideModal from '../components/KnowledgeWebGuideModal'
@@ -78,7 +20,7 @@ import { syncGraph, pushToRemote } from '../services/knowledgeGraphSync'
 import { getRelationLabel } from '../lib/relationLabels'
 
 const STORAGE_KEY = 'esoteric_knowledge_web_v1'
-const ALL_TYPES = ['deity', 'spirit', 'ritual', 'symbol', 'concept', 'place', 'creature', 'artifact', 'spell']
+const ALL_TYPES = ['deity', 'spirit', 'ritual', 'symbol', 'concept', 'place', 'creature', 'artifact', 'spell', 'sigil']
 const TYPE_LABELS: Record<string, { en: string; ru: string }> = {
   deity: { en: 'Deity', ru: 'Божество' },
   spirit: { en: 'Spirit', ru: 'Дух' },
@@ -89,6 +31,7 @@ const TYPE_LABELS: Record<string, { en: string; ru: string }> = {
   creature: { en: 'Creature', ru: 'Существо' },
   artifact: { en: 'Artifact', ru: 'Артефакт' },
   spell: { en: 'Spell', ru: 'Заклинание' },
+  sigil: { en: 'Sigil', ru: 'Сигилл' },
 }
 
 const translations = {
@@ -226,6 +169,14 @@ export function KnowledgeGraph({ user }: Props) {
   })
   const [selectedNode, setSelectedNode] = useState<Node | null>(null)
   const [selectedLink, setSelectedLink] = useState<Link | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [draftName, setDraftName] = useState('')
+  const [draftType, setDraftType] = useState<string>('concept')
+  const [draftDesc, setDraftDesc] = useState('')
+  const [draftTags, setDraftTags] = useState('')
+  const [draftAliases, setDraftAliases] = useState('')
+  const [draftSigilId, setDraftSigilId] = useState('')
+  const [draftImageUrl, setDraftImageUrl] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -288,6 +239,19 @@ export function KnowledgeGraph({ user }: Props) {
     }, 3000)
     return () => clearTimeout(timer)
   }, [graphData, user.id])
+
+  useEffect(() => {
+    if (selectedNode) {
+      setEditing(false)
+      setDraftName(selectedNode.name || '')
+      setDraftType(selectedNode.type || 'concept')
+      setDraftDesc(selectedNode.description || '')
+      setDraftTags(Array.isArray((selectedNode as any).tags) ? ((selectedNode as any).tags as string[]).join(', ') : '')
+      setDraftAliases(Array.isArray((selectedNode as any).aliases) ? ((selectedNode as any).aliases as string[]).join(', ') : '')
+      setDraftSigilId(((selectedNode as any).sigil_id as string) || '')
+      setDraftImageUrl(((selectedNode as any).image_url as string) || '')
+    }
+  }, [selectedNode])
 
   useEffect(() => {
     if (successMsg) {
@@ -643,6 +607,7 @@ export function KnowledgeGraph({ user }: Props) {
     creature: "text-cyan-400 border-cyan-500/30 bg-cyan-500/10",
     artifact: "text-violet-400 border-violet-500/30 bg-violet-500/10",
     spell: "text-pink-400 border-pink-500/30 bg-pink-500/10",
+    sigil: "text-teal-400 border-teal-500/30 bg-teal-500/10",
   }
 
   const handleNodeClick = useCallback((node: Node) => {
@@ -668,6 +633,64 @@ export function KnowledgeGraph({ user }: Props) {
     if (typeof endpoint === 'object' && endpoint?.name) return endpoint.name
     return nodeNameById.get(endpoint as string) ?? (endpoint as string)
   }, [nodeNameById])
+
+  const suggestions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (q.length < 2) return []
+    const scored = graphData.nodes.map(n => {
+      const text = [
+        n.name,
+        n.type,
+        n.description || '',
+        ...(Array.isArray((n as any).aliases) ? ((n as any).aliases as string[]) : []),
+        ...(Array.isArray((n as any).tags) ? ((n as any).tags as string[]) : []),
+      ].join(' ').toLowerCase()
+      const hit = text.includes(q)
+      const score = hit ? (n.name.toLowerCase().startsWith(q) ? 2 : 1) : 0
+      return { n, score }
+    }).filter(x => x.score > 0).sort((a,b)=>b.score-a.score).slice(0,8).map(x=>x.n)
+    return scored
+  }, [searchQuery, graphData.nodes])
+
+  const saveNodeEdits = useCallback(() => {
+    if (!selectedNode) return
+    const id = selectedNode.id
+    const tags = draftTags.split(',').map(s=>s.trim()).filter(Boolean)
+    const aliases = draftAliases.split(',').map(s=>s.trim()).filter(Boolean)
+    setGraphData(prev => {
+      const nodes = prev.nodes.map(n => n.id === id ? {
+        ...n,
+        name: draftName,
+        type: draftType as any,
+        description: draftDesc || undefined,
+        tags,
+        aliases,
+        sigil_id: draftSigilId || undefined,
+        image_url: draftImageUrl || (n.type === 'sigil' ? (n as any).image_url : undefined),
+      } : n)
+      let links = [...prev.links]
+      const updated = nodes.find(n => n.id === id)!
+      if (updated.type === 'sigil' && (updated as any).linked_entity_id) {
+        const targetId = (updated as any).linked_entity_id as string
+        if (nodes.find(x=>x.id===targetId)) {
+          const key = `${id}-${targetId}-associated_with`
+          const has = links.some(l => `${l.source}-${l.target}-${l.relation}` === key)
+          if (!has) links.push({ source: id, target: targetId, relation: 'associated_with' })
+        }
+      }
+      if (updated.type !== 'sigil' && updated.sigil_id) {
+        const sig = nodes.find(n => n.id === updated.sigil_id && n.type === 'sigil')
+        if (sig) {
+          const key = `${sig.id}-${updated.id}-associated_with`
+          const has = links.some(l => `${l.source}-${l.target}-${l.relation}` === key)
+          if (!has) links.push({ source: sig.id, target: updated.id, relation: 'associated_with' })
+        }
+      }
+      return { nodes, links }
+    })
+    setEditing(false)
+    setSelectedNode(prev => prev ? { ...prev, name: draftName, type: draftType as any, description: draftDesc || undefined, tags: draftTags.split(',').map(s=>s.trim()).filter(Boolean), aliases: draftAliases.split(',').map(s=>s.trim()).filter(Boolean), sigil_id: draftSigilId || undefined, image_url: draftImageUrl || undefined } as any : prev)
+  }, [selectedNode, draftName, draftType, draftDesc, draftTags, draftAliases, draftSigilId, draftImageUrl])
 
   const ritualDetails = useMemo(() => {
     if (!selectedNode || selectedNode.type !== 'ritual') {
@@ -735,6 +758,23 @@ export function KnowledgeGraph({ user }: Props) {
                 placeholder={t.searchPlaceholder}
                 className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:border-primary/50 transition-colors text-foreground placeholder:text-muted-foreground"
               />
+              {suggestions.length > 0 && (
+                <div className="absolute left-0 right-0 mt-1 bg-[hsl(var(--sidebar))] border border-white/10 rounded-lg shadow-xl z-20 max-h-48 overflow-auto">
+                  {suggestions.map(s => (
+                    <button
+                      key={s.id}
+                      onClick={() => { setSelectedNode(s); setSelectedLink(null) }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-white/10 border-b border-white/5 last:border-b-0"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-foreground">{s.name}</span>
+                        <span className={`ml-2 px-1.5 py-0.5 rounded border text-[10px] uppercase tracking-wider ${colors[s.type]}`}>{getTypeLabel(s.type)}</span>
+                      </div>
+                      {s.description && <div className="text-[11px] text-muted-foreground/80 truncate">{s.description}</div>}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Filters + Sync Button */}
@@ -1047,6 +1087,71 @@ export function KnowledgeGraph({ user }: Props) {
                                     <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground/50">{t.ritualText}</span>
                                   </div>
                                   <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap break-words">{selectedNode.description}</p>
+                                </div>
+                              )}
+                              <div className="flex gap-2">
+                                <button onClick={() => setEditing(true)} className="px-3 py-1.5 rounded-lg bg-primary/20 border border-primary/30 text-primary text-[11px] font-bold tracking-wider">{lang==='ru'?'Редактировать':'Edit'}</button>
+                                {editing && (
+                                  <>
+                                    <button onClick={saveNodeEdits} className="px-3 py-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold tracking-wider">{lang==='ru'?'Сохранить':'Save'}</button>
+                                    <button onClick={() => setEditing(false)} className="px-3 py-1.5 rounded-lg bg-white/10 border border-white/15 text-[11px] font-bold tracking-wider text-muted-foreground">{lang==='ru'?'Отмена':'Cancel'}</button>
+                                  </>
+                                )}
+                              </div>
+                              {editing && (
+                                <div className="space-y-3 pt-3">
+                                  <div>
+                                    <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60">{t.name}</span>
+                                    <input value={draftName} onChange={e=>setDraftName(e.target.value)} className="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-sm" />
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60">{t.type}</span>
+                                    <select value={draftType} onChange={e=>setDraftType(e.target.value)} className="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-sm">
+                                      {ALL_TYPES.map(tp=>(<option key={tp} value={tp}>{getTypeLabel(tp)}</option>))}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60">{lang==='ru'?'Описание':'Description'}</span>
+                                    <textarea value={draftDesc} onChange={e=>setDraftDesc(e.target.value)} rows={3} className="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-sm" />
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60">Tags</span>
+                                      <input value={draftTags} onChange={e=>setDraftTags(e.target.value)} placeholder="tag1, tag2" className="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-sm" />
+                                    </div>
+                                    <div>
+                                      <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60">Aliases</span>
+                                      <input value={draftAliases} onChange={e=>setDraftAliases(e.target.value)} placeholder="alias1, alias2" className="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-sm" />
+                                    </div>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60">Sigil ID</span>
+                                      <input value={draftSigilId} onChange={e=>setDraftSigilId(e.target.value)} className="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-sm" />
+                                    </div>
+                                    <div>
+                                      <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60">Image URL</span>
+                                      <input value={draftImageUrl} onChange={e=>setDraftImageUrl(e.target.value)} className="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-sm" />
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              {selectedNode.type !== 'sigil' && (selectedNode as any).sigil_id && (
+                                <div className="pt-3 border-t border-white/5">
+                                  <div className="flex items-center gap-1.5 mb-2">
+                                    <ImageIcon className="w-3 h-3 text-teal-400" />
+                                    <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground/60">Sigil</span>
+                                  </div>
+                                  {(() => {
+                                    const s = graphData.nodes.find(n => n.id === (selectedNode as any).sigil_id)
+                                    if (!s) return null
+                                    return (
+                                      <div className="flex items-center gap-2">
+                                        {(s as any).image_url && <img src={(s as any).image_url} alt={s.name} className="w-12 h-12 rounded object-cover border border-white/10" />}
+                                        <div className="text-sm text-foreground">{s.name}</div>
+                                      </div>
+                                    )
+                                  })()}
                                 </div>
                               )}
                               {selectedNode.type === 'ritual' && (

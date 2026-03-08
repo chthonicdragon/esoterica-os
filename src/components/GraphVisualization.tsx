@@ -43,6 +43,7 @@ const COLORS: Record<string, string> = {
   creature: "#06b6d4",
   artifact: "#8b5cf6",
   spell: "#ec4899",
+  sigil: "#14b8a6",
 };
 
 const GraphVisualization: React.FC<GraphVisualizationProps> = ({
@@ -51,7 +52,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
   onLinkClick,
   lang = 'en',
   searchQuery = '',
-  visibleTypes = new Set(['deity', 'spirit', 'ritual', 'symbol', 'concept', 'place', 'creature', 'artifact', 'spell']),
+  visibleTypes = new Set(['deity', 'spirit', 'ritual', 'symbol', 'concept', 'place', 'creature', 'artifact', 'spell', 'sigil']),
   selectedNodeId = null,
   showFlows = true,
   flowSpeed = 1,
@@ -132,7 +133,18 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      const matchedNodes = filteredData.nodes.filter(n => n.name.toLowerCase().includes(query));
+      const matchedNodes = filteredData.nodes.filter(n => {
+        const desc = (n.description || '').toLowerCase();
+        const aliases = Array.isArray((n as any).aliases) ? ((n as any).aliases as string[]) : [];
+        const tags = Array.isArray((n as any).tags) ? ((n as any).tags as string[]) : [];
+        return (
+          n.name.toLowerCase().includes(query) ||
+          n.type.toLowerCase().includes(query) ||
+          desc.includes(query) ||
+          aliases.some(a => a.toLowerCase().includes(query)) ||
+          tags.some(t => t.toLowerCase().includes(query))
+        );
+      });
       matchedNodes.forEach(node => {
         highlightedNodeIds.add(node.id);
         filteredData.links.forEach(link => {
@@ -348,7 +360,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
         .on("drag", dragged)
         .on("end", dragended));
 
-    node.append("circle")
+    const circle = node.append("circle")
       .attr("r", d => 12 + (d.degree || 0) * 2.5)
       .attr("fill", d => COLORS[d.type] || "#999")
       .attr("stroke", d => {
@@ -368,6 +380,12 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
         if (d.isKeyRitual) return `drop-shadow(0 0 8px rgba(168,85,247,0.5))`;
         return "none";
       });
+
+    node.filter(d => d.type === 'sigil' && (d as any).image_url)
+      .append("image")
+      .attr("href", d => ((d as any).image_url as string))
+      .attr("x", -12).attr("y", -12)
+      .attr("width", 24).attr("height", 24);
 
     node.append("text")
       .attr("x", d => 16 + (d.degree || 0) * 2.5)
@@ -420,6 +438,18 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       }
     };
   }, [filteredData, data.links, data.nodes, onLinkClick, onNodeClick, debouncedDimensions, lang]);
+
+  useEffect(() => {
+    if (!svgRef.current || !zoomRef.current || !selectedNodeId) return;
+    const pos = nodePositionsRef.current.get(selectedNodeId);
+    if (!pos) return;
+    const { width, height } = dimensions;
+    const svg = d3.select(svgRef.current);
+    const scale = 1.8;
+    const tx = width / 2 - pos.x * scale;
+    const ty = height / 2 - pos.y * scale;
+    svg.transition().duration(600).call(zoomRef.current.transform as any, d3.zoomIdentity.translate(tx, ty).scale(scale));
+  }, [selectedNodeId, dimensions]);
 
   useEffect(() => {
     if (!svgRef.current) return;
