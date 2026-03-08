@@ -63,8 +63,28 @@ const COMMON_HEADERS: Record<string, string> = {
 };
 
 if (PROVIDER === "openrouter") {
-  COMMON_HEADERS["HTTP-Referer"] = typeof window !== "undefined" ? window.location.origin : "https://localhost";
-  COMMON_HEADERS["X-Title"] = "Esoterica OS";
+  const ENV_SITE_URL = (import.meta.env.VITE_SITE_URL as string | undefined)?.trim();
+  const ENV_SITE_TITLE = (import.meta.env.VITE_SITE_TITLE as string | undefined)?.trim();
+  const FALLBACK_SITE_URL = "https://esoterica-os.vercel.app";
+
+  let siteUrl = FALLBACK_SITE_URL;
+  try {
+    if (typeof window !== "undefined") {
+      const origin = window.location.origin;
+      if (/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.)/i.test(origin)) {
+        siteUrl = ENV_SITE_URL || FALLBACK_SITE_URL;
+      } else {
+        siteUrl = origin;
+      }
+    } else {
+      siteUrl = ENV_SITE_URL || FALLBACK_SITE_URL;
+    }
+  } catch {
+    siteUrl = ENV_SITE_URL || FALLBACK_SITE_URL;
+  }
+
+  COMMON_HEADERS["HTTP-Referer"] = siteUrl;
+  COMMON_HEADERS["X-Title"] = ENV_SITE_TITLE || "Esoterica OS";
 }
 
 function wait(ms: number) {

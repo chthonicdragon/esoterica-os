@@ -62,6 +62,11 @@ export function mapAiErrorMessage(
   if (lower.includes('circuit breaker open')) return set.circuitOpen
   if (lower.includes('429') || lower.includes('all models unavailable')) return set.rateLimit
   if (lower.includes('timeout') || lower.includes('failed to fetch') || lower.includes('network')) return set.timeout
+  if (lower.includes('referer') || lower.includes('origin not allowed') || lower.includes('not approved') || lower.includes('x-title')) {
+    return lang === 'ru'
+      ? 'Домен не одобрен у провайдера ИИ. Откройте проект с доверенного URL или задайте VITE_SITE_URL.'
+      : 'Site origin not approved by AI provider. Open from an approved URL or set VITE_SITE_URL.'
+  }
   if (lower.includes('invalid json') || lower.includes('unable to recover valid graph json') || lower.includes('empty_ai_response')) {
     return set.malformedData
   }
