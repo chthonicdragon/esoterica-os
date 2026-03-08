@@ -620,9 +620,216 @@ export function KnowledgeGraph({ user }: Props) {
                 {lang === 'ru' ? 'Как работает' : 'How it works'}
               </button>
             </div>
-            // ...existing code...
-            // ...existing code...
-            {/* ...весь основной UI KnowledgeGraph (фильтры, ввод, визуализация, экспорт, аналитика, предпросмотр, работа с узлами и связями) всегда отображается ниже... */}
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t.searchPlaceholder}
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:border-primary/50 transition-colors text-foreground placeholder:text-muted-foreground"
+              />
+            </div>
+
+            {/* Filters + Sync Button */}
+            <div className="p-3 bg-white/5 border border-white/10 rounded-2xl">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-3 h-3 text-muted-foreground" />
+                  <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t.filters}</span>
+                </div>
+                <button
+                  onClick={async () => {
+                    setIsLoading(true);
+                    setError(null);
+                    try {
+                      const synced = await syncGraph(user.id);
+                      setGraphData(synced);
+                      setSuccessMsg(lang === 'ru' ? 'Паутина синхронизирована!' : 'Web synchronized!');
+                    } catch (err) {
+                      setError(lang === 'ru' ? 'Ошибка синхронизации!' : 'Sync error!');
+                    } finally {
+                      setIsLoading(false);
+                    }
+                  }}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] uppercase tracking-wider font-bold transition-colors bg-green-500/20 text-green-700 border border-green-500/30"
+                  disabled={isLoading}
+                >
+                  <Database className="w-3 h-3" />
+                  {lang === 'ru' ? 'Синхронизировать паутину' : 'Sync Web'}
+                </button>
+                <button
+                  onClick={() => setShowRitualsOnly(!showRitualsOnly)}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] uppercase tracking-wider font-bold transition-colors ${showRitualsOnly ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-white/5 text-muted-foreground border border-white/10'}`}
+                >
+                  <Activity className="w-2.5 h-2.5" />
+                  {t.ritualLayer}
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {ALL_TYPES.map(type => (
+                  <button
+                    key={type}
+                    onClick={() => toggleType(type)}
+                    disabled={showRitualsOnly}
+                    className={`px-2 py-0.5 rounded-lg text-[9px] uppercase tracking-wider font-bold border transition-all ${activeVisibleTypes.has(type) ? colors[type] : 'bg-white/5 text-muted-foreground/40 border-white/5 opacity-40'}`}
+                  >
+                    {getTypeLabel(type)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Visualization Settings */}
+            <div className="p-3 bg-white/5 border border-white/10 rounded-2xl">
+              <button onClick={() => setShowVizSettings(!showVizSettings)} className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-3 h-3 text-primary/70" />
+                  <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t.vizSettings}</span>
+                </div>
+                <ChevronDown className={`w-3 h-3 text-muted-foreground transition-transform ${showVizSettings ? 'rotate-180' : ''}`} />
+              </button>
+              {showVizSettings && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="pt-3 flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">{t.powerFlows}</span>
+                    <button onClick={() => setShowFlows(!showFlows)} className={`w-9 h-5 rounded-full transition-all relative ${showFlows ? 'bg-primary' : 'bg-white/10'}`}>
+                      <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${showFlows ? 'left-5' : 'left-1'}`} />
+                    </button>
+                  </div>
+                  {showFlows && (
+                    <>
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex justify-between text-[9px] text-muted-foreground uppercase tracking-widest font-bold">
+                          <span>{t.flowSpeed}</span>
+                          <span className="text-primary">{flowSpeed.toFixed(1)}x</span>
+                        </div>
+                        <input type="range" min="0.1" max="3" step="0.1" value={flowSpeed}
+                          onChange={(e) => setFlowSpeed(parseFloat(e.target.value))}
+                          className="w-full accent-primary h-1 bg-white/10 rounded-lg appearance-none cursor-pointer" />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex justify-between text-[9px] text-muted-foreground uppercase tracking-widest font-bold">
+                          <span>{t.flowIntensity}</span>
+                          <span className="text-primary">{flowIntensity.toFixed(1)}x</span>
+                        </div>
+                        <input type="range" min="0.1" max="2" step="0.1" value={flowIntensity}
+                          onChange={(e) => setFlowIntensity(parseFloat(e.target.value))}
+                          className="w-full accent-primary h-1 bg-white/10 rounded-lg appearance-none cursor-pointer" />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">{t.hideWeak}</span>
+                        <button onClick={() => setHideWeakFlows(!hideWeakFlows)} className={`w-9 h-5 rounded-full transition-all relative ${hideWeakFlows ? 'bg-primary' : 'bg-white/10'}`}>
+                          <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${hideWeakFlows ? 'left-5' : 'left-1'}`} />
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </motion.div>
+              )}
+            </div>
+
+            {/* Text Input */}
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => setIsRitualMode(!isRitualMode)}
+                className={`self-start flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border ${isRitualMode ? 'bg-purple-500/20 border-purple-500/50 text-purple-400' : 'bg-white/5 border-white/10 text-muted-foreground hover:text-foreground'}`}
+              >
+                <Activity className="w-3 h-3" />
+                {t.markAsRitual}
+              </button>
+              {isRitualMode && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="overflow-hidden">
+                  <input
+                    type="text"
+                    value={ritualNameInput}
+                    onChange={(e) => setRitualNameInput(e.target.value)}
+                    placeholder={t.ritualName}
+                    className="w-full bg-purple-500/5 border border-purple-500/20 rounded-xl py-2 px-3 text-sm focus:outline-none focus:border-purple-500/50 transition-colors text-purple-200 placeholder:text-purple-400/40 mb-1"
+                  />
+                </motion.div>
+              )}
+              <div className="relative">
+                <textarea
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleExtract() }}
+                  placeholder={t.inputPlaceholder}
+                  rows={8}
+                  className={`w-full min-h-[190px] bg-white/5 border rounded-2xl p-4 text-sm resize-y focus:outline-none transition-colors placeholder:text-muted-foreground/50 text-foreground ${isRitualMode ? 'border-purple-500/30 focus:border-purple-500/50' : 'border-white/10 focus:border-primary/50'}`}
+                />
+                <div className="absolute bottom-3 right-3">
+                  <button
+                    onClick={handleExtract}
+                    disabled={isLoading || !inputText.trim()}
+                    className={`flex items-center gap-1.5 font-medium px-4 py-2 rounded-xl transition-all shadow-lg text-sm ${isRitualMode ? 'bg-purple-500 hover:bg-purple-600 text-white' : 'bg-primary hover:bg-primary/90 text-primary-foreground'} disabled:opacity-30 disabled:cursor-not-allowed`}
+                  >
+                    {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                    {t.weaveBtn}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Database className="w-3 h-3 text-emerald-500" />
+                  <span className="text-[9px] uppercase tracking-wider font-bold text-emerald-500/70">{t.nodes}</span>
+                </div>
+                <div className="text-lg font-light text-foreground">{graphData.nodes.length}</div>
+              </div>
+              <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Share2 className="w-3 h-3 text-blue-500" />
+                  <span className="text-[9px] uppercase tracking-wider font-bold text-blue-500/70">{t.links}</span>
+                </div>
+                <div className="text-lg font-light text-foreground">{graphData.links.length}</div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="grid grid-cols-2 gap-1.5">
+              <button onClick={handleDownload} disabled={graphData.nodes.length === 0}
+                className="flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-30 text-foreground/80 py-2 rounded-xl transition-all text-[10px] uppercase tracking-wider font-bold">
+                <FileJson className="w-3 h-3" /> JSON
+              </button>
+              <button onClick={handleExportCSV} disabled={graphData.nodes.length === 0}
+                className="flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-30 text-foreground/80 py-2 rounded-xl transition-all text-[10px] uppercase tracking-wider font-bold">
+                <FileSpreadsheet className="w-3 h-3" /> CSV
+              </button>
+              <button onClick={handleExportPNG} disabled={graphData.nodes.length === 0}
+                className="flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-30 text-foreground/80 py-2 rounded-xl transition-all text-[10px] uppercase tracking-wider font-bold">
+                <ImageIcon className="w-3 h-3" /> PNG
+              </button>
+              <label className="flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 cursor-pointer text-foreground/80 py-2 rounded-xl transition-all text-[10px] uppercase tracking-wider font-bold">
+                <Upload className="w-3 h-3" /> {lang === 'ru' ? 'Импорт' : 'Import'}
+                <input type="file" multiple accept=".json" onChange={handleImportJsons} className="hidden" />
+              </label>
+              <button onClick={reorganizeGraph} disabled={graphData.nodes.length === 0 || isLoading}
+                className="flex items-center justify-center gap-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 disabled:opacity-30 text-emerald-400 py-2 rounded-xl transition-all text-[10px] uppercase tracking-wider font-bold">
+                {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Layers className="w-3 h-3" />}
+                {lang === 'ru' ? 'Реорг.' : 'Reorg.'}
+              </button>
+              <button onClick={() => setShowAnalytics(!showAnalytics)}
+                className={`flex items-center justify-center gap-1.5 py-2 rounded-xl transition-all text-[10px] uppercase tracking-wider font-bold border ${showAnalytics ? 'bg-primary/20 border-primary/50 text-primary' : 'bg-white/5 border-white/10 text-foreground/60 hover:bg-white/10'}`}>
+                <Activity className="w-3 h-3" />
+                {lang === 'ru' ? 'Аналит.' : 'Analytics'}
+              </button>
+            </div>
+
+            <button onClick={handleResetWeb}
+              className="w-full flex items-center justify-center gap-2 bg-destructive/10 hover:bg-destructive/20 border border-destructive/20 text-destructive py-2 rounded-xl transition-all text-xs font-medium">
+              <Trash2 className="w-3.5 h-3.5" />
+              {t.resetWeb}
+            </button>
+
+            <footer className="text-[9px] text-muted-foreground/40 flex items-center gap-3 border-t border-white/5 pt-3 mt-auto">
+              <div className="flex items-center gap-1"><Info className="w-2.5 h-2.5" /><span>OpenRouter AI</span></div>
+              <span>Arachna v1.0</span>
+            </footer>
           </div>
           {/* ...остальной UI и визуализация остаются без изменений... */}
         </div>
