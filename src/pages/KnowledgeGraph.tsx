@@ -620,45 +620,11 @@ export function KnowledgeGraph({ user }: Props) {
                 {lang === 'ru' ? 'Как работает' : 'How it works'}
               </button>
             </div>
-            {/* Если граф пустой — показываем сообщение и UI для ввода */}
+            {/* Если граф пустой — показываем только подсказку, но весь UI доступен */}
             {graphData.nodes.length === 0 && graphData.links.length === 0 && (
               <div className="mt-8 p-6 bg-white/5 border border-white/10 rounded-xl text-center">
                 <h3 className="text-lg font-bold mb-2 text-primary">{lang === 'ru' ? 'Паутина знаний пуста' : 'Knowledge Web is empty'}</h3>
-                <p className="mb-4 text-muted-foreground">{lang === 'ru' ? 'Начните с добавления первого узла или ритуала.' : 'Start by adding your first node or ritual.'}</p>
-                {/* Ввод данных */}
-                <div className="flex flex-col gap-2">
-                  <button
-                    onClick={() => setIsRitualMode(!isRitualMode)}
-                    className={`self-center flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border ${isRitualMode ? 'bg-purple-500/20 border-purple-500/50 text-purple-400' : 'bg-white/5 border-white/10 text-muted-foreground hover:text-foreground'}`}
-                  >
-                    <Activity className="w-3 h-3" />
-                    {t.markAsRitual}
-                  </button>
-                  {isRitualMode && (
-                    <input
-                      type="text"
-                      value={ritualNameInput}
-                      onChange={(e) => setRitualNameInput(e.target.value)}
-                      placeholder={t.ritualName}
-                      className="w-full bg-purple-500/5 border border-purple-500/20 rounded-xl py-2 px-3 text-sm focus:outline-none focus:border-purple-500/50 transition-colors text-purple-200 placeholder:text-purple-400/40 mb-1"
-                    />
-                  )}
-                  <textarea
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    placeholder={t.inputPlaceholder}
-                    rows={6}
-                    className="w-full min-h-[120px] bg-white/5 border rounded-xl p-3 text-sm resize-y focus:outline-none transition-colors placeholder:text-muted-foreground/50 text-foreground"
-                  />
-                  <button
-                    onClick={handleExtract}
-                    disabled={isLoading || !inputText.trim()}
-                    className="flex items-center gap-1.5 font-medium px-4 py-2 rounded-xl transition-all shadow-lg text-sm bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-30 disabled:cursor-not-allowed self-center"
-                  >
-                    {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                    {t.weaveBtn}
-                  </button>
-                </div>
+                <p className="mb-4 text-muted-foreground">{lang === 'ru' ? 'Начните с добавления первого узла или ритуала. Все функции доступны ниже.' : 'Start by adding your first node or ritual. All features are available below.'}</p>
               </div>
             )}
           </div>
