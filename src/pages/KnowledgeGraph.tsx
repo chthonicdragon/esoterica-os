@@ -86,6 +86,26 @@ const translations = {
     noRitualTags: "No tags extracted yet for this ritual.",
     noActiveLinks: "No active links found for this ritual."
   },
+  ru: {
+    subtitle: "Магическая Паутина Знаний",
+    searchPlaceholder: "Поиск сущностей...",
+    filters: "Фильтры",
+    ritualLayer: "Ритуальный слой",
+    inputPlaceholder: "Опишите божество, ритуал или место силы...",
+    weaveBtn: "Плести",
+    nodes: "Узлы",
+    links: "Связи",
+    downloadJson: "Скачать JSON",
+    exportCsv: "Экспорт CSV",
+    exportPng: "Экспорт PNG",
+    importJsons: "Импорт JSON",
+    analytics: "Аналитика",
+    clearTooltip: "Очистить граф",
+    clearConfirm: "Вы уверены, что хотите очистить всю паутину? Действие необратимо.",
+    importSuccess: "Успешно импортировано файлов: {count}.",
+    error: "Не удалось извлечь сущности. Проверьте API‑ключ и попробуйте снова.",
+    entityDetails: "Детали сущности",
+    name: "Имя",
     type: "Тип",
     relation: "Связь",
     source: "Источник",
@@ -96,29 +116,29 @@ const translations = {
     exportRitual: "Экспорт Ритуала JSON",
     updateWeb: "Обновить паутину",
     resetWeb: "Сброс паутины",
-    updateSuccess: "Паутина обновлена: {count} узлов объединено, связи пересчитаны.",
+    updateSuccess: "Паутина обновлена: объединено узлов — {count}, связи пересчитаны.",
     xpEarned: "Паутина укреплена (+{xp} XP).",
     resetConfirm: "Вы уверены, что хотите сбросить всю паутину? Данные будут потеряны.",
     close: "Закрыть",
-    powerFlows: "Потоки Силы",
-    flowSpeed: "Скорость Потока",
+    powerFlows: "Потоки силы",
+    flowSpeed: "Скорость",
     flowIntensity: "Яркость",
     flowThickness: "Толщина",
     hideWeak: "Скрыть слабые потоки",
-    vizSettings: "Настройки Визуализации",
+    vizSettings: "Настройки визуализации",
     expand: "Развернуть",
     shrink: "Свернуть",
     ritualPreviewTitle: "Предпросмотр ритуала перед плетением",
-    ritualPreviewHint: "Полный текст ритуала сохранится в ритуальном узле. Ниже показаны предложенные теги для быстрой проверки.",
+    ritualPreviewHint: "Полный текст ритуала сохранится в узле ритуала. Ниже показаны предложенные теги для быстрой проверки.",
     ritualPreviewTags: "Предложенные теги",
-    ritualPreviewEmptyTags: "Явные теги не найдены. ИИ все равно обработает полный текст.",
+    ritualPreviewEmptyTags: "Явные теги пока не найдены. ИИ всё равно обработает полный текст.",
     ritualPreviewCancel: "Отмена",
     ritualPreviewConfirm: "Отправить в ИИ",
     ritualTags: "Теги ритуала",
     activeLinks: "Активные связи",
-    noRitualTags: "Для этого ритуала пока нет извлеченных тегов.",
+    noRitualTags: "Для этого ритуала пока нет извлечённых тегов.",
     noActiveLinks: "Для этого ритуала активные связи пока не найдены."
-  // }
+  }
 }
 
 interface Props {
@@ -155,9 +175,18 @@ export function KnowledgeGraph({ user }: Props) {
     if (user && user.id) {
       syncGraph(user.id).then(synced => {
         setGraphData(synced)
+        if (!autoPullTried && (!synced.nodes || synced.nodes.length === 0)) {
+          setSyncNotice(lang === 'ru' ? 'Пробую подтянуть паутину из облака…' : 'Trying to pull your web from cloud…')
+          setAutoPullTried(true)
+          setTimeout(async () => {
+            const again = await syncGraph(user.id)
+            setGraphData(again)
+            setSyncNotice(null)
+          }, 1800)
+        }
       })
     }
-  }, [user?.id])
+  }, [user?.id, lang])
 
   useEffect(() => {
     if (user && user.id && graphData.nodes.length > 0) {
@@ -183,6 +212,8 @@ export function KnowledgeGraph({ user }: Props) {
   const [showRitualPreview, setShowRitualPreview] = useState(false)
   const [pendingRitualAttempt, setPendingRitualAttempt] = useState<WeaveAttempt | null>(null)
   const [ritualPreviewTags, setRitualPreviewTags] = useState<string[]>([])
+  const [syncNotice, setSyncNotice] = useState<string | null>(null)
+  const [autoPullTried, setAutoPullTried] = useState(false)
 
   const stopwords = useMemo(() => new Set([
     'the', 'and', 'with', 'from', 'this', 'that', 'have', 'your', 'for', 'you', 'are', 'was', 'were', 'into', 'within', 'about',
@@ -639,33 +670,41 @@ export function KnowledgeGraph({ user }: Props) {
                   <Filter className="w-3 h-3 text-muted-foreground" />
                   <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t.filters}</span>
                 </div>
-                <button
-                  onClick={async () => {
-                    setIsLoading(true);
-                    setError(null);
-                    try {
-                      const synced = await syncGraph(user.id);
-                      setGraphData(synced);
-                      setSuccessMsg(lang === 'ru' ? 'Паутина синхронизирована!' : 'Web synchronized!');
-                    } catch (err) {
-                      setError(lang === 'ru' ? 'Ошибка синхронизации!' : 'Sync error!');
-                    } finally {
-                      setIsLoading(false);
-                    }
-                  }}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] uppercase tracking-wider font-bold transition-colors bg-green-500/20 text-green-700 border border-green-500/30"
-                  disabled={isLoading}
-                >
-                  <Database className="w-3 h-3" />
-                  {lang === 'ru' ? 'Синхронизировать паутину' : 'Sync Web'}
-                </button>
-                <button
-                  onClick={() => setShowRitualsOnly(!showRitualsOnly)}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] uppercase tracking-wider font-bold transition-colors ${showRitualsOnly ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-white/5 text-muted-foreground border border-white/10'}`}
-                >
-                  <Activity className="w-2.5 h-2.5" />
-                  {t.ritualLayer}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => { setVisibleTypes(new Set(ALL_TYPES)); setShowRitualsOnly(false) }}
+                    className="px-2 py-1 rounded-lg text-[9px] uppercase tracking-wider font-bold transition-colors bg-white/10 text-muted-foreground hover:text-foreground border border-white/15"
+                  >
+                    {lang === 'ru' ? 'Сброс фильтров' : 'Reset Filters'}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setIsLoading(true);
+                      setError(null);
+                      try {
+                        const synced = await syncGraph(user.id);
+                        setGraphData(synced);
+                        setSuccessMsg(lang === 'ru' ? 'Паутина синхронизирована!' : 'Web synchronized!');
+                      } catch (err) {
+                        setError(lang === 'ru' ? 'Ошибка синхронизации!' : 'Sync error!');
+                      } finally {
+                        setIsLoading(false);
+                      }
+                    }}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] uppercase tracking-wider font-bold transition-colors bg-green-500/20 text-green-700 border border-green-500/30"
+                    disabled={isLoading}
+                  >
+                    <Database className="w-3 h-3" />
+                    {lang === 'ru' ? 'Синхронизировать паутину' : 'Sync Web'}
+                  </button>
+                  <button
+                    onClick={() => setShowRitualsOnly(!showRitualsOnly)}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] uppercase tracking-wider font-bold transition-colors ${showRitualsOnly ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-white/5 text-muted-foreground border border-white/10'}`}
+                  >
+                    <Activity className="w-2.5 h-2.5" />
+                    {t.ritualLayer}
+                  </button>
+                </div>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {ALL_TYPES.map(type => (
@@ -1274,11 +1313,15 @@ export function KnowledgeGraph({ user }: Props) {
               </AnimatePresence>
             </>
           ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center bg-white/[0.02] rounded-2xl border border-white/10 border-dashed">
-              <Sparkles className="w-10 h-10 text-primary/20 mb-4" />
-              <p className="text-muted-foreground/50 text-sm text-center max-w-[220px]">
-                {lang === 'ru' ? 'Введите описание, чтобы начать плести знание' : 'Enter a description to start weaving knowledge'}
-              </p>
+            <div className="w-full h-full flex flex-col items-center justify-center bg-white/[0.02] rounded-2xl border border-white/10 border-dashed p-4">
+              <Sparkles className="w-10 h-10 text-primary/20 mb-3" />
+              {syncNotice ? (
+                <p className="text-muted-foreground/70 text-sm text-center">{syncNotice}</p>
+              ) : (
+                <p className="text-muted-foreground/50 text-sm text-center max-w-[260px]">
+                  {lang === 'ru' ? 'Введите описание, чтобы начать плести знание' : 'Enter a description to start weaving knowledge'}
+                </p>
+              )}
             </div>
           )}
         </div>
