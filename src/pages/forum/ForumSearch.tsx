@@ -6,7 +6,7 @@ import type { ForumPost, ForumTopic, ForumView } from '../../types/forum'
 import { formatDistanceToNow } from 'date-fns'
 
 interface Props {
-  user: { id: string; email: string; displayName?: string }
+  user: { id: string; email?: string; displayName?: string }
   initialQuery?: string
   onNavigate: (to: ForumView, params?: { categoryId?: string; topicId?: string }) => void
 }

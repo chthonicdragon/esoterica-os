@@ -6,7 +6,7 @@ import type { ForumCategory, ForumView } from '../../types/forum'
 import { STATIC_CATEGORIES } from './forumData'
 
 interface Props {
-  user: { id: string; email: string; displayName?: string }
+  user: { id: string; email?: string; displayName?: string }
   onNavigate: (to: ForumView, params?: { categoryId?: string; topicId?: string }) => void
 }
 

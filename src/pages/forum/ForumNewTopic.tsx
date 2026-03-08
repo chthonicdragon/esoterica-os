@@ -6,7 +6,7 @@ import type { ForumView } from '../../types/forum'
 import toast from 'react-hot-toast'
 
 interface Props {
-  user: { id: string; email: string; displayName?: string }
+  user: { id: string; email?: string; displayName?: string }
   categoryId: string
   onNavigate: (to: ForumView, params?: { categoryId?: string; topicId?: string }) => void
   onSuccess: (topicId: string) => void

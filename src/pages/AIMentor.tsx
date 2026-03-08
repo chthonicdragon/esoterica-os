@@ -55,6 +55,29 @@ interface AIMentorProps {
 
 const CHAT_STORAGE_PREFIX = 'esoterica_mentor_chat_'
 
+function escapeHtml(str: string) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function formatMentorMessage(text: string): string {
+  const safe = escapeHtml(text.trim())
+  const lines = safe.split(/\r?\n/).map(l => l.trim())
+  const html = lines
+    .map(l => {
+      if (!l) return '<br/>'
+      const withBold = l.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      const withItalic = withBold.replace(/\*(.+?)\*/g, '<em>$1</em>')
+      return `<p>${withItalic}</p>`
+    })
+    .join('')
+  return html
+}
+
 function loadChatHistory(archetype: ArchetypeKey): Message[] {
   try {
     const raw = localStorage.getItem(CHAT_STORAGE_PREFIX + archetype)

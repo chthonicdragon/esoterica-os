@@ -7,7 +7,7 @@ import { formatDistanceToNow } from 'date-fns'
 import toast from 'react-hot-toast'
 
 interface Props {
-  user: { id: string; email: string; displayName?: string }
+  user: { id: string; email?: string; displayName?: string }
   topicId: string
   onNavigate: (to: ForumView, params?: { categoryId?: string; topicId?: string }) => void
 }

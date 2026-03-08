@@ -7,7 +7,7 @@ import { getStaticCategory } from './forumData'
 import { formatDistanceToNow } from 'date-fns'
 
 interface Props {
-  user: { id: string; email: string; displayName?: string }
+  user: { id: string; email?: string; displayName?: string }
   categoryId: string
   onNavigate: (to: ForumView, params?: { categoryId?: string; topicId?: string }) => void
 }
