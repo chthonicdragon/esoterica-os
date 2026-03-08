@@ -87,26 +87,6 @@ const translations = {
     noRitualTags: "No tags extracted yet for this ritual.",
     noActiveLinks: "No active links found for this ritual."
   },
-  ru: {
-    subtitle: "Магическая Сеть Знаний",
-    searchPlaceholder: "Поиск сущностей...",
-    filters: "Фильтры",
-    ritualLayer: "Слой Ритуалов",
-    inputPlaceholder: "Опишите божество, ритуал или место силы...",
-    weaveBtn: "Плести",
-    nodes: "Узлов",
-    links: "Связей",
-    downloadJson: "Скачать JSON",
-    exportCsv: "Экспорт CSV",
-    exportPng: "Экспорт PNG",
-    importJsons: "Импорт JSON",
-    analytics: "Аналитика",
-    clearTooltip: "Очистить граф",
-    clearConfirm: "Вы уверены, что хотите очистить всю паутину? Это действие необратимо.",
-    importSuccess: "Успешно импортировано файлов: {count}.",
-    error: "Не удалось извлечь сущности. Проверьте API ключ и повторите попытку.",
-    entityDetails: "Детали Сущности",
-    name: "Имя",
     type: "Тип",
     relation: "Связь",
     source: "Источник",
@@ -643,9 +623,7 @@ export function KnowledgeGraph({ user }: Props) {
               {lang === 'ru' ? 'Как работает' : 'How it works'}
             </button>
           </div>
-          {/* ...остальной функционал для авторизованных пользователей... */
         </div>
-        {/* ...остальной UI ... */
       </div>
     )}
 
