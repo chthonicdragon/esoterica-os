@@ -4,7 +4,8 @@ import { useLang } from '../contexts/LanguageContext'
 import { useAudio } from '../contexts/AudioContext'
 import { db } from '../lib/platformClient'
 import { Magic8Ball } from '../components/Magic8Ball'
-import { Search, Dice5, Sparkles } from 'lucide-react'
+import { TarotReader } from '../components/TarotReader'
+import { Search, Dice5, Sparkles, LayoutGrid, Eye } from 'lucide-react'
 import { extractAndMerge } from '../services/knowledgeGraphBridge'
 import { grantProgressionPoints, syncProgressionToDb } from '../altar/altarStore'
 import toast from 'react-hot-toast'
@@ -13,10 +14,13 @@ interface DivinationLabProps {
   user: { id: string }
 }
 
+type DivinationMode = 'oracle' | 'tarot'
+
 export function DivinationLab({ user }: DivinationLabProps) {
   const { t, lang } = useLang()
   const { playUiSound } = useAudio()
   
+  const [mode, setMode] = useState<DivinationMode>('oracle')
   const [entitySearch, setEntitySearch] = useState('')
   const [showEntitySuggestions, setShowEntitySuggestions] = useState(false)
   const [suggestions, setSuggestions] = useState<any[]>([])
@@ -109,46 +113,79 @@ export function DivinationLab({ user }: DivinationLabProps) {
         </p>
       </div>
 
-      {/* Entity Selector */}
-      <div className="relative z-20 max-w-md mx-auto">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
-            <input
-              value={entitySearch}
-              onChange={e => setEntitySearch(e.target.value)}
-              placeholder={lang === 'ru' ? 'Призвать сущность (поиск)...' : 'Channel an entity (search)...'}
-              className="w-full bg-background/50 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-sm outline-none focus:border-blue-500/50 transition-all backdrop-blur-sm"
-            />
-            {showEntitySuggestions && suggestions.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-[#0b0f19] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-30">
-                {suggestions.map(s => (
-                  <button
-                    key={s.id}
-                    onClick={() => selectEntity(s)}
-                    className="w-full text-left px-4 py-3 hover:bg-white/5 text-sm flex justify-between items-center border-b border-white/5 last:border-0 transition-colors"
-                  >
-                    <span className="font-bold text-foreground">{s.name}</span>
-                    <span className="text-xs text-muted-foreground">{s.type}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <button 
-            onClick={selectRandomEntity}
-            className="p-2 rounded-xl border border-white/10 hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors bg-background/50 backdrop-blur-sm"
-            title={lang === 'ru' ? 'Случайный дух' : 'Random Spirit'}
+      {/* Mode Switcher */}
+      <div className="flex justify-center mb-6">
+        <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
+          <button
+            onClick={() => setMode('oracle')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${
+              mode === 'oracle' ? 'bg-blue-500/20 text-blue-300 shadow-lg' : 'text-muted-foreground hover:text-foreground'
+            }`}
           >
-            <Dice5 className="w-5 h-5" />
+            <Eye className="w-4 h-4" />
+            {lang === 'ru' ? 'Шар Судьбы' : 'Crystal Ball'}
+          </button>
+          <button
+            onClick={() => setMode('tarot')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${
+              mode === 'tarot' ? 'bg-purple-500/20 text-purple-300 shadow-lg' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <LayoutGrid className="w-4 h-4" />
+            {lang === 'ru' ? 'Таро' : 'Tarot'}
           </button>
         </div>
       </div>
 
-      {/* The 8-Ball */}
-      <div className="flex justify-center py-8">
-        <Magic8Ball entity={selectedEntity} onSave={handleSavePrediction} lang={lang} />
-      </div>
+      {mode === 'oracle' ? (
+        <>
+          {/* Entity Selector */}
+          <div className="relative z-20 max-w-md mx-auto">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                <input
+                  value={entitySearch}
+                  onChange={e => setEntitySearch(e.target.value)}
+                  placeholder={lang === 'ru' ? 'Призвать сущность (поиск)...' : 'Channel an entity (search)...'}
+                  className="w-full bg-background/50 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-sm outline-none focus:border-blue-500/50 transition-all backdrop-blur-sm"
+                />
+                {showEntitySuggestions && suggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-[#0b0f19] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-30">
+                    {suggestions.map(s => (
+                      <button
+                        key={s.id}
+                        onClick={() => selectEntity(s)}
+                        className="w-full text-left px-4 py-3 hover:bg-white/5 text-sm flex justify-between items-center border-b border-white/5 last:border-0 transition-colors"
+                      >
+                        <span className="font-bold text-foreground">{s.name}</span>
+                        <span className="text-xs text-muted-foreground">{s.type}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button 
+                onClick={selectRandomEntity}
+                className="p-2 rounded-xl border border-white/10 hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors bg-background/50 backdrop-blur-sm"
+                title={lang === 'ru' ? 'Случайный дух' : 'Random Spirit'}
+              >
+                <Dice5 className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* The 8-Ball */}
+          <div className="flex justify-center py-8">
+            <Magic8Ball entity={selectedEntity} onSave={handleSavePrediction} lang={lang} />
+          </div>
+        </>
+      ) : (
+        /* Tarot Mode */
+        <div className="animate-fade-in">
+           <TarotReader lang={lang as 'en' | 'ru'} />
+        </div>
+      )}
     </div>
   )
 }

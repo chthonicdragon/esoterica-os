@@ -167,13 +167,20 @@ export const Magic8Ball: React.FC<Magic8BallProps> = ({ entity, onSave, lang = '
         )}
 
         {answer && onSave && (
-          <button
-            onClick={() => onSave(answer, entity?.id)}
-            className="mt-2 flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition-all text-xs font-bold uppercase tracking-wider"
-          >
-            <Save className="w-4 h-4" />
-            Save Prophecy
-          </button>
+          <div className="group relative">
+            <button
+              onClick={() => onSave(answer, entity?.id)}
+              className="mt-2 flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition-all text-xs font-bold uppercase tracking-wider"
+            >
+              <Save className="w-4 h-4" />
+              {lang === 'ru' ? 'Сохранить Пророчество' : 'Save Prophecy'}
+            </button>
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 p-2 bg-black/90 border border-white/10 rounded-lg text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-center">
+              {lang === 'ru' 
+                ? 'Сохраняет ответ в паутину как ритуал и начисляет опыт.' 
+                : 'Saves the answer to the web as a ritual and grants XP.'}
+            </div>
+          </div>
         )}
       </div>
     </div>
