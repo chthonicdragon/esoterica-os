@@ -12,6 +12,7 @@ interface RitualPanelProps {
   onStart: (durationMinutes: number, mode: 'soft' | 'strict') => void
   onComplete: () => void
   onInterrupt: () => void
+  onReturn?: () => void
 }
 
 function formatTime(seconds: number) {
@@ -46,7 +47,7 @@ function CircularProgress({ progress, size = 120, stroke = 6, color = '#a855f7' 
 }
 
 // --- Main panel ---
-export function RitualPanel({ lang, session, onStart, onComplete, onInterrupt }: RitualPanelProps) {
+export function RitualPanel({ lang, session, onStart, onComplete, onInterrupt, onReturn }: RitualPanelProps) {
   const [selectedDuration, setSelectedDuration] = useState(30)
   const [selectedMode, setSelectedMode] = useState<'soft' | 'strict'>('soft')
   const [customDuration, setCustomDuration] = useState('')
@@ -74,6 +75,8 @@ export function RitualPanel({ lang, session, onStart, onComplete, onInterrupt }:
     beginRitual: lang === 'ru' ? 'Начать ритуал' : 'Begin Ritual',
     endRitual: lang === 'ru' ? 'Завершить' : 'End Ritual',
     interrupt: lang === 'ru' ? 'Прервать' : 'Interrupt',
+    restart: lang === 'ru' ? 'Новый ритуал' : 'Start New Ritual',
+    back: lang === 'ru' ? 'Вернуться' : 'Back',
     duration: lang === 'ru' ? 'Продолжительность' : 'Duration',
     focusMode: lang === 'ru' ? 'Режим фокуса' : 'Focus Mode',
     soft: lang === 'ru' ? 'Мягкий' : 'Soft',
@@ -114,6 +117,22 @@ export function RitualPanel({ lang, session, onStart, onComplete, onInterrupt }:
         <CheckCircle2 className="w-10 h-10 text-green-400" />
         <p className="text-sm font-medium text-green-400">{t.completed}</p>
         <p className="text-xs text-muted-foreground">{session.durationMinutes} {t.minutes}</p>
+        <div className="flex gap-2 mt-1">
+          <button
+            onClick={() => onStart(session.durationMinutes, session.mode)}
+            className="px-3 py-1.5 rounded-xl bg-primary/15 border border-primary/30 text-primary text-xs hover:bg-primary/25 transition-colors"
+          >
+            {t.restart}
+          </button>
+          {onReturn && (
+            <button
+              onClick={() => onReturn()}
+              className="px-3 py-1.5 rounded-xl bg-card border border-border/40 text-muted-foreground text-xs hover:text-foreground transition-colors"
+            >
+              {t.back}
+            </button>
+          )}
+        </div>
       </div>
     )
   }
@@ -123,6 +142,14 @@ export function RitualPanel({ lang, session, onStart, onComplete, onInterrupt }:
       <div className="flex flex-col items-center justify-center gap-3 py-4">
         <XCircle className="w-10 h-10 text-destructive" />
         <p className="text-sm font-medium text-destructive">{t.interrupted}</p>
+        {onReturn && (
+          <button
+            onClick={() => onReturn()}
+            className="px-3 py-1.5 rounded-xl bg-card border border-border/40 text-muted-foreground text-xs hover:text-foreground transition-colors"
+          >
+            {t.back}
+          </button>
+        )}
       </div>
     )
   }

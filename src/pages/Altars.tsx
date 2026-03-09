@@ -351,6 +351,7 @@ export function Altars({ user }: AltarsProps) {
 
   const handleCompleteRitual = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current)
+    const effectiveMinutes = Math.max(1, Math.floor(session.elapsed / 60))
     const {
       progression: newProg,
       pointsEarned,
@@ -358,7 +359,7 @@ export function Altars({ user }: AltarsProps) {
       basePoints,
       streakMultiplier,
       modeMultiplier,
-    } = completeRitual(progression, session.durationMinutes, session.mode)
+    } = completeRitual(progression, effectiveMinutes, session.mode)
     setProgression(newProg)
     setLastPoints(pointsEarned)
     syncProgressionToDb(user.id, newProg)
@@ -375,19 +376,34 @@ export function Altars({ user }: AltarsProps) {
     // Auto-log to RitualTracker so altar sessions appear in ritual history
     logAltarRitualSession({
       userId: user.id,
-      durationMinutes: session.durationMinutes,
+      durationMinutes: effectiveMinutes,
       mode: session.mode,
       pointsEarned,
       lang: lang as 'en' | 'ru',
     })
-  }, [progression, session.durationMinutes, session.mode, user.id, lang, playUiSound])
+  }, [progression, session.elapsed, session.mode, user.id, lang, playUiSound])
 
   const handleInterrupt = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current)
     setSession(s => ({ ...s, active: false, interrupted: true }))
     playUiSound('error')
-    toast.error(lang === 'ru' ? 'Сессия прервана' : 'Session interrupted', { duration: 2000 })
-  }, [lang, playUiSound])
+    // Award small consolation XP only in soft mode, capped at 10
+    if (session.mode === 'soft') {
+      const minutes = Math.max(1, Math.floor(session.elapsed / 60))
+      const raw = Math.min(10, minutes)
+      setProgression(prev => {
+        const { progression: p2, pointsEarned } = addProgressPoints(prev, raw, 'ritual')
+        syncProgressionToDb(user.id, p2)
+        toast(lang === 'ru'
+          ? `Сессия прервана • +${pointsEarned} XP (мягкий режим)`
+          : `Session interrupted • +${pointsEarned} XP (soft mode)`,
+          { duration: 2500 })
+        return p2
+      })
+    } else {
+      toast.error(lang === 'ru' ? 'Сессия прервана' : 'Session interrupted', { duration: 2000 })
+    }
+  }, [lang, playUiSound, session.mode, session.elapsed, user.id])
 
   function resetSession() {
     setSession(DEFAULT_SESSION)
@@ -601,6 +617,7 @@ export function Altars({ user }: AltarsProps) {
             onStart={handleStartRitual}
             onComplete={handleCompleteRitual}
             onInterrupt={handleInterrupt}
+            onReturn={() => resetSession()}
           />
         )}
         {activeTab === 'progress' && (

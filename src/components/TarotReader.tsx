@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, RefreshCw } from 'lucide-react';
 import { TAROT_DECK, TarotCardData } from '../data/tarotData';
+import { TAROT_LONG } from '../data/tarotLong';
 
 interface TarotReaderProps {
   lang?: 'en' | 'ru';
@@ -11,6 +12,7 @@ interface TarotReaderProps {
 export const TarotReader: React.FC<TarotReaderProps> = ({ lang = 'en' }) => {
   const [cards, setCards] = useState<TarotCardData[]>([]);
   const [loading, setLoading] = useState(false);
+  const [detailed, setDetailed] = useState(true);
 
   const drawCards = async (count: number) => {
     setLoading(true);
@@ -28,7 +30,6 @@ export const TarotReader: React.FC<TarotReaderProps> = ({ lang = 'en' }) => {
   return (
     <div className="flex flex-col items-center gap-8 w-full max-w-4xl mx-auto">
       
-      {/* Controls */}
       <div className="flex gap-4">
         <button
           onClick={() => drawCards(1)}
@@ -46,9 +47,22 @@ export const TarotReader: React.FC<TarotReaderProps> = ({ lang = 'en' }) => {
           <RefreshCw className="w-4 h-4" />
           {lang === 'ru' ? 'Три карты' : 'Draw Three Cards'}
         </button>
+        <div className="ml-2 inline-flex rounded-xl border border-white/10 overflow-hidden">
+          <button
+            onClick={() => setDetailed(false)}
+            className={`px-3 py-3 text-xs font-bold uppercase tracking-wider ${!detailed ? 'bg-white/10 text-foreground' : 'text-muted-foreground'}`}
+          >
+            {lang === 'ru' ? 'Ключи' : 'Keys'}
+          </button>
+          <button
+            onClick={() => setDetailed(true)}
+            className={`px-3 py-3 text-xs font-bold uppercase tracking-wider ${detailed ? 'bg-white/10 text-foreground' : 'text-muted-foreground'}`}
+          >
+            {lang === 'ru' ? 'Толкование' : 'Reading'}
+          </button>
+        </div>
       </div>
 
-      {/* Cards Display */}
       <div className="flex flex-wrap justify-center gap-6 min-h-[300px]">
         <AnimatePresence mode="wait">
           {loading ? (
@@ -69,7 +83,6 @@ export const TarotReader: React.FC<TarotReaderProps> = ({ lang = 'en' }) => {
                 transition={{ delay: index * 0.2, duration: 0.5 }}
                 className="relative w-64 bg-[#1a1b26] border border-white/10 rounded-xl overflow-hidden shadow-2xl flex flex-col group hover:border-purple-500/50 transition-colors"
               >
-                {/* Card Image */}
                 <div className="h-80 bg-black flex items-center justify-center relative overflow-hidden">
                    {card.image ? (
                      <img src={card.image} alt={card.nameEn} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
@@ -84,17 +97,24 @@ export const TarotReader: React.FC<TarotReaderProps> = ({ lang = 'en' }) => {
                 </div>
 
                 <div className="p-4 space-y-3 bg-[#111]">
-                  <div className="text-xs space-y-2 text-muted-foreground">
-                    <p>
-                      <strong className="text-purple-400/80 uppercase text-[10px] tracking-wider block mb-1">{lang === 'ru' ? 'Прямое значение' : 'Upright'}</strong>
-                      {lang === 'ru' ? card.meaningUpRu : card.meaningUpEn}
-                    </p>
-                    <div className="h-px bg-white/5 my-2" />
-                    <p>
-                      <strong className="text-blue-400/80 uppercase text-[10px] tracking-wider block mb-1">{lang === 'ru' ? 'Перевернутое' : 'Reversed'}</strong>
-                      {lang === 'ru' ? card.meaningRevRu : card.meaningRevEn}
-                    </p>
-                  </div>
+                  {(() => {
+                    const ext = TAROT_LONG[card.id]
+                    const upLong = lang === 'ru' ? ext?.longUpRu : ext?.longUpEn
+                    const revLong = lang === 'ru' ? ext?.longRevRu : ext?.longRevEn
+                    return (
+                      <div className="text-xs space-y-2 text-muted-foreground">
+                        <p>
+                          <strong className="text-purple-400/80 uppercase text-[10px] tracking-wider block mb-1">{lang === 'ru' ? 'Прямое значение' : 'Upright'}</strong>
+                          {detailed ? (upLong || (lang === 'ru' ? card.meaningUpRu : card.meaningUpEn)) : (lang === 'ru' ? card.meaningUpRu : card.meaningUpEn)}
+                        </p>
+                        <div className="h-px bg-white/5 my-2" />
+                        <p>
+                          <strong className="text-blue-400/80 uppercase text-[10px] tracking-wider block mb-1">{lang === 'ru' ? 'Перевернутое' : 'Reversed'}</strong>
+                          {detailed ? (revLong || (lang === 'ru' ? card.meaningRevRu : card.meaningRevEn)) : (lang === 'ru' ? card.meaningRevRu : card.meaningRevEn)}
+                        </p>
+                      </div>
+                    )
+                  })()}
                 </div>
               </motion.div>
             ))

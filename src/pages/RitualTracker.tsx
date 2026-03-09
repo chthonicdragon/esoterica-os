@@ -10,6 +10,7 @@ import toast from 'react-hot-toast'
 import { cn } from '../lib/utils'
 import { extractAndMerge } from '../services/knowledgeGraphBridge'
 import { eventBus } from '../lib/eventBus'
+import { WeatherRitualsBanner } from '../components/WeatherRitualsBanner'
 
 interface Ritual {
   id: string
@@ -868,6 +869,8 @@ export function RitualTracker({ user }: RitualTrackerProps) {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
+      <WeatherRitualsBanner coords={{ lat: coords.lat, lng: coords.lng }} lang={lang as 'en' | 'ru'} />
+
       {/* Moon energy */}
       <div className="rounded-2xl bg-gradient-to-r from-blue-950/60 to-purple-950/60 border border-primary/20 p-5">
         <div className="flex items-center gap-4">
