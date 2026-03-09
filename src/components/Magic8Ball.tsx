@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Save, HelpCircle } from 'lucide-react';
 import { Node } from '../services/openRouterService';
+import { useLang } from '../contexts/LanguageContext';
 
 interface Magic8BallProps {
   entity?: Node;
