@@ -72,10 +72,17 @@ export function SigilLab({ user }: SigilLabProps) {
   useEffect(() => { loadSigils() }, [user.id])
   useEffect(() => () => { if (chargeInterval.current) clearInterval(chargeInterval.current) }, [])
   
-  // Reset seed when intention changes to ensure deterministic starting point
+  // Reset seed only when intention/entity/context changes, NOT when manually regenerating
   useEffect(() => {
     setSeedOffset(0)
-  }, [intention, entitySearch, activeConnectedNodes])
+  }, [intention, entitySearch, activeConnectedNodes.length])
+
+  // Re-generate when parameters change (Live Preview)
+  useEffect(() => {
+    if (currentSigil || generationMode === 'procedural') {
+      generateSigil()
+    }
+  }, [seedOffset, selectedElement, selectedPlanet, selectedPantheon, selectedOffering, activeConnectedNodes, generationMode])
 
   // Load attributes from graph
   useEffect(() => {
@@ -211,7 +218,10 @@ export function SigilLab({ user }: SigilLabProps) {
     const targetIntention = intention || entitySearch
     if (!targetIntention.trim()) return
     
-    playUiSound('click')
+    // In procedural mode, only play sound if manual interaction (seed change or initial)
+    // to avoid spamming sound during typing/live update
+    if (seedOffset > 0 || !currentSigil) playUiSound('click')
+    
     setGenerating(true)
     setChargeLevel(0)
     setCharging(false)
@@ -244,15 +254,14 @@ export function SigilLab({ user }: SigilLabProps) {
       setCurrentSigil(svg)
       setCurrentIntention(targetIntention)
       setGenerating(false)
-      playUiSound('success')
-    }, 100)
+      // Sound only on completion if not live-updating rapidly
+      // playUiSound('success') 
+    }, 50)
   }
   
   // Re-generate when parameters change (Live Preview for attributes)
-  useEffect(() => {
-    if (currentSigil) generateSigil()
-  }, [seedOffset, selectedElement, selectedPlanet, selectedPantheon, selectedOffering, activeConnectedNodes, generationMode])
-
+  // MOVED UP to keep logic together
+  
   async function saveSigil() {
     if (!currentSigil || !currentIntention) return
     playUiSound('click')

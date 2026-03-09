@@ -81,18 +81,34 @@ export function drawSigil(canvas: HTMLCanvasElement, attrs: SigilAttributes) {
   
   // Background gradient (subtle)
   const gradient = ctx.createRadialGradient(cx, cy, 10, cx, cy, width / 2);
-  gradient.addColorStop(0, 'rgba(255, 255, 255, 0.05)');
+  
+  // Dynamic color based on element/planet
+  let baseHue = 180; // Default Teal
+  if (attrs.element === 'Fire' || attrs.planet === 'Mars' || attrs.planet === 'Sun') baseHue = 0; // Red
+  else if (attrs.element === 'Water' || attrs.planet === 'Moon' || attrs.planet === 'Neptune') baseHue = 220; // Blue
+  else if (attrs.element === 'Air' || attrs.planet === 'Mercury' || attrs.planet === 'Uranus') baseHue = 60; // Yellow
+  else if (attrs.element === 'Earth' || attrs.planet === 'Saturn' || attrs.planet === 'Venus') baseHue = 120; // Green
+  else if (attrs.element === 'Spirit' || attrs.planet === 'Jupiter' || attrs.planet === 'Pluto') baseHue = 280; // Purple
+  
+  // Add some randomness to hue based on seed
+  baseHue = (baseHue + rng.range(-20, 20)) % 360;
+  
+  gradient.addColorStop(0, `hsla(${baseHue}, 70%, 70%, 0.1)`);
   gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
 
   // Determine styles
-  const elementStyle = ELEMENT_STYLES[attrs.element || 'default'] || ELEMENT_STYLES.default;
   const planetShape = PLANET_SHAPES[attrs.planet || 'default'] || PLANET_SHAPES.default;
+  const elementStyle = {
+    color: `hsl(${baseHue}, 80%, 70%)`,
+    glow: `hsl(${baseHue}, 90%, 60%)`
+  };
   
   ctx.strokeStyle = elementStyle.color;
   ctx.lineWidth = 2;
   ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
   ctx.shadowColor = elementStyle.glow;
   ctx.shadowBlur = 10;
 

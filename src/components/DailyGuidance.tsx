@@ -9,9 +9,15 @@ const ZODIAC_SIGNS = [
   'libra', 'scorpio', 'sagittarius', 'capricorn', 'aquarius', 'pisces'
 ]
 
+const ZODIAC_SIGNS_EASTERN = [
+  'rat', 'ox', 'tiger', 'rabbit', 'dragon', 'snake',
+  'horse', 'goat', 'monkey', 'rooster', 'dog', 'pig'
+]
+
 export function DailyGuidance() {
   const { t, lang } = useLang()
   const [sign, setSign] = useState('')
+  const [easternSign, setEasternSign] = useState('')
   const [birthDate, setBirthDate] = useState('')
   const [horoscope, setHoroscope] = useState<Horoscope | null>(null)
   const [numerology, setNumerology] = useState<{ lifePath: number, personalYear: number, energy: string } | null>(null)
@@ -21,9 +27,16 @@ export function DailyGuidance() {
   // Load profile
   useEffect(() => {
     const savedSign = localStorage.getItem('esoterica_user_sign')
+    const savedEastern = localStorage.getItem('esoterica_eastern_zodiac_' + (localStorage.getItem('supabase.auth.token') ? JSON.parse(localStorage.getItem('supabase.auth.token')!).currentSession?.user?.id : ''))
+    // Fallback: try to find any eastern zodiac key
+    const anyEasternKey = Object.keys(localStorage).find(k => k.startsWith('esoterica_eastern_zodiac_'))
+    
     const savedDate = localStorage.getItem('esoterica_user_birthdate')
     if (savedSign) setSign(savedSign)
     if (savedDate) setBirthDate(savedDate)
+    
+    const easternVal = savedEastern || (anyEasternKey ? localStorage.getItem(anyEasternKey) : '')
+    if (easternVal) setEasternSign(easternVal)
     
     if (savedSign && savedDate) {
       fetchData(savedSign, savedDate)
@@ -55,6 +68,13 @@ export function DailyGuidance() {
     if (sign && birthDate) {
       localStorage.setItem('esoterica_user_sign', sign)
       localStorage.setItem('esoterica_user_birthdate', birthDate)
+      
+      // Save eastern zodiac
+      const userId = localStorage.getItem('supabase.auth.token') ? JSON.parse(localStorage.getItem('supabase.auth.token')!).currentSession?.user?.id : 'guest'
+      if (userId && easternSign) {
+        localStorage.setItem(`esoterica_eastern_zodiac_${userId}`, easternSign)
+      }
+      
       setIsEditing(false)
       fetchData(sign, birthDate)
     }
@@ -94,6 +114,19 @@ export function DailyGuidance() {
               className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/50"
             />
           </div>
+          <div className="space-y-1 sm:col-span-2">
+            <label className="text-[10px] text-muted-foreground uppercase">{lang === 'ru' ? 'Восточный Знак' : 'Eastern Zodiac'}</label>
+            <select 
+              value={easternSign} 
+              onChange={e => setEasternSign(e.target.value)}
+              className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/50"
+            >
+              <option value="">{lang === 'ru' ? 'Не выбрано' : 'Not selected'}</option>
+              {ZODIAC_SIGNS_EASTERN.map(z => (
+                <option key={z} value={z}>{z.charAt(0).toUpperCase() + z.slice(1)}</option>
+              ))}
+            </select>
+          </div>
         </div>
         <button 
           onClick={handleSave}
@@ -125,7 +158,10 @@ export function DailyGuidance() {
           {horoscope ? (
             <div className="space-y-2">
               <div className="flex justify-between items-end">
-                <span className="text-lg font-serif text-indigo-100 capitalize">{TranslationService.translate(sign, lang)}</span>
+                <span className="text-lg font-serif text-indigo-100 capitalize">
+                  {TranslationService.translate(sign, lang)}
+                  {easternSign && <span className="text-sm text-indigo-300 ml-2">({easternSign})</span>}
+                </span>
                 <span className="text-[10px] text-indigo-400">{horoscope.date_range}</span>
               </div>
               

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
 import { supabase } from '../lib/supabaseClient'
 import toast from 'react-hot-toast'
-import { Globe, User, Sparkles, Layers, Lock, ChevronDown, Info, BookOpen, Shield, FileText, HelpCircle } from 'lucide-react'
+import { Globe, User, Sparkles, Layers, Lock, ChevronDown, Info, BookOpen, Shield, FileText, HelpCircle, Save } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { db, auth } from '../lib/platformClient'
 
@@ -124,6 +124,16 @@ const TRADITIONS_EN: Record<string, string> = {
   'astral-magic': 'Astral Magic',
 }
 
+const ZODIAC_SIGNS_EASTERN = [
+  'rat', 'ox', 'tiger', 'rabbit', 'dragon', 'snake',
+  'horse', 'goat', 'monkey', 'rooster', 'dog', 'pig'
+]
+const ZODIAC_SIGNS_EASTERN_RU: Record<string, string> = {
+  rat: 'Крыса', ox: 'Бык', tiger: 'Тигр', rabbit: 'Кролик',
+  dragon: 'Дракон', snake: 'Змея', horse: 'Лошадь', goat: 'Коза',
+  monkey: 'Обезьяна', rooster: 'Петух', dog: 'Собака', pig: 'Свинья'
+}
+
 interface SettingsProps {
   user: { id: string; email?: string; displayName?: string }
 }
@@ -133,6 +143,7 @@ export function Settings({ user }: SettingsProps) {
   const [displayName, setDisplayName] = useState(user.displayName || '')
   const [archetype, setArchetype] = useState('seeker')
   const [tradition, setTradition] = useState('eclectic')
+  const [easternZodiac, setEasternZodiac] = useState('')
   const [profileId, setProfileId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [isForumAdmin, setIsForumAdmin] = useState(false)
@@ -161,6 +172,9 @@ export function Settings({ user }: SettingsProps) {
         setDisplayName(p.displayName || '')
         setArchetype(p.archetype || 'seeker')
         setTradition(p.tradition || 'eclectic')
+        // Try load eastern zodiac from local storage if not in DB schema yet
+        const ez = localStorage.getItem(`esoterica_eastern_zodiac_${user.id}`)
+        if (ez) setEasternZodiac(ez)
         
         // Загружаем админский статус из localStorage
         const isAdmin = localStorage.getItem(`forum_admin_${user.id}`) === 'true'
@@ -178,8 +192,11 @@ export function Settings({ user }: SettingsProps) {
 
   async function saveSettings() {
     try {
-      console.log('💾 Saving settings...', { displayName, archetype, tradition })
+      console.log('💾 Saving settings...', { displayName, archetype, tradition, easternZodiac })
       
+      // Save eastern zodiac locally for now (until DB migration)
+      localStorage.setItem(`esoterica_eastern_zodiac_${user.id}`, easternZodiac)
+
       if (profileId) {
         await supabase.from('userProfiles').update({
           displayName,
@@ -384,6 +401,29 @@ export function Settings({ user }: SettingsProps) {
               {lang === 'ru' ? TRADITIONS_RU[tr] || tr : TRADITIONS_EN[tr] || tr.charAt(0).toUpperCase() + tr.slice(1)}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Eastern Zodiac */}
+      <div className="rounded-2xl bg-card border border-border/40 p-5 space-y-3">
+        <div className="flex items-center gap-2 mb-2">
+          <Sparkles className="w-4 h-4 text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">{lang === 'ru' ? 'Восточный Знак' : 'Eastern Zodiac'}</h3>
+        </div>
+        <div className="relative">
+          <select
+            value={easternZodiac}
+            onChange={(e) => setEasternZodiac(e.target.value)}
+            className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm outline-none focus:border-primary/50 appearance-none"
+          >
+            <option value="">{lang === 'ru' ? 'Не выбрано' : 'Not selected'}</option>
+            {ZODIAC_SIGNS_EASTERN.map((z) => (
+              <option key={z} value={z}>
+                {lang === 'ru' ? ZODIAC_SIGNS_EASTERN_RU[z] || z : z.charAt(0).toUpperCase() + z.slice(1)}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
         </div>
       </div>
 
