@@ -7,7 +7,7 @@ import {
   FileJson, FileSpreadsheet, Image as ImageIcon, Upload,
   Zap, ChevronDown, Maximize2, Minimize2, RotateCcw
 } from 'lucide-react'
-import { extractGraph, GraphData, Node, Link } from '../services/openRouterService'
+import { extractGraph, GraphData, Node, Link, suggestConnections } from '../services/openRouterService'
 import { extractGraphLocally } from '../services/localExtract'
 import GraphVisualization from '../components/GraphVisualization'
 import AnalyticsPanel from '../components/AnalyticsPanel'
@@ -33,6 +33,11 @@ const TYPE_LABELS: Record<string, { en: string; ru: string }> = {
   spell: { en: 'Spell', ru: 'Заклинание' },
   sigil: { en: 'Sigil', ru: 'Сигилл' },
 }
+
+const PANTHEONS = ['Greek', 'Goetia', 'Egyptian', 'Norse', 'Chaos', 'Folk']
+const PLANETS = ['Saturn', 'Jupiter', 'Mars', 'Sun', 'Venus', 'Mercury', 'Moon']
+const ELEMENTS = ['Fire', 'Water', 'Air', 'Earth', 'Spirit']
+const OFFERINGS = ['incense', 'wine', 'blood', 'honey', 'coins', 'candles']
 
 const translations = {
   en: {
@@ -206,6 +211,10 @@ export function KnowledgeGraph({ user }: Props) {
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [visibleTypes, setVisibleTypes] = useState<Set<string>>(new Set(ALL_TYPES))
+  const [activePantheons, setActivePantheons] = useState<Set<string>>(new Set())
+  const [activePlanets, setActivePlanets] = useState<Set<string>>(new Set())
+  const [activeElements, setActiveElements] = useState<Set<string>>(new Set())
+  const [activeOfferings, setActiveOfferings] = useState<Set<string>>(new Set())
   const [showRitualsOnly, setShowRitualsOnly] = useState(false)
   const [showAnalytics, setShowAnalytics] = useState(false)
   const [isRitualMode, setIsRitualMode] = useState(false)
@@ -597,6 +606,51 @@ export function KnowledgeGraph({ user }: Props) {
     setVisibleTypes(next)
   }
 
+  const toggleFilter = (set: Set<string>, val: string, setter: (s: Set<string>) => void) => {
+    const next = new Set(set)
+    if (next.has(val)) next.delete(val)
+    else next.add(val)
+    setter(next)
+  }
+
+  const handleSuggestConnections = async () => {
+    if (!selectedNode) return
+    setIsLoading(true)
+    try {
+      const suggestions = await suggestConnections(selectedNode, graphData.nodes, lang as 'en'|'ru')
+      if (suggestions.length > 0) {
+        setGraphData(prev => {
+          const newLinks = [...prev.links]
+          let added = 0
+          suggestions.forEach(s => {
+            const exists = newLinks.some(l => 
+              (l.source === selectedNode.id && l.target === s.targetId) ||
+              (l.source === s.targetId && l.target === selectedNode.id)
+            )
+            if (!exists) {
+              newLinks.push({ 
+                source: selectedNode.id, 
+                target: s.targetId, 
+                relation: s.relation as any,
+                strength: s.strength as any 
+              })
+              added++
+            }
+          })
+          setSuccessMsg(`Added ${added} suggested connections`)
+          return { ...prev, links: newLinks }
+        })
+      } else {
+        setSuccessMsg("No new connections found")
+      }
+    } catch (e) {
+      console.error(e)
+      setError("Failed to suggest connections")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const colors: Record<string, string> = {
     deity: "text-rose-400 border-rose-500/30 bg-rose-500/10",
     spirit: "text-purple-400 border-purple-500/30 bg-purple-500/10",
@@ -786,7 +840,14 @@ export function KnowledgeGraph({ user }: Props) {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => { setVisibleTypes(new Set(ALL_TYPES)); setShowRitualsOnly(false) }}
+                    onClick={() => { 
+                      setVisibleTypes(new Set(ALL_TYPES)); 
+                      setActivePantheons(new Set()); 
+                      setActivePlanets(new Set()); 
+                      setActiveElements(new Set()); 
+                      setActiveOfferings(new Set());
+                      setShowRitualsOnly(false) 
+                    }}
                     className="px-1 py-[2px] rounded-md text-[8px] leading-none uppercase tracking-wider font-bold transition-colors bg-white/10 text-muted-foreground hover:text-foreground border border-white/15 whitespace-nowrap"
                   >
                     {lang === 'ru' ? 'Сброс фильтров' : 'Reset Filters'}
@@ -800,7 +861,7 @@ export function KnowledgeGraph({ user }: Props) {
                   </button>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5 mb-3">
                 {ALL_TYPES.map(type => (
                   <button
                     key={type}
@@ -810,6 +871,31 @@ export function KnowledgeGraph({ user }: Props) {
                   >
                     {getTypeLabel(type)}
                   </button>
+                ))}
+              </div>
+
+              {/* Extended Filters */}
+              <div className="space-y-3 pt-2 border-t border-white/5">
+                {[
+                  { title: 'Pantheons', items: PANTHEONS, set: activePantheons, setter: setActivePantheons, color: 'text-rose-400 border-rose-500/30' },
+                  { title: 'Planetary', items: PLANETS, set: activePlanets, setter: setActivePlanets, color: 'text-purple-400 border-purple-500/30' },
+                  { title: 'Elements', items: ELEMENTS, set: activeElements, setter: setActiveElements, color: 'text-orange-400 border-orange-500/30' },
+                  { title: 'Offerings', items: OFFERINGS, set: activeOfferings, setter: setActiveOfferings, color: 'text-emerald-400 border-emerald-500/30' }
+                ].map(group => (
+                  <div key={group.title}>
+                    <div className="text-[9px] uppercase tracking-widest font-bold text-muted-foreground/50 mb-1.5">{group.title}</div>
+                    <div className="flex flex-wrap gap-1">
+                      {group.items.map(item => (
+                        <button
+                          key={item}
+                          onClick={() => toggleFilter(group.set, item, group.setter)}
+                          className={`px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider font-bold border transition-all ${group.set.has(item) ? `bg-white/10 ${group.color}` : 'bg-white/5 border-white/5 text-muted-foreground/40'}`}
+                        >
+                          {item}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -1010,6 +1096,10 @@ export function KnowledgeGraph({ user }: Props) {
                     lang={lang as 'en' | 'ru'}
                     searchQuery={searchQuery}
                     visibleTypes={activeVisibleTypes}
+                    activePantheons={activePantheons}
+                    activePlanets={activePlanets}
+                    activeElements={activeElements}
+                    activeOfferings={activeOfferings}
                     selectedNodeId={selectedNode?.id}
                     showFlows={showFlows}
                     flowSpeed={flowSpeed}
@@ -1080,6 +1170,22 @@ export function KnowledgeGraph({ user }: Props) {
                                   {getTypeLabel(selectedNode.type)}
                                 </div>
                               </div>
+
+                              {(selectedNode.pantheon || selectedNode.planet || selectedNode.element || (selectedNode.offerings && selectedNode.offerings.length > 0)) && (
+                                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
+                                   {selectedNode.pantheon && <div><span className="text-[9px] text-muted-foreground/50 uppercase font-bold">Pantheon</span><div className="text-xs">{selectedNode.pantheon}</div></div>}
+                                   {selectedNode.planet && <div><span className="text-[9px] text-muted-foreground/50 uppercase font-bold">Planet</span><div className="text-xs">{selectedNode.planet}</div></div>}
+                                   {selectedNode.element && <div><span className="text-[9px] text-muted-foreground/50 uppercase font-bold">Element</span><div className="text-xs">{selectedNode.element}</div></div>}
+                                   {selectedNode.offerings && selectedNode.offerings.length > 0 && <div className="col-span-2"><span className="text-[9px] text-muted-foreground/50 uppercase font-bold">Offerings</span><div className="text-xs">{selectedNode.offerings.join(', ')}</div></div>}
+                                </div>
+                              )}
+
+                              {(selectedNode.type === 'sigil' && selectedNode.image_url) && (
+                                <div className="pt-3 border-t border-white/5 flex justify-center">
+                                   <img src={selectedNode.image_url} alt="Sigil" className="w-32 h-32 object-contain border border-white/10 rounded-lg bg-black/20 p-2" />
+                                </div>
+                              )}
+
                               {selectedNode.description && (
                                 <div className="pt-3 border-t border-white/5">
                                   <div className="flex items-center gap-1.5 mb-2">
@@ -1091,6 +1197,10 @@ export function KnowledgeGraph({ user }: Props) {
                               )}
                               <div className="flex gap-2">
                                 <button onClick={() => setEditing(true)} className="px-3 py-1.5 rounded-lg bg-primary/20 border border-primary/30 text-primary text-[11px] font-bold tracking-wider">{lang==='ru'?'Редактировать':'Edit'}</button>
+                                <button onClick={handleSuggestConnections} disabled={isLoading} className="px-3 py-1.5 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 text-[11px] font-bold tracking-wider flex items-center gap-1 disabled:opacity-50">
+                                  {isLoading ? <Loader2 className="w-3 h-3 animate-spin"/> : <Sparkles className="w-3 h-3"/>}
+                                  Suggest Links
+                                </button>
                                 {editing && (
                                   <>
                                     <button onClick={saveNodeEdits} className="px-3 py-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold tracking-wider">{lang==='ru'?'Сохранить':'Save'}</button>

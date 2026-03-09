@@ -10,12 +10,17 @@ export interface Node {
   sigil_id?: string;
   image_url?: string;
   linked_entity_id?: string;
+  pantheon?: string;
+  planet?: string;
+  element?: string;
+  offerings?: string[];
 }
 
 export interface Link {
   source: string;
   target: string;
   relation: "associated_with" | "controls" | "appears_in" | "teaches" | "symbol_of";
+  strength?: "weak" | "medium" | "strong" | "personal";
 }
 
 export interface GraphData {
@@ -487,8 +492,33 @@ INTELLIGENT MERGING RULES:
 4. id = short lowercase slug, no spaces (e.g. "hecate", "money_magic").
 5. relation must be one of the specified types.
 
+EXTENDED ATTRIBUTES:
+- pantheon: Greek, Goetia, Egyptian, Norse, Chaos, Folk, etc.
+- planet: Saturn, Jupiter, Mars, Sun, Venus, Mercury, Moon.
+- element: Fire, Water, Air, Earth, Spirit.
+- offerings: list of items (incense, wine, blood, etc.).
+- link strength: weak, medium, strong.
+
 CRITICAL: Return ONLY a valid JSON object — no markdown, no code fences, no extra text.
-Schema: { "nodes": [{ "id": string, "name": string, "type": string, "description"?: string }], "links": [{ "source": string, "target": string, "relation": string }] }
+Schema: {
+  "nodes": [{
+    "id": string,
+    "name": string,
+    "type": string,
+    "description"?: string,
+    "pantheon"?: string,
+    "planet"?: string,
+    "element"?: string,
+    "offerings"?: string[],
+    "image_url"?: string
+  }],
+  "links": [{
+    "source": string,
+    "target": string,
+    "relation": string,
+    "strength"?: "weak" | "medium" | "strong"
+  }]
+}
 `;
 
 function slugifyId(input: string): string {
@@ -538,6 +568,41 @@ function ensureRitualNode(graph: GraphData, fullText: string, ritualName?: strin
   });
 
   return cloned;
+}
+
+export async function suggestConnections(
+  node: Node,
+  allNodes: Node[],
+  language: "en" | "ru" = "en"
+): Promise<{ targetId: string; relation: string; reason: string; strength: string }[]> {
+  const contextNodes = allNodes
+    .filter(n => n.id !== node.id)
+    .map(n => `${n.name} (${n.type}) [id:${n.id}]`)
+    .slice(0, 50)
+    .join(", ");
+
+  const prompt = `
+    You are an esoteric knowledge graph assistant.
+    Analyze the entity "${node.name}" (${node.type}, ${node.description || ''}) and the following existing nodes:
+    ${contextNodes}
+
+    Suggest 1-3 highly relevant connections between "${node.name}" and the existing nodes that are NOT explicitly obvious but meaningful in occult practice (e.g. correspondences, mythological links).
+
+    Return JSON array: [{ "targetId": "id_from_list", "relation": "associated_with", "reason": "short explanation", "strength": "medium" }]
+  `;
+
+  try {
+    const raw = await fetchWithFallback({
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.3,
+      max_tokens: 600,
+    });
+    const jsonStr = extractJSON(raw);
+    return JSON.parse(jsonStr);
+  } catch (e) {
+    console.error("Failed to suggest connections", e);
+    return [];
+  }
 }
 
 export async function extractGraph(

@@ -19,6 +19,10 @@ interface GraphVisualizationProps {
   flowThickness?: number;
   hideWeakFlows?: boolean;
   isExpanded?: boolean;
+  activePantheons?: Set<string>;
+  activePlanets?: Set<string>;
+  activeElements?: Set<string>;
+  activeOfferings?: Set<string>;
 }
 
 interface D3Node extends Node, d3.SimulationNodeDatum {
@@ -31,6 +35,7 @@ interface D3Node extends Node, d3.SimulationNodeDatum {
 interface D3Link extends d3.SimulationLinkDatum<D3Node> {
   relation: string;
   weight?: number;
+  strength?: "weak" | "medium" | "strong" | "personal";
 }
 
 const COLORS: Record<string, string> = {
@@ -59,7 +64,11 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
   flowIntensity = 1,
   flowThickness = 1,
   hideWeakFlows = false,
-  isExpanded = false
+  isExpanded = false,
+  activePantheons = new Set(),
+  activePlanets = new Set(),
+  activeElements = new Set(),
+  activeOfferings = new Set()
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
@@ -84,7 +93,14 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
   }, []);
 
   const filteredData = useMemo(() => {
-    const nodes = data.nodes.filter(n => visibleTypes.has(n.type));
+    const nodes = data.nodes.filter(n => {
+      if (!visibleTypes.has(n.type)) return false;
+      if (activePantheons.size > 0 && (!n.pantheon || !activePantheons.has(n.pantheon))) return false;
+      if (activePlanets.size > 0 && (!n.planet || !activePlanets.has(n.planet))) return false;
+      if (activeElements.size > 0 && (!n.element || !activeElements.has(n.element))) return false;
+      if (activeOfferings.size > 0 && (!n.offerings || !n.offerings.some(o => activeOfferings.has(o)))) return false;
+      return true;
+    });
     const nodeIds = new Set(nodes.map(n => n.id));
     const links = data.links.filter(l => nodeIds.has(l.source as string) && nodeIds.has(l.target as string));
 
@@ -268,7 +284,11 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       .attr("stroke-width", d => {
         const source = d.source as D3Node; const target = d.target as D3Node;
         const id = `${source.id}-${target.id}-${d.relation}`;
-        return highlights.links.has(id) ? 3 : 1;
+        if (highlights.links.has(id)) return 3;
+        if (d.strength === 'strong') return 2.5;
+        if (d.strength === 'medium') return 1.5;
+        if (d.strength === 'weak') return 0.5;
+        return 1;
       })
       .attr("marker-end", "url(#arrowhead)")
       .style("cursor", "pointer")
@@ -381,11 +401,23 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
         return "none";
       });
 
-    node.filter(d => d.type === 'sigil' && (d as any).image_url)
-      .append("image")
-      .attr("href", d => ((d as any).image_url as string))
-      .attr("x", -12).attr("y", -12)
-      .attr("width", 24).attr("height", 24);
+    node.filter(d => d.type === 'sigil' && !!(d as any).image_url).each(function(d) {
+      const r = 12 + (d.degree || 0) * 2.5;
+      const g = d3.select(this);
+      
+      // Clip path for the image
+      g.append("defs").append("clipPath")
+        .attr("id", `clip-${d.id}`)
+        .append("circle")
+        .attr("r", r);
+
+      g.append("image")
+        .attr("href", (d as any).image_url as string)
+        .attr("x", -r).attr("y", -r)
+        .attr("width", r * 2).attr("height", r * 2)
+        .attr("clip-path", `url(#clip-${d.id})`)
+        .attr("preserveAspectRatio", "xMidYMid slice");
+    });
 
     node.append("text")
       .attr("x", d => 16 + (d.degree || 0) * 2.5)
