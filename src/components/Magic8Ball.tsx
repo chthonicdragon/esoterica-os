@@ -7,17 +7,28 @@ import { Node } from '../services/openRouterService';
 interface Magic8BallProps {
   entity?: Node;
   onSave?: (prediction: string, entityId?: string) => void;
+  lang?: 'en' | 'ru';
 }
 
 // Fallback answers if API fails
-const FALLBACK_ANSWERS = [
-  "It is certain.", "It is decidedly so.", "Without a doubt.", "Yes definitely.",
-  "You may rely on it.", "As I see it, yes.", "Most likely.", "Outlook good.",
-  "Yes.", "Signs point to yes.", "Reply hazy, try again.", "Ask again later.",
-  "Better not tell you now.", "Cannot predict now.", "Concentrate and ask again.",
-  "Don't count on it.", "My reply is no.", "My sources say no.",
-  "Outlook not so good.", "Very doubtful."
-];
+const FALLBACK_ANSWERS = {
+  en: [
+    "It is certain.", "It is decidedly so.", "Without a doubt.", "Yes definitely.",
+    "You may rely on it.", "As I see it, yes.", "Most likely.", "Outlook good.",
+    "Yes.", "Signs point to yes.", "Reply hazy, try again.", "Ask again later.",
+    "Better not tell you now.", "Cannot predict now.", "Concentrate and ask again.",
+    "Don't count on it.", "My reply is no.", "My sources say no.",
+    "Outlook not so good.", "Very doubtful."
+  ],
+  ru: [
+    "Бесспорно.", "Предрешено.", "Никаких сомнений.", "Определённо да.",
+    "Можешь быть уверен в этом.", "Мне кажется — да.", "Вероятнее всего.", "Хорошие перспективы.",
+    "Знаки говорят — да.", "Да.", "Пока не ясно, попробуй снова.", "Спроси позже.",
+    "Лучше не рассказывать.", "Сейчас нельзя предсказать.", "Сконцентрируйся и спроси опять.",
+    "Даже не думай.", "Мой ответ — нет.", "По моим данным — нет.",
+    "Перспективы не очень.", "Весьма сомнительно."
+  ]
+};
 
 // Map elements/planets to colors
 const ATTRIBUTE_COLORS: Record<string, string> = {
@@ -27,7 +38,7 @@ const ATTRIBUTE_COLORS: Record<string, string> = {
   default: '#14b8a6' // Teal
 };
 
-export const Magic8Ball: React.FC<Magic8BallProps> = ({ entity, onSave }) => {
+export const Magic8Ball: React.FC<Magic8BallProps> = ({ entity, onSave, lang = 'en' }) => {
   const [shaking, setShaking] = useState(false);
   const [answer, setAnswer] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -50,17 +61,13 @@ export const Magic8Ball: React.FC<Magic8BallProps> = ({ entity, onSave }) => {
     await new Promise(r => setTimeout(r, 1500));
 
     try {
-      // Try fetch from public API
-      const res = await fetch('https://eightballapi.com/api?locale=en').catch(() => null);
-      if (res && res.ok) {
-        const data = await res.json();
-        setAnswer(data.reading);
-      } else {
-        // Fallback
-        setAnswer(FALLBACK_ANSWERS[Math.floor(Math.random() * FALLBACK_ANSWERS.length)]);
-      }
+      // Use fallback answers with localization
+      const answers = FALLBACK_ANSWERS[lang] || FALLBACK_ANSWERS.en;
+      const randomAnswer = answers[Math.floor(Math.random() * answers.length)];
+      setAnswer(randomAnswer);
     } catch (e) {
-      setAnswer(FALLBACK_ANSWERS[Math.floor(Math.random() * FALLBACK_ANSWERS.length)]);
+      const answers = FALLBACK_ANSWERS[lang] || FALLBACK_ANSWERS.en;
+      setAnswer(answers[Math.floor(Math.random() * answers.length)]);
     } finally {
       setShaking(false);
       setLoading(false);

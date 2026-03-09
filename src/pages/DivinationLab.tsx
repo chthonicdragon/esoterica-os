@@ -31,7 +31,11 @@ export function DivinationLab({ user }: DivinationLabProps) {
            const graph = JSON.parse(savedGraph)
            if (graph.nodes) {
              const matches = graph.nodes
-               .filter((n: any) => n.name.toLowerCase().includes(entitySearch.toLowerCase()))
+               .filter((n: any) => {
+                 const nameMatch = n.name.toLowerCase().includes(entitySearch.toLowerCase())
+                 const typeMatch = n.type === 'deity' || n.type === 'spirit' || n.type === 'entity'
+                 return nameMatch && typeMatch
+               })
                .slice(0, 5)
              setSuggestions(matches)
              setShowEntitySuggestions(true)
@@ -55,8 +59,11 @@ export function DivinationLab({ user }: DivinationLabProps) {
        try {
          const graph = JSON.parse(savedGraph)
          if (graph.nodes && graph.nodes.length > 0) {
-           const randomNode = graph.nodes[Math.floor(Math.random() * graph.nodes.length)]
-           selectEntity(randomNode)
+           const spirits = graph.nodes.filter((n: any) => n.type === 'deity' || n.type === 'spirit' || n.type === 'entity')
+           if (spirits.length > 0) {
+             const randomNode = spirits[Math.floor(Math.random() * spirits.length)]
+             selectEntity(randomNode)
+           }
          }
        } catch (e) {}
      }
@@ -140,7 +147,7 @@ export function DivinationLab({ user }: DivinationLabProps) {
 
       {/* The 8-Ball */}
       <div className="flex justify-center py-8">
-        <Magic8Ball entity={selectedEntity} onSave={handleSavePrediction} />
+        <Magic8Ball entity={selectedEntity} onSave={handleSavePrediction} lang={lang} />
       </div>
     </div>
   )
