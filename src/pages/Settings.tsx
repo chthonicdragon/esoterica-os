@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 import toast from 'react-hot-toast'
 import { Globe, User, Sparkles, Layers, Lock, ChevronDown, Info, BookOpen, Shield, FileText, HelpCircle } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { db, auth } from '../lib/platformClient'
 
 const ADMIN_CODE = 'esoterica2025' // Код администратора
 const ARCHETYPES = [
@@ -79,6 +80,8 @@ export function Settings({ user }: SettingsProps) {
   const [adminCodeInput, setAdminCodeInput] = useState('')
   const [showAdminCodeInput, setShowAdminCodeInput] = useState(false)
   const [openSection, setOpenSection] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [confirmText, setConfirmText] = useState('')
 
   useEffect(() => { loadProfile() }, [user.id])
 
@@ -172,6 +175,61 @@ export function Settings({ user }: SettingsProps) {
       console.log('❌ Admin code incorrect')
       setAdminCodeInput('')
       toast.error(lang === 'ru' ? '❌ Неверный код' : '❌ Invalid code')
+    }
+  }
+
+  async function deleteAccount() {
+    if (deleting) return
+    const mustType = lang === 'ru' ? 'УДАЛИТЬ' : 'DELETE'
+    if (confirmText !== mustType) {
+      toast.error(lang === 'ru' ? `Введите "${mustType}" для подтверждения` : `Type "${mustType}" to confirm`)
+      return
+    }
+    setDeleting(true)
+    try {
+      // 1) Удаляем пользовательские данные во всех разделах
+      const safeBulkDelete = async (entity: keyof typeof db) => {
+        try {
+          const rows = await (db as any)[entity].list({ where: { userId: { eq: user.id } }, limit: 500 }).catch(() => []) as any[]
+          for (const row of rows) { await (db as any)[entity].delete(row.id).catch(() => false) }
+        } catch {}
+      }
+      await Promise.all([
+        safeBulkDelete('rituals'),
+        safeBulkDelete('journals'),
+        safeBulkDelete('sigils'),
+        safeBulkDelete('forumPosts'),
+        safeBulkDelete('forumTopics'),
+        safeBulkDelete('forumLikes'),
+        safeBulkDelete('forumNotifications'),
+        safeBulkDelete('forumReports'),
+      ])
+
+      // 2) Удаляем профиль
+      try {
+        const profiles = await db.userProfiles.list({ where: { userId: { eq: user.id } }, limit: 1 })
+        if (profiles && profiles[0]?.id) await db.userProfiles.delete(profiles[0].id)
+      } catch {}
+
+      // 3) Локальные данные
+      try {
+        localStorage.removeItem('esoterica_altar_v2')
+        localStorage.removeItem('esoteric_knowledge_web_v1')
+        localStorage.removeItem('esoterica_geo_coords')
+        localStorage.removeItem(`forum_admin_${user.id}`)
+      } catch {}
+
+      // 4) Выход из аккаунта
+      await auth.logout()
+
+      toast.success(lang === 'ru' ? 'Аккаунт и данные удалены' : 'Account and data removed')
+      // Перезагружаем приложение, чтобы вернуться на экран входа
+      setTimeout(() => { window.location.href = '/' }, 800)
+    } catch (e) {
+      console.error('Delete account error', e)
+      toast.error(lang === 'ru' ? 'Не удалось удалить аккаунт' : 'Failed to delete account')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -328,6 +386,36 @@ export function Settings({ user }: SettingsProps) {
       >
         {t.saveSettings}
       </button>
+
+      {/* Danger Zone */}
+      <div className="rounded-2xl bg-card border border-destructive/40 p-5 space-y-3">
+        <div className="flex items-center gap-2 mb-1">
+          <Lock className="w-4 h-4 text-destructive" />
+          <h3 className="text-sm font-semibold text-foreground">
+            {lang === 'ru' ? 'Удаление аккаунта' : 'Delete Account'}
+          </h3>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {lang === 'ru'
+            ? 'Это безвозвратно удалит ваши ритуалы, журналы, сигиллы и профиль. Введите УДАЛИТЬ для подтверждения.'
+            : 'This will permanently remove your rituals, journals, sigils and profile. Type DELETE to confirm.'}
+        </p>
+        <input
+          value={confirmText}
+          onChange={e => setConfirmText(e.target.value.toUpperCase())}
+          placeholder={lang === 'ru' ? 'УДАЛИТЬ' : 'DELETE'}
+          className="w-full bg-background border border-border rounded-xl px-4 py-2 text-sm outline-none focus:border-destructive/60"
+        />
+        <button
+          onClick={deleteAccount}
+          disabled={deleting}
+          className="w-full py-2 rounded-xl bg-destructive/80 text-white text-sm font-medium hover:bg-destructive transition-colors disabled:opacity-60"
+        >
+          {deleting
+            ? (lang === 'ru' ? 'Удаление…' : 'Deleting…')
+            : (lang === 'ru' ? 'Удалить аккаунт' : 'Delete my account')}
+        </button>
+      </div>
 
       {/* ── Information sections ─────────────────────────────────────────── */}
       <div className="pt-2 space-y-2">
