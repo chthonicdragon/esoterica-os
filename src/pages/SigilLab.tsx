@@ -9,7 +9,8 @@ import { cn } from '../lib/utils'
 import { grantProgressionPoints, syncProgressionToDb } from '../altar/altarStore'
 import { extractAndMerge } from '../services/knowledgeGraphBridge'
 import { drawSigil } from '../utils/sigilGeneration'
-import { Search, Dice5 } from 'lucide-react'
+import { Search, Dice5, Info } from 'lucide-react'
+import { MythologyService, type MythologyEntity } from '../services/magicalDataService'
 
 interface Sigil {
   id: string
@@ -64,6 +65,9 @@ export function SigilLab({ user }: SigilLabProps) {
   // Graph integration state
   const [connectedNodes, setConnectedNodes] = useState<string[]>([])
   const [activeConnectedNodes, setActiveConnectedNodes] = useState<string[]>([])
+  
+  // Mythology Info
+  const [mythInfo, setMythInfo] = useState<MythologyEntity | null>(null)
 
   useEffect(() => { loadSigils() }, [user.id])
   useEffect(() => () => { if (chargeInterval.current) clearInterval(chargeInterval.current) }, [])
@@ -143,6 +147,12 @@ export function SigilLab({ user }: SigilLabProps) {
     }
     setShowEntitySuggestions(false)
     setIsAutoMode(true)
+    
+    // Fetch mythology info
+    MythologyService.getEntityInfo(entity.name).then(info => {
+      if (info) setMythInfo(info)
+      else setMythInfo(null)
+    })
     
     // Find connected nodes
     try {
@@ -411,6 +421,25 @@ export function SigilLab({ user }: SigilLabProps) {
                     {activeConnectedNodes.includes(node) && <span className="ml-1 text-[8px]">×</span>}
                   </button>
                 ))}
+              </div>
+            )}
+
+            {/* Mythology Info Card */}
+            {mythInfo && (
+              <div className="mt-2 p-3 bg-purple-500/10 border border-purple-500/20 rounded-xl flex gap-3 animate-fade-in">
+                <Info className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-purple-200">{mythInfo.name}</span>
+                    {mythInfo.pantheon && <span className="text-[10px] text-purple-400/80 uppercase tracking-wide">{mythInfo.pantheon}</span>}
+                  </div>
+                  {mythInfo.domain && <div className="text-[10px] text-purple-300 italic">{mythInfo.domain}</div>}
+                  {mythInfo.description && (
+                    <div className="text-[10px] text-muted-foreground leading-relaxed line-clamp-3">
+                      {mythInfo.description}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>

@@ -19,6 +19,7 @@ import { mapAiErrorMessage } from '../lib/aiErrorMessages'
 import { SpiderWebIcon } from '../components/icons/SpiderWebIcon'
 import { syncGraph, pushToRemote } from '../services/knowledgeGraphSync'
 import { getRelationLabel } from '../lib/relationLabels'
+import { MythologyService, type MythologyEntity } from '../services/magicalDataService'
 
 const STORAGE_KEY = 'esoteric_knowledge_web_v1'
 const ALL_TYPES = ['deity', 'spirit', 'ritual', 'symbol', 'concept', 'place', 'creature', 'artifact', 'spell', 'sigil']
@@ -241,6 +242,37 @@ export function KnowledgeGraph({ user }: Props) {
   const [syncNotice, setSyncNotice] = useState<string | null>(null)
   const [autoPullTried, setAutoPullTried] = useState(false)
   const [showSigilGenerator, setShowSigilGenerator] = useState(false)
+  
+  // Mythology
+  const [mythData, setMythData] = useState<MythologyEntity | null>(null)
+  const [loadingMyth, setLoadingMyth] = useState(false)
+
+  const fetchMythData = async () => {
+    if (!selectedNode) return
+    setLoadingMyth(true)
+    const data = await MythologyService.getEntityInfo(selectedNode.name)
+    setMythData(data)
+    setLoadingMyth(false)
+    if (data) {
+       // Auto-merge if user wants (or just suggest)
+       // Here we just show it, but offer a button to Merge
+    }
+  }
+
+  const mergeMythData = () => {
+    if (!selectedNode || !mythData) return
+    setGraphData(prev => {
+      const nodes = prev.nodes.map(n => n.id === selectedNode.id ? {
+        ...n,
+        pantheon: n.pantheon || mythData.pantheon,
+        description: n.description || mythData.description,
+        tags: [...(n.tags || []), ...(mythData.domain ? mythData.domain.split(',').map(s=>s.trim()) : [])]
+      } : n)
+      return { ...prev, nodes }
+    })
+    setMythData(null) // Hide after merge
+    setSuccessMsg(lang === 'ru' ? 'Данные из мифов добавлены!' : 'Myth data merged!')
+  }
 
   const stopwords = useMemo(() => new Set([
     'the', 'and', 'with', 'from', 'this', 'that', 'have', 'your', 'for', 'you', 'are', 'was', 'were', 'into', 'within', 'about',
@@ -710,6 +742,7 @@ export function KnowledgeGraph({ user }: Props) {
   const handleNodeClick = useCallback((node: Node) => {
     setSelectedNode(node)
     setSelectedLink(null)
+    setMythData(null) // Reset on new selection
   }, [])
 
   const handleLinkClick = useCallback((link: Link) => {
@@ -1262,6 +1295,43 @@ export function KnowledgeGraph({ user }: Props) {
                                   <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap break-words">{selectedNode.description}</p>
                                 </div>
                               )}
+                              
+                              {/* Mythology Section */}
+                              {!editing && (selectedNode.type === 'deity' || selectedNode.type === 'spirit' || selectedNode.type === 'creature') && (
+                                <div className="pt-2 border-t border-white/5">
+                                   {!mythData && (
+                                     <button 
+                                       onClick={fetchMythData} 
+                                       disabled={loadingMyth}
+                                       className="w-full py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
+                                     >
+                                       {loadingMyth ? <Loader2 className="w-3 h-3 animate-spin"/> : <Search className="w-3 h-3"/>}
+                                       {lang === 'ru' ? 'Найти в мифах' : 'Search Mythology'}
+                                     </button>
+                                   )}
+                                   {mythData && (
+                                     <div className="bg-indigo-500/10 rounded-xl p-3 border border-indigo-500/20 space-y-2 animate-fade-in">
+                                       <div className="flex justify-between items-start">
+                                         <div className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider">
+                                           {lang === 'ru' ? 'Найдено в мифах' : 'Mythology Data'}
+                                         </div>
+                                         <button onClick={() => setMythData(null)} className="text-muted-foreground hover:text-foreground"><X className="w-3 h-3"/></button>
+                                       </div>
+                                       <div className="text-xs text-indigo-100 font-medium">{mythData.name}</div>
+                                       {mythData.pantheon && <div className="text-[10px] text-indigo-200">Pantheon: {mythData.pantheon}</div>}
+                                       {mythData.domain && <div className="text-[10px] text-indigo-200">Domain: {mythData.domain}</div>}
+                                       {mythData.description && <div className="text-[10px] text-muted-foreground line-clamp-3">{mythData.description}</div>}
+                                       <button 
+                                         onClick={mergeMythData}
+                                         className="w-full py-1 rounded bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-[10px] font-bold uppercase"
+                                       >
+                                         {lang === 'ru' ? 'Объединить данные' : 'Merge Data'}
+                                       </button>
+                                     </div>
+                                   )}
+                                </div>
+                              )}
+
                               <div className="flex gap-2">
                                 <button onClick={() => setEditing(true)} className="px-3 py-1.5 rounded-lg bg-primary/20 border border-primary/30 text-primary text-[11px] font-bold tracking-wider">{lang==='ru'?'Редактировать':'Edit'}</button>
                                 <button onClick={handleSuggestConnections} disabled={isLoading} className="px-3 py-1.5 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 text-[11px] font-bold tracking-wider flex items-center gap-1 disabled:opacity-50">
