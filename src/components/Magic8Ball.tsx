@@ -162,7 +162,7 @@ export const Magic8Ball: React.FC<Magic8BallProps> = ({ entity, onSave, lang = '
         ) : (
           <div className="text-sm text-muted-foreground italic flex items-center gap-2">
             <HelpCircle className="w-4 h-4" />
-            Select an entity to channel specific power
+            {lang === 'ru' ? 'Выберите сущность, чтобы канализировать её силу' : 'Select an entity to channel specific power'}
           </div>
         )}
 

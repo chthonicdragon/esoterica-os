@@ -9,8 +9,10 @@ interface TarotReaderProps {
   lang?: 'en' | 'ru';
 }
 
+type DrawnCard = TarotCardData & { reversed?: boolean }
+
 export const TarotReader: React.FC<TarotReaderProps> = ({ lang = 'en' }) => {
-  const [cards, setCards] = useState<TarotCardData[]>([]);
+  const [cards, setCards] = useState<DrawnCard[]>([]);
   const [loading, setLoading] = useState(false);
   const [detailed, setDetailed] = useState(true);
 
@@ -22,8 +24,10 @@ export const TarotReader: React.FC<TarotReaderProps> = ({ lang = 'en' }) => {
     await new Promise(r => setTimeout(r, 800));
     
     // Shuffle local deck
-    const shuffled = [...TAROT_DECK].sort(() => 0.5 - Math.random());
-    setCards(shuffled.slice(0, count));
+    const shuffled = [...TAROT_DECK].sort(() => 0.5 - Math.random()).slice(0, count);
+    // Randomly mark some cards as reversed
+    const withOrientation: DrawnCard[] = shuffled.map(c => ({ ...c, reversed: Math.random() < 0.5 }));
+    setCards(withOrientation);
     setLoading(false);
   };
 
@@ -85,7 +89,11 @@ export const TarotReader: React.FC<TarotReaderProps> = ({ lang = 'en' }) => {
               >
                 <div className="h-80 bg-black flex items-center justify-center relative overflow-hidden">
                    {card.image ? (
-                     <img src={card.image} alt={card.nameEn} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
+                     <img
+                       src={card.image}
+                       alt={card.nameEn}
+                       className={`w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity ${card.reversed ? 'rotate-180' : ''}`}
+                     />
                    ) : (
                      <div className="absolute inset-0 bg-[url('/tarot-pattern.png')] opacity-10 bg-repeat" />
                    )}
@@ -93,6 +101,11 @@ export const TarotReader: React.FC<TarotReaderProps> = ({ lang = 'en' }) => {
                      <div className="text-xl font-serif text-purple-100 font-bold">
                        {lang === 'ru' ? card.nameRu : card.nameEn}
                      </div>
+                      {card.reversed && (
+                        <div className="mt-1 inline-block text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/30 text-blue-300">
+                          {lang === 'ru' ? 'Перевернутая' : 'Reversed'}
+                        </div>
+                      )}
                    </div>
                 </div>
 
@@ -101,17 +114,36 @@ export const TarotReader: React.FC<TarotReaderProps> = ({ lang = 'en' }) => {
                     const ext = TAROT_LONG[card.id]
                     const upLong = lang === 'ru' ? ext?.longUpRu : ext?.longUpEn
                     const revLong = lang === 'ru' ? ext?.longRevRu : ext?.longRevEn
+                    const uprightTextShort = lang === 'ru' ? card.meaningUpRu : card.meaningUpEn
+                    const reversedTextShort = lang === 'ru' ? card.meaningRevRu : card.meaningRevEn
+                    // If card is reversed, prefer reversed text first in quick view
                     return (
                       <div className="text-xs space-y-2 text-muted-foreground">
-                        <p>
-                          <strong className="text-purple-400/80 uppercase text-[10px] tracking-wider block mb-1">{lang === 'ru' ? 'Прямое значение' : 'Upright'}</strong>
-                          {detailed ? (upLong || (lang === 'ru' ? card.meaningUpRu : card.meaningUpEn)) : (lang === 'ru' ? card.meaningUpRu : card.meaningUpEn)}
-                        </p>
-                        <div className="h-px bg-white/5 my-2" />
-                        <p>
-                          <strong className="text-blue-400/80 uppercase text-[10px] tracking-wider block mb-1">{lang === 'ru' ? 'Перевернутое' : 'Reversed'}</strong>
-                          {detailed ? (revLong || (lang === 'ru' ? card.meaningRevRu : card.meaningRevEn)) : (lang === 'ru' ? card.meaningRevRu : card.meaningRevEn)}
-                        </p>
+                        {card.reversed ? (
+                          <>
+                            <p>
+                              <strong className="text-blue-400/80 uppercase text-[10px] tracking-wider block mb-1">{lang === 'ru' ? 'Перевернутое' : 'Reversed'}</strong>
+                              {detailed ? (revLong || reversedTextShort) : reversedTextShort}
+                            </p>
+                            <div className="h-px bg-white/5 my-2" />
+                            <p>
+                              <strong className="text-purple-400/80 uppercase text-[10px] tracking-wider block mb-1">{lang === 'ru' ? 'Прямое значение' : 'Upright'}</strong>
+                              {detailed ? (upLong || uprightTextShort) : uprightTextShort}
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p>
+                              <strong className="text-purple-400/80 uppercase text-[10px] tracking-wider block mb-1">{lang === 'ru' ? 'Прямое значение' : 'Upright'}</strong>
+                              {detailed ? (upLong || uprightTextShort) : uprightTextShort}
+                            </p>
+                            <div className="h-px bg-white/5 my-2" />
+                            <p>
+                              <strong className="text-blue-400/80 uppercase text-[10px] tracking-wider block mb-1">{lang === 'ru' ? 'Перевернутое' : 'Reversed'}</strong>
+                              {detailed ? (revLong || reversedTextShort) : reversedTextShort}
+                            </p>
+                          </>
+                        )}
                       </div>
                     )
                   })()}

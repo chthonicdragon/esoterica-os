@@ -1019,21 +1019,24 @@ export function RitualTracker({ user }: RitualTrackerProps) {
         </div>
       </div>
 
-      {/* Magical Holidays */}
-      <div className="rounded-2xl bg-card border border-border/40 p-5">
-        <p className="text-xs text-muted-foreground mb-3">{lang === 'ru' ? 'Календарь магических праздников' : 'Magical Holidays Calendar'}</p>
-        <div className="space-y-2">
-          {upcomingHolidays.map((holiday) => (
-            <div key={`${holiday.name}-${holiday.date}`} className="rounded-xl border border-border/40 bg-background/20 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-foreground">{holiday.name}</p>
-                <p className="text-[11px] text-primary">{holiday.nextDate.toLocaleDateString()}</p>
+      {/* Magical Holidays (compact) */}
+      <div className="rounded-xl bg-card border border-border/40 p-4">
+        <p className="text-[11px] text-muted-foreground mb-2">{lang === 'ru' ? 'Календарь магических праздников' : 'Magical Holidays Calendar'}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {upcomingHolidays.map((holiday) => {
+            const title = (lang === 'ru' && (holiday as any).nameRu) ? (holiday as any).nameRu : holiday.name
+            return (
+              <div key={`${holiday.name}-${holiday.date}`} className="rounded-lg border border-border/40 bg-background/20 p-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-foreground truncate">{title}</p>
+                  <p className="text-[10px] text-primary whitespace-nowrap">{holiday.nextDate.toLocaleDateString()}</p>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-3">
+                  {lang === 'ru' ? holiday.descriptionRu : holiday.description}
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {lang === 'ru' ? holiday.descriptionRu : holiday.description}
-              </p>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
