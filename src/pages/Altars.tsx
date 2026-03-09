@@ -261,7 +261,7 @@ export function Altars({ user }: AltarsProps) {
       rotationZ: cat?.placementRotationZ || 0,
       scale: 1,
     }
-    playUiSound('bell')
+    playUiSound('success')
     updateLayout(addObjectToLayout(activeLayout, placed))
     setProgression(prev => {
       const reward = ACTION_POINTS.placeObjectBase + (cat?.points || 0) * 0.35 + (isFirstObject ? ACTION_POINTS.placeFirstObject : 0)

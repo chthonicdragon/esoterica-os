@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
+import { useAudio } from '../contexts/AudioContext'
 import { supabase } from '../lib/supabaseClient'
 import toast from 'react-hot-toast'
-import { Globe, User, Sparkles, Layers, Lock, ChevronDown, Info, BookOpen, Shield, FileText, HelpCircle, Save } from 'lucide-react'
+import { Globe, User, Sparkles, Layers, Lock, ChevronDown, Info, BookOpen, Shield, FileText, HelpCircle, Save, Volume2, VolumeX, Music } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { db, auth } from '../lib/platformClient'
 
@@ -140,6 +141,7 @@ interface SettingsProps {
 
 export function Settings({ user }: SettingsProps) {
   const { t, lang, setLang } = useLang()
+  const { config, setVolume, setIsMuted, toggleSfx, toggleMusic } = useAudio()
   const [displayName, setDisplayName] = useState(user.displayName || '')
   const [archetype, setArchetype] = useState('seeker')
   const [tradition, setTradition] = useState('eclectic')
@@ -314,6 +316,73 @@ export function Settings({ user }: SettingsProps) {
   return (
     <div className="p-6 max-w-2xl space-y-6 animate-fade-in">
       <h2 className="text-lg font-bold font-cinzel text-foreground">{t.settingsTitle}</h2>
+
+      {/* Sound Settings */}
+      <div className="rounded-2xl bg-card border border-border/40 p-5 space-y-4">
+        <div className="flex items-center gap-2 mb-2">
+          {config.muted ? <VolumeX className="w-4 h-4 text-muted-foreground" /> : <Volume2 className="w-4 h-4 text-primary" />}
+          <h3 className="text-sm font-semibold text-foreground">{lang === 'ru' ? 'Звук и Атмосфера' : 'Sound & Atmosphere'}</h3>
+        </div>
+
+        {/* Master Volume */}
+        <div className="space-y-2">
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>{lang === 'ru' ? 'Громкость' : 'Volume'}</span>
+            <span>{Math.round(config.volume * 100)}%</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={config.volume}
+            onChange={(e) => setVolume(parseFloat(e.target.value))}
+            className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+          />
+        </div>
+
+        {/* Toggles */}
+        <div className="grid grid-cols-3 gap-3">
+          <button
+            onClick={() => setIsMuted(!config.muted)}
+            className={cn(
+              "flex flex-col items-center justify-center p-3 rounded-xl border text-xs font-medium transition-all gap-2",
+              config.muted 
+                ? "bg-muted/20 border-border text-muted-foreground" 
+                : "bg-primary/10 border-primary/30 text-primary"
+            )}
+          >
+            {config.muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+            {lang === 'ru' ? 'Звук' : 'Master'}
+          </button>
+
+          <button
+            onClick={toggleMusic}
+            className={cn(
+              "flex flex-col items-center justify-center p-3 rounded-xl border text-xs font-medium transition-all gap-2",
+              config.musicMuted 
+                ? "bg-muted/20 border-border text-muted-foreground" 
+                : "bg-primary/10 border-primary/30 text-primary"
+            )}
+          >
+            <Music className="w-5 h-5" />
+            {lang === 'ru' ? 'Музыка' : 'Music'}
+          </button>
+
+          <button
+            onClick={toggleSfx}
+            className={cn(
+              "flex flex-col items-center justify-center p-3 rounded-xl border text-xs font-medium transition-all gap-2",
+              config.sfxMuted 
+                ? "bg-muted/20 border-border text-muted-foreground" 
+                : "bg-primary/10 border-primary/30 text-primary"
+            )}
+          >
+            <Sparkles className="w-5 h-5" />
+            {lang === 'ru' ? 'Эффекты' : 'SFX'}
+          </button>
+        </div>
+      </div>
 
       {/* Language */}
       <div className="rounded-2xl bg-card border border-border/40 p-5 space-y-3">
