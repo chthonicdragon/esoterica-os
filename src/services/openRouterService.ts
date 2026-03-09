@@ -49,10 +49,10 @@ const GROQ_MODELS = [
 ];
 
 const OPENROUTER_MODELS = [
-  "google/gemini-2.0-flash-lite-preview-02-05:free",
-  "meta-llama/llama-3.1-8b-instruct:free",
   "google/gemma-2-9b-it:free",
+  "meta-llama/llama-3.1-8b-instruct:free",
   "mistralai/mistral-7b-instruct:free",
+  "microsoft/phi-3-mini-128k-instruct:free",
   "openai/gpt-4o-mini",
 ];
 
