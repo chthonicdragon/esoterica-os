@@ -202,7 +202,7 @@ Rules:
 
     // Helper to compose OpenAI-compatible body
     const body = JSON.stringify({
-      model: 'google/gemini-2.0-flash-001',
+      model: 'google/gemini-2.0-flash-exp:free', // Use free tier if available
       messages: [{ role: 'user', content: prompt }],
       response_format: { type: 'json_object' },
     })
