@@ -49,6 +49,7 @@ export function SigilLab({ user }: SigilLabProps) {
   const [selectedOffering, setSelectedOffering] = useState('')
   const [manualAttributes, setManualAttributes] = useState('')
   const [seedOffset, setSeedOffset] = useState(0)
+  const [forceUpdate, setForceUpdate] = useState(0)
 
   // Auto-extraction state
   const [isAutoMode, setIsAutoMode] = useState(true)
@@ -56,9 +57,42 @@ export function SigilLab({ user }: SigilLabProps) {
   const [entitySearch, setEntitySearch] = useState('')
   const [showEntitySuggestions, setShowEntitySuggestions] = useState(false)
   const [suggestions, setSuggestions] = useState<{name: string, pantheon?: string, planet?: string, element?: string, offerings?: string[]}[]>([])
+  const [availableAttributes, setAvailableAttributes] = useState<{
+    pantheons: string[], planets: string[], elements: string[], offerings: string[]
+  }>({ pantheons: [], planets: [], elements: [], offerings: [] })
 
   useEffect(() => { loadSigils() }, [user.id])
   useEffect(() => () => { if (chargeInterval.current) clearInterval(chargeInterval.current) }, [])
+  
+  // Load attributes from graph
+  useEffect(() => {
+    const savedGraph = localStorage.getItem('esoteric_knowledge_web_v1')
+    if (savedGraph) {
+      try {
+        const graph = JSON.parse(savedGraph)
+        if (graph.nodes) {
+          const pantheons = new Set<string>()
+          const planets = new Set<string>()
+          const elements = new Set<string>()
+          const offerings = new Set<string>()
+          
+          graph.nodes.forEach((n: any) => {
+             if (n.pantheon) pantheons.add(n.pantheon)
+             if (n.planet) planets.add(n.planet)
+             if (n.element) elements.add(n.element)
+             if (n.offerings) n.offerings.forEach((o: string) => offerings.add(o))
+          })
+          
+          setAvailableAttributes({
+            pantheons: Array.from(pantheons),
+            planets: Array.from(planets),
+            elements: Array.from(elements),
+            offerings: Array.from(offerings)
+          })
+        }
+      } catch (e) {}
+    }
+  }, [])
 
   // Real entity search from graph data
   useEffect(() => {
@@ -124,23 +158,26 @@ export function SigilLab({ user }: SigilLabProps) {
   }
 
   function generateSigil() {
-    if (!intention.trim()) return
+    const targetIntention = intention || entitySearch
+    if (!targetIntention.trim()) return
+    
     playUiSound('click')
     setGenerating(true)
     setChargeLevel(0)
     setCharging(false)
+    
     setTimeout(() => {
       let svg = ''
       
       if (generationMode === 'classic') {
-         svg = generateSigilSVG(intention)
+         svg = generateSigilSVG(targetIntention)
       } else {
         // Procedural
         const canvas = document.createElement('canvas')
         canvas.width = 300
         canvas.height = 300
         drawSigil(canvas, {
-          name: intention,
+          name: targetIntention,
           type: 'sigil',
           element: selectedElement,
           planet: selectedPlanet,
@@ -151,11 +188,16 @@ export function SigilLab({ user }: SigilLabProps) {
       }
       
       setCurrentSigil(svg)
-      setCurrentIntention(intention)
+      setCurrentIntention(targetIntention)
       setGenerating(false)
       playUiSound('success')
-    }, 500)
+    }, 100)
   }
+  
+  // Re-generate when seed changes
+  useEffect(() => {
+    if (currentSigil) generateSigil()
+  }, [seedOffset])
 
   async function saveSigil() {
     if (!currentSigil || !currentIntention) return
