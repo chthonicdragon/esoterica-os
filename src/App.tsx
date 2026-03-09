@@ -17,7 +17,7 @@ import { initAchievementListener } from './lib/achievements'
 import { eventBus } from './lib/eventBus'
 import toast from 'react-hot-toast'
 
-type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'journal' | 'forum' | 'marketplace' | 'settings' | 'knowledge-graph'
+type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'divination' | 'journal' | 'forum' | 'marketplace' | 'settings' | 'knowledge-graph'
 const PAGE_STORAGE_KEY = 'esoterica_current_page_v1'
 
 const ALL_PAGES: Page[] = [
@@ -26,6 +26,7 @@ const ALL_PAGES: Page[] = [
   'ai-mentor',
   'ritual-tracker',
   'sigil-lab',
+  'divination',
   'journal',
   'forum',
   'marketplace',
@@ -70,6 +71,7 @@ const PAGE_TITLES: Record<Page, { en: string; ru: string }> = {
   'ai-mentor': { en: 'AI Mentor', ru: 'ИИ Наставник' },
   'ritual-tracker': { en: 'Ritual Tracker', ru: 'Трекер Ритуалов' },
   'sigil-lab': { en: 'Sigil Lab', ru: 'Лаборатория Сигил' },
+  divination: { en: 'Divination', ru: 'Гадания' },
   journal: { en: 'Dream Journal', ru: 'Журнал Снов' },
   forum: { en: 'Forum', ru: 'Форум' },
   marketplace: { en: 'Marketplace', ru: 'Маркетплейс' },
@@ -322,6 +324,7 @@ function AppContent() {
             {currentPage === 'ai-mentor' && <Pages.AIMentor user={user} />}
             {currentPage === 'ritual-tracker' && <Pages.RitualTracker user={user} />}
             {currentPage === 'sigil-lab' && <Pages.SigilLab user={user} />}
+            {currentPage === 'divination' && <Pages.DivinationLab user={user} />}
             {currentPage === 'journal' && <Pages.Journal user={user} />}
             {currentPage === 'forum' && <Pages.ForumPage user={user} />}
             {currentPage === 'marketplace' && <Pages.Marketplace />}
