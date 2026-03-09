@@ -1309,7 +1309,7 @@ export function KnowledgeGraph({ user }: Props) {
               {/* Expand toggle */}
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="absolute top-3 right-3 z-40 p-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-muted-foreground hover:text-foreground transition-all"
+                className={`absolute top-3 ${showAnalytics ? 'right-[320px]' : 'right-3'} z-40 p-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-muted-foreground hover:text-foreground transition-all`}
                 title={isExpanded ? t.shrink : t.expand}
               >
                 {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
