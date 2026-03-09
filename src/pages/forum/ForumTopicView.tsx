@@ -1,10 +1,13 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useRef } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { db } from '../../lib/platformClient'
 import { useLang } from '../../contexts/LanguageContext'
+import type { Lang } from '../../i18n/translations'
 import { useAudio } from '../../contexts/AudioContext'
 import type { ForumPost, ForumTopic, ForumView } from '../../types/forum'
 import { formatDistanceToNow } from 'date-fns'
 import toast from 'react-hot-toast'
+import { translationService } from '../../services/TranslationService'
 
 interface Props {
   user: { id: string; email?: string; displayName?: string }
@@ -12,12 +15,16 @@ interface Props {
   onNavigate: (to: ForumView, params?: { categoryId?: string; topicId?: string }) => void
 }
 
+type TopicQueryData = {
+  topic: ForumTopic
+  posts: ForumPost[]
+}
+
 export function ForumTopicView({ user, topicId, onNavigate }: Props) {
   const { lang } = useLang()
   const { playUiSound } = useAudio()
-  const [topic, setTopic] = useState<ForumTopic | null>(null)
-  const [posts, setPosts] = useState<ForumPost[]>([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
+  const topicQueryKey = ['forum-topic', topicId, user.id] as const
   const [replyContent, setReplyContent] = useState('')
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [editingPost, setEditingPost] = useState<string | null>(null)
@@ -27,9 +34,9 @@ export function ForumTopicView({ user, topicId, onNavigate }: Props) {
   const [reportReason, setReportReason] = useState('')
   const replyRef = useRef<HTMLTextAreaElement>(null)
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
-    try {
+  const { data, isLoading: loading } = useQuery({
+    queryKey: topicQueryKey,
+    queryFn: async () => {
       const [rawTopic, rawPosts] = await Promise.all([
         db.forumTopics.get(topicId),
         db.forumPosts.list({
@@ -39,9 +46,6 @@ export function ForumTopicView({ user, topicId, onNavigate }: Props) {
         }),
       ])
 
-      setTopic(rawTopic as unknown as ForumTopic)
-
-      // Enrich posts with author info + likes
       const enriched = await Promise.all(
         (rawPosts as unknown as ForumPost[]).map(async (post) => {
           try {
@@ -62,20 +66,23 @@ export function ForumTopicView({ user, topicId, onNavigate }: Props) {
           }
         })
       )
-      setPosts(enriched)
 
-      // Increment view count
       await db.forumTopics.update(topicId, {
-        viewCount: (rawTopic as any).viewCount + 1
+        viewCount: ((rawTopic as any)?.viewCount || 0) + 1,
       }).catch(() => {})
-    } catch (e) {
-      console.error('Failed to load topic', e)
-    } finally {
-      setLoading(false)
-    }
-  }, [topicId, user.id])
 
-  useEffect(() => { loadData() }, [loadData])
+      return {
+        topic: {
+          ...(rawTopic as ForumTopic),
+          viewCount: ((rawTopic as any)?.viewCount || 0) + 1,
+        },
+        posts: enriched as ForumPost[],
+      }
+    },
+  })
+
+  const topic = data?.topic ?? null
+  const posts = data?.posts ?? []
 
   const handleSubmitReply = async () => {
     if (!replyContent.trim() || submitting) return
@@ -104,7 +111,7 @@ export function ForumTopicView({ user, topicId, onNavigate }: Props) {
       await db.forumPosts.create(newPost)
       // Update topic reply count + last post
       await db.forumTopics.update(topicId, {
-        replyCount: posts.length,
+        replyCount: posts.length + 1,
         lastPostAt: new Date().toISOString(),
         lastPostUserId: user.id,
         updatedAt: new Date().toISOString(),
@@ -126,11 +133,31 @@ export function ForumTopicView({ user, topicId, onNavigate }: Props) {
         }
       }
 
+      const appendedPost = {
+        ...newPost,
+        authorName: user.displayName || user.id.slice(0, 8),
+        authorLevel: 1,
+        authorArchetype: 'seeker',
+        isLikedByMe: false,
+      } as ForumPost
+      queryClient.setQueryData<TopicQueryData>(topicQueryKey, (current) => {
+        if (!current) return current
+        const now = new Date().toISOString()
+        return {
+          topic: {
+            ...current.topic,
+            replyCount: current.topic.replyCount + 1,
+            lastPostAt: now,
+            lastPostUserId: user.id,
+            updatedAt: now,
+          },
+          posts: [...current.posts, appendedPost],
+        }
+      })
       setReplyContent('')
       setReplyingTo(null)
       playUiSound('success')
       toast.success(lang === 'ru' ? 'Ответ опубликован' : 'Reply posted')
-      await loadData()
     } catch (e) {
       console.error(e)
       toast.error(lang === 'ru' ? 'Ошибка публикации' : 'Failed to post')
@@ -170,9 +197,17 @@ export function ForumTopicView({ user, topicId, onNavigate }: Props) {
           }).catch(() => {})
         }
       }
-      setPosts(ps => ps.map(p =>
-        p.id === post.id ? { ...p, likeCount: post.isLikedByMe ? p.likeCount - 1 : p.likeCount + 1, isLikedByMe: !p.isLikedByMe } : p
-      ))
+      queryClient.setQueryData<TopicQueryData>(topicQueryKey, (current) => {
+        if (!current) return current
+        return {
+          ...current,
+          posts: current.posts.map(p =>
+            p.id === post.id
+              ? { ...p, likeCount: post.isLikedByMe ? Math.max(0, p.likeCount - 1) : p.likeCount + 1, isLikedByMe: !p.isLikedByMe }
+              : p
+          ),
+        }
+      })
     } catch (e) {
       console.error('Like failed', e)
     }
@@ -186,7 +221,13 @@ export function ForumTopicView({ user, topicId, onNavigate }: Props) {
         isEdited: 1,
         editedAt: new Date().toISOString(),
       })
-      setPosts(ps => ps.map(p => p.id === postId ? { ...p, content: editContent.trim(), isEdited: 1 } : p))
+      queryClient.setQueryData<TopicQueryData>(topicQueryKey, (current) => {
+        if (!current) return current
+        return {
+          ...current,
+          posts: current.posts.map(p => p.id === postId ? { ...p, content: editContent.trim(), isEdited: 1 } : p),
+        }
+      })
       setEditingPost(null)
       playUiSound('success')
       toast.success(lang === 'ru' ? 'Изменено' : 'Updated')
@@ -199,7 +240,14 @@ export function ForumTopicView({ user, topicId, onNavigate }: Props) {
     if (!confirm(lang === 'ru' ? 'Удалить сообщение?' : 'Delete this post?')) return
     try {
       await db.forumPosts.update(postId, { isDeleted: 1 })
-      setPosts(ps => ps.filter(p => p.id !== postId))
+      queryClient.setQueryData<TopicQueryData>(topicQueryKey, (current) => {
+        if (!current) return current
+        return {
+          ...current,
+          posts: current.posts.filter(p => p.id !== postId),
+          topic: { ...current.topic, replyCount: Math.max(0, current.topic.replyCount - 1) },
+        }
+      })
       playUiSound('click')
       toast.success(lang === 'ru' ? 'Удалено' : 'Deleted')
     } catch (e) {
@@ -220,6 +268,7 @@ export function ForumTopicView({ user, topicId, onNavigate }: Props) {
       })
       setReportingPost(null)
       setReportReason('')
+      playUiSound('success')
       toast.success(lang === 'ru' ? 'Жалоба отправлена' : 'Report submitted')
     } catch (e) {
       toast.error(lang === 'ru' ? 'Ошибка' : 'Error')
@@ -330,7 +379,7 @@ interface PostCardProps {
   post: ForumPost
   isFirst: boolean
   currentUserId: string
-  lang: 'en' | 'ru'
+  lang: Lang
   editingPost: string | null
   editContent: string
   reportingPost: string | null
@@ -354,12 +403,31 @@ function PostCard({
   onLike, onReply, onEditStart, onEditSave, onEditCancel, onEditChange,
   onDelete, onReportStart, onReportCancel, onReportReasonChange, onReportSubmit
 }: PostCardProps) {
+  const [translatedContent, setTranslatedContent] = useState<string | null>(null)
+  const [isTranslating, setIsTranslating] = useState(false)
   const isOwn = post.userId === currentUserId
   const isEditing = editingPost === post.id
   const isReporting = reportingPost === post.id
 
   const levelLabel = LEVEL_LABELS[String(post.authorLevel || 1)] || 'Seeker'
   const archetypeIcon = ARCHETYPE_ICONS[post.authorArchetype || 'seeker'] || '✨'
+
+  const handleTranslate = async () => {
+    if (translatedContent) {
+      setTranslatedContent(null)
+      return
+    }
+    
+    setIsTranslating(true)
+    try {
+      const result = await translationService.translate(post.content, lang === 'ru' ? 'ru' : 'en')
+      setTranslatedContent(result)
+    } catch (e) {
+      toast.error(lang === 'ru' ? 'Ошибка перевода' : 'Translation failed')
+    } finally {
+      setIsTranslating(false)
+    }
+  }
 
   return (
     <div className={`p-4 ${isFirst ? 'bg-primary/[0.02]' : ''}`}>
@@ -406,9 +474,21 @@ function PostCard({
               </div>
             </div>
           ) : (
-            <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed break-words">
-              {post.content}
-            </p>
+            <div className="space-y-2">
+              <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed break-words">
+                {post.content}
+              </p>
+              {translatedContent && (
+                <div className="p-3 bg-primary/5 rounded-lg border border-primary/10">
+                  <div className="text-[10px] uppercase tracking-wider text-primary/70 mb-1 flex items-center gap-1">
+                    <span>🌐 {lang === 'ru' ? 'Перевод' : 'Translated'}</span>
+                  </div>
+                  <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed break-words">
+                    {translatedContent}
+                  </p>
+                </div>
+              )}
+            </div>
           )}
 
           {post.imageUrl && !isEditing && (
@@ -451,6 +531,14 @@ function PostCard({
             >
               <span>{post.isLikedByMe ? '❤️' : '🤍'}</span>
               <span>{post.likeCount}</span>
+            </button>
+            <button
+              onClick={handleTranslate}
+              disabled={isTranslating}
+              className={`flex items-center gap-1 text-xs transition-colors ${translatedContent ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <span className={isTranslating ? 'animate-spin' : ''}>🌐</span>
+              <span>{lang === 'ru' ? 'Перевод' : 'Translate'}</span>
             </button>
             <button
               onClick={onReply}

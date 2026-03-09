@@ -20,9 +20,11 @@ import { SpiderWebIcon } from '../components/icons/SpiderWebIcon'
 import { syncGraph, pushToRemote } from '../services/knowledgeGraphSync'
 import { getRelationLabel } from '../lib/relationLabels'
 import { MythologyService, type MythologyEntity } from '../services/magicalDataService'
+import { MythScanService, type MythScanResult } from '../services/MythScanService'
+import { MythReviewUI } from '../components/MythReviewUI'
 
 const STORAGE_KEY = 'esoteric_knowledge_web_v1'
-const ALL_TYPES = ['deity', 'spirit', 'ritual', 'symbol', 'concept', 'place', 'creature', 'artifact', 'spell', 'sigil']
+const ALL_TYPES = ['deity', 'spirit', 'ritual', 'symbol', 'concept', 'place', 'creature', 'artifact', 'spell', 'sigil', 'epithet']
 const TYPE_LABELS: Record<string, { en: string; ru: string }> = {
   deity: { en: 'Deity', ru: 'Божество' },
   spirit: { en: 'Spirit', ru: 'Дух' },
@@ -34,6 +36,7 @@ const TYPE_LABELS: Record<string, { en: string; ru: string }> = {
   artifact: { en: 'Artifact', ru: 'Артефакт' },
   spell: { en: 'Spell', ru: 'Заклинание' },
   sigil: { en: 'Sigil', ru: 'Сигилл' },
+  epithet: { en: 'Epithet', ru: 'Эпитет' },
 }
 
 const PANTHEONS = ['Greek', 'Goetia', 'Egyptian', 'Norse', 'Chaos', 'Folk']
@@ -93,7 +96,13 @@ const translations = {
     ritualTags: "Ritual Tags",
     activeLinks: "Active Links",
     noRitualTags: "No tags extracted yet for this ritual.",
-    noActiveLinks: "No active links found for this ritual."
+    noActiveLinks: "No active links found for this ritual.",
+    pantheons: "Pantheons",
+    planetary: "Planetary",
+    elements: "Elements",
+    offerings: "Offerings",
+    genSigil: "Gen Sigil",
+    suggestLinks: "Suggest Links",
   },
   ru: {
     subtitle: "Магическая Паутина Знаний",
@@ -137,23 +146,23 @@ const translations = {
     vizSettings: "Настройки визуализации",
     expand: "Развернуть",
     shrink: "Свернуть",
-    ritualPreviewTitle: "Предпросмотр ритуала перед плетением",
-    ritualPreviewHint: "Полный текст ритуала сохранится в узле ритуала. Ниже показаны предложенные теги для быстрой проверки.",
+    ritualPreviewTitle: "Предпросмотр ритуала",
+    ritualPreviewHint: "Полный текст ритуала будет сохранен в узле. Ниже показаны предложенные теги для быстрой проверки.",
     ritualPreviewTags: "Предложенные теги",
-    ritualPreviewEmptyTags: "Явные теги пока не найдены. ИИ всё равно обработает полный текст.",
+    ritualPreviewEmptyTags: "Очевидные теги не найдены. ИИ все равно обработает полный текст.",
     ritualPreviewCancel: "Отмена",
-    ritualPreviewConfirm: "Отправить в ИИ",
+    ritualPreviewConfirm: "Отправить ИИ",
     ritualTags: "Теги ритуала",
     activeLinks: "Активные связи",
-    noRitualTags: "Для этого ритуала пока нет извлечённых тегов.",
-    noActiveLinks: "Для этого ритуала активные связи пока не найдены.",
-    suggestLinks: "Найти связи",
-    genSigil: "Создать сигил",
+    noRitualTags: "Теги пока не извлечены.",
+    noActiveLinks: "Активные связи не найдены.",
     pantheons: "Пантеоны",
-    planetary: "Планетарные",
+    planetary: "Планеты",
     elements: "Стихии",
-    offerings: "Подношения"
-  }
+    offerings: "Подношения",
+    genSigil: "Созд. Сигил",
+    suggestLinks: "Предложить связи",
+  },
 }
 
 interface Props {
@@ -211,11 +220,6 @@ export function KnowledgeGraph({ user }: Props) {
     }
   }, [user?.id, lang])
 
-  useEffect(() => {
-    if (user && user.id && graphData.nodes.length > 0) {
-      pushToRemote(user.id, graphData)
-    }
-  }, [graphData, user?.id])
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [visibleTypes, setVisibleTypes] = useState<Set<string>>(new Set(ALL_TYPES))
@@ -246,6 +250,100 @@ export function KnowledgeGraph({ user }: Props) {
   // Mythology
   const [mythData, setMythData] = useState<MythologyEntity | null>(null)
   const [loadingMyth, setLoadingMyth] = useState(false)
+  
+  // AI Myth Scan
+  const [isScanningMyth, setIsScanningMyth] = useState(false)
+  const [scanResult, setScanResult] = useState<MythScanResult | null>(null)
+
+  const handleMythScan = async (node: Node) => {
+    if (!node.name) return
+    setIsScanningMyth(true)
+    try {
+      // Pass undefined pantheon for now to let AI infer
+      const result = await MythScanService.scanEntity(node.name)
+      setScanResult(result)
+    } catch (e) {
+      setError(lang === 'ru' ? 'Ошибка сканирования мифов' : 'Myth scan failed')
+    } finally {
+      setIsScanningMyth(false)
+    }
+  }
+
+  const handleMythSave = (approved: Partial<MythScanResult>) => {
+    if (!selectedNode || !graphData) return
+    
+    // Create new nodes and links from approved data
+    const newNodes: Node[] = []
+    const newLinks: Link[] = []
+    const originId = selectedNode.id
+
+    // Helper to add node if not exists
+    const addNode = (name: string, group: string, meta: any = {}) => {
+      // Check if node exists by name (case-insensitive)
+      const existing = graphData.nodes.find(n => n.name.toLowerCase() === name.toLowerCase())
+      // Also check in newNodes to avoid duplicates in this batch
+      const inBatch = newNodes.find(n => n.name.toLowerCase() === name.toLowerCase())
+      
+      let targetId = existing?.id || inBatch?.id
+
+      if (!targetId) {
+        // Create new
+        targetId = `node_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        newNodes.push({ id: targetId, name: name, type: group as any, ...meta })
+      }
+
+      // Create link if not exists
+      const linkExists = graphData.links.some(l => 
+        (l.source === originId && l.target === targetId) || 
+        (l.source === targetId && l.target === originId)
+      )
+      const linkInBatch = newLinks.some(l => 
+        (l.source === originId && l.target === targetId) || 
+        (l.source === targetId && l.target === originId)
+      )
+
+      if (!linkExists && !linkInBatch) {
+        newLinks.push({ source: originId, target: targetId!, relation: 'associated_with', strength: 'medium' })
+      }
+    }
+
+    // Process categories
+    if (approved.symbols) approved.symbols.forEach(s => addNode(s, 'symbol'))
+    if (approved.plants) approved.plants.forEach(s => addNode(s, 'concept')) // Mapped to concept as 'plant' is not in ALL_TYPES yet
+    if (approved.animals) approved.animals.forEach(s => addNode(s, 'creature'))
+    if (approved.associated_deities) approved.associated_deities.forEach(s => addNode(s, 'deity'))
+    if (approved.sacred_objects) approved.sacred_objects.forEach(s => addNode(s, 'artifact'))
+    if (approved.offerings) approved.offerings.forEach(s => addNode(s, 'concept'))
+    if (approved.colors) approved.colors.forEach(s => addNode(s, 'symbol'))
+    if (approved.elements) approved.elements.forEach(s => addNode(s, 'concept'))
+    if (approved.planets) approved.planets.forEach(s => addNode(s, 'place')) // Mapped loosely
+    if (approved.days) approved.days.forEach(s => addNode(s, 'concept'))
+    if (approved.festivals) approved.festivals.forEach(s => addNode(s, 'ritual'))
+    
+    // Process Epithets
+    if (approved.epithets) {
+      approved.epithets.forEach(ep => {
+        addNode(ep.name, 'epithet', { // 'epithet' is not in ALL_TYPES, will default to generic or need type update. Let's use 'concept' or 'symbol' and add meta
+          meaning: ep.meaning, 
+          epithetType: ep.type, 
+          confidence: ep.confidence,
+          description: `${ep.type}: ${ep.meaning}`
+        })
+      })
+    }
+
+    // Update Graph
+    if (newNodes.length > 0 || newLinks.length > 0) {
+      const updatedGraph = {
+        nodes: [...graphData.nodes, ...newNodes],
+        links: [...graphData.links, ...newLinks]
+      }
+      setGraphData(updatedGraph)
+      setSuccessMsg(lang === 'ru' ? `Добавлено ${newNodes.length} узлов` : `Added ${newNodes.length} nodes`)
+    }
+    
+    setScanResult(null)
+  }
 
   const fetchMythData = async () => {
     if (!selectedNode) return
@@ -752,6 +850,7 @@ export function KnowledgeGraph({ user }: Props) {
     artifact: "text-violet-400 border-violet-500/30 bg-violet-500/10",
     spell: "text-pink-400 border-pink-500/30 bg-pink-500/10",
     sigil: "text-teal-400 border-teal-500/30 bg-teal-500/10",
+    epithet: "text-amber-200 border-amber-300/30 bg-amber-500/10",
   }
 
   const handleNodeClick = useCallback((node: Node) => {
@@ -863,6 +962,17 @@ export function KnowledgeGraph({ user }: Props) {
 
   return (
     <>
+      {/* Myth Review Modal */}
+      <AnimatePresence>
+        {scanResult && (
+          <MythReviewUI 
+            result={scanResult} 
+            onClose={() => setScanResult(null)} 
+            onSave={handleMythSave} 
+          />
+        )}
+      </AnimatePresence>
+
       {/* Guest mode: если нет user.id, показываем ограниченный UI */}
       {!user || !user.id ? (
         <div className="flex flex-col items-center justify-center h-full w-full p-8">
@@ -1345,17 +1455,27 @@ export function KnowledgeGraph({ user }: Props) {
                               
                               {/* Mythology Section */}
                               {!editing && (selectedNode.type === 'deity' || selectedNode.type === 'spirit' || selectedNode.type === 'creature') && (
-                                <div className="pt-2 border-t border-white/5">
-                                   {!mythData && (
+                                <div className="pt-2 border-t border-white/5 space-y-2">
+                                   <div className="flex gap-2">
+                                     {!mythData && (
+                                       <button 
+                                         onClick={fetchMythData} 
+                                         disabled={loadingMyth}
+                                         className="flex-1 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
+                                       >
+                                         {loadingMyth ? <Loader2 className="w-3 h-3 animate-spin"/> : <Search className="w-3 h-3"/>}
+                                         {lang === 'ru' ? 'Быстрый поиск' : 'Quick Lookup'}
+                                       </button>
+                                     )}
                                      <button 
-                                       onClick={fetchMythData} 
-                                       disabled={loadingMyth}
-                                       className="w-full py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
+                                       onClick={() => handleMythScan(selectedNode)}
+                                       disabled={isScanningMyth}
+                                       className="flex-1 py-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
                                      >
-                                       {loadingMyth ? <Loader2 className="w-3 h-3 animate-spin"/> : <Search className="w-3 h-3"/>}
-                                       {lang === 'ru' ? 'Найти в мифах' : 'Search Mythology'}
+                                       {isScanningMyth ? <Loader2 className="w-3 h-3 animate-spin"/> : <Sparkles className="w-3 h-3"/>}
+                                       {lang === 'ru' ? 'AI Сканирование' : 'Find in Myths'}
                                      </button>
-                                   )}
+                                   </div>
                                    {mythData && (
                                      <div className="bg-indigo-500/10 rounded-xl p-3 border border-indigo-500/20 space-y-2 animate-fade-in">
                                        <div className="flex justify-between items-start">

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, Suspense } from 'react'
-import { LanguageProvider, useLang } from './contexts/LanguageContext'
-import { AudioProvider, useAudio } from './contexts/AudioContext'
-import { useAuth } from './hooks/useAuth'
+import { useLang } from './contexts/LanguageContext'
+import { useAudio } from './contexts/AudioContext'
+import { useUser } from './contexts/UserContext'
 // import { blink } from './blink/client' // removed, migrated to Supabase
 import { Sidebar } from './components/layout/Sidebar'
 import { Header } from './components/layout/Header'
@@ -16,6 +16,7 @@ import { registerFeatureOpened } from './lib/unlockNotifications'
 import { initAchievementListener } from './lib/achievements'
 import { eventBus } from './lib/eventBus'
 import toast from 'react-hot-toast'
+import { FloatingLanguageSwitcher } from './components/FloatingLanguageSwitcher'
 
 type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'divination' | 'journal' | 'forum' | 'marketplace' | 'settings' | 'knowledge-graph'
 const PAGE_STORAGE_KEY = 'esoterica_current_page_v1'
@@ -80,10 +81,10 @@ const PAGE_TITLES: Record<Page, { en: string; ru: string }> = {
 }
 
 function AppContent() {
-  const { user, loading } = useAuth()
+  const { user, loading } = useUser()
   const { lang } = useLang()
   const isMobile = useIsMobile()
-  const { isMuted, setIsMuted, playAmbient, playUiSound } = useAudio()
+  const { setIsMuted, playAmbient, playUiSound } = useAudio()
   const safeModeRequested = isSafeModeRequested()
   const [currentPage, setCurrentPage] = useState<Page>(() => {
     if (isSafeModeRequested()) return 'dashboard'
@@ -267,6 +268,7 @@ function AppContent() {
           userTradition={user.tradition}
           onMenuClick={isMobile ? () => setIsSidebarOpen(true) : undefined}
         />
+        <FloatingLanguageSwitcher />
         <main className={`flex-1 ${currentPage === 'altars' || currentPage === 'forum' || currentPage === 'knowledge-graph' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
           <Suspense fallback={<PageLoader />}>
             {currentPage === 'dashboard' && <Pages.Dashboard user={user} onNavigate={(p) => handleNavigate(p as Page)} />}
@@ -547,13 +549,7 @@ function LandingPage() {
 }
 
 function App() {
-  return (
-    <LanguageProvider>
-      <AudioProvider>
-        <AppContent />
-      </AudioProvider>
-    </LanguageProvider>
-  )
+  return <AppContent />
 }
 
 export default App

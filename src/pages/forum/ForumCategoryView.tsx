@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabaseClient'
 import { useLang } from '../../contexts/LanguageContext'
 import { useAudio } from '../../contexts/AudioContext'
@@ -15,15 +16,16 @@ interface Props {
 export function ForumCategoryView({ user, categoryId, onNavigate }: Props) {
   const { lang } = useLang()
   const { playUiSound } = useAudio()
-  const [category, setCategory] = useState<ForumCategory | null>(null)
-  const [topics, setTopics] = useState<ForumTopic[]>([])
-  const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
   const PAGE_SIZE = 20
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
-    try {
+  useEffect(() => {
+    setPage(0)
+  }, [categoryId])
+
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['forum-category', categoryId, page],
+    queryFn: async () => {
       const from = page * PAGE_SIZE
       const to = from + PAGE_SIZE - 1
       const [catRes, topicsRes] = await Promise.all([
@@ -41,10 +43,9 @@ export function ForumCategoryView({ user, categoryId, onNavigate }: Props) {
       ])
 
       const rawTopics = (topicsRes.data || []) as unknown as ForumTopic[]
-      setCategory((catRes.data as unknown as ForumCategory) || getStaticCategory(categoryId))
+      const category = (catRes.data as unknown as ForumCategory) || getStaticCategory(categoryId)
 
-      // Fetch author names
-      const topicsWithAuthors = await Promise.all(
+      const topics = await Promise.all(
         rawTopics.map(async (topic) => {
           try {
             const { data: p } = await supabase
@@ -61,15 +62,13 @@ export function ForumCategoryView({ user, categoryId, onNavigate }: Props) {
           }
         })
       )
-      setTopics(topicsWithAuthors)
-    } catch (e) {
-      console.error('Failed to load category', e)
-    } finally {
-      setLoading(false)
-    }
-  }, [categoryId, page])
 
-  useEffect(() => { loadData() }, [loadData])
+      return { category, topics }
+    },
+  })
+
+  const category = data?.category ?? null
+  const topics = data?.topics ?? []
 
   // Track view
   useEffect(() => {

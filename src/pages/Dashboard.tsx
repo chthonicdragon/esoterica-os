@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
+import type { Lang } from '../i18n/translations'
 import { getMoonPhase, moonEmoji, moonEnergy, moonEnergyRu } from '../utils/moonPhase'
 import { db } from '../lib/platformClient'
 import { FlameKindling, Sparkles, BookOpen, Moon, TrendingUp, Star, Zap, MessageSquare, ChevronUp, ChevronDown, Activity, Bell, X, Trophy, Compass } from 'lucide-react'
@@ -517,9 +518,9 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
 /** Daily Practice Suggestion — context-aware recommendations based on moon phase, XP sources, and streak */
 interface DailyPracticeSuggestionProps {
   moonPhase: string
-  lang: 'en' | 'ru'
-  progression: { ritualXp: number; journalXp: number; knowledgeXp: number; altarXp: number; streak: number; lastPracticeDate: string | null }
-  onNavigate: (page: string) => void
+  lang: Lang
+  progression: any
+  onNavigate: (page: any) => void
 }
 
 function DailyPracticeSuggestion({ moonPhase, lang, progression, onNavigate }: DailyPracticeSuggestionProps) {

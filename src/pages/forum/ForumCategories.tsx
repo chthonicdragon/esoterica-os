@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabaseClient'
 import { useLang } from '../../contexts/LanguageContext'
 import { useAudio } from '../../contexts/AudioContext'
@@ -13,26 +13,18 @@ interface Props {
 export function ForumCategories({ onNavigate }: Props) {
   const { lang } = useLang()
   const { playUiSound } = useAudio()
-  const [categories, setCategories] = useState<ForumCategory[]>(STATIC_CATEGORIES)
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    loadCounts()
-  }, [])
-
-  async function loadCounts() {
-    // Fetch live topic counts per category from forum_topics (which has user_id)
-    try {
+  const { data: categories = STATIC_CATEGORIES, isLoading: loading } = useQuery({
+    queryKey: ['forum-categories'],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('forum_categories')
         .select('*')
         .order('sortOrder', { ascending: true })
       if (error) throw error
-      setCategories((data || []) as ForumCategory[])
-    } catch (e) {
-      // Counts stay at 0 — categories still render fine
-    }
-  }
+      return (data || []) as ForumCategory[]
+    },
+    placeholderData: STATIC_CATEGORIES,
+  })
 
   const handleCategoryClick = (categoryId: string) => {
     playUiSound('click')

@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useLang } from '../contexts/LanguageContext'
+import type { Lang } from '../i18n/translations'
 import { useAudio } from '../contexts/AudioContext'
 import { db } from '../lib/platformClient'
 import { Magic8Ball } from '../components/Magic8Ball'

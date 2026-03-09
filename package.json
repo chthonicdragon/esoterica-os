@@ -15,8 +15,10 @@
     "lint": "bun run lint:types && bun run lint:js && bun run lint:css && bun run check:css-vars && bun run check:css-classes"
   },
   "devDependencies": {
+    "jsdom": "^28.1.0",
     "typescript": "~5.9.3",
-    "vite": "^7.2.4"
+    "vite": "^7.2.4",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
     "@blinkdotnew/sdk": "^2.3.7",

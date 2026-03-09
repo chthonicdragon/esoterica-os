@@ -157,24 +157,54 @@ export const MythologyService = {
     // 2. Check Local Fallback DB
     if (LOCAL_MYTH_DB[key]) return LOCAL_MYTH_DB[key]
 
-    // 3. Try Serverless API (Vercel) to avoid exposing keys on client
-    try {
-      const serverRes = await fetch(`/api/mythology?name=${encodeURIComponent(name)}`)
-      if (serverRes.status === 204) {
-        console.warn('Mythology server reports missing API key')
-      } else if (serverRes.ok) {
-        const entity = await serverRes.json()
-        if (entity && entity.name) {
-          localStorage.setItem(MYTH_CACHE_KEY + key, JSON.stringify(entity))
-          return entity
+    // 3. Try Serverless API (skip in local dev to avoid noisy 404/HTML)
+    // Actually, in local dev we want to fallback to Wikipedia if serverless is missing
+    const isLocal = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)/.test(window.location.hostname)
+    
+    if (!isLocal) {
+      try {
+        const serverRes = await fetch(`/api/mythology?name=${encodeURIComponent(name)}`)
+        if (serverRes.ok) {
+          const entity = await serverRes.json()
+          if (entity && entity.name) {
+            localStorage.setItem(MYTH_CACHE_KEY + key, JSON.stringify(entity))
+            return entity
+          }
         }
-      } else if (serverRes.status === 404) {
-        return null
-      } else {
-        console.warn('Mythology server error:', serverRes.status)
+      } catch {}
+    }
+
+    // 4. Fallback: Wikipedia Summary (Client-side)
+    try {
+      // Try Russian Wiki first if Cyrillic
+      const isCyrillic = /[а-яА-ЯёЁ]/.test(name)
+      const lang = isCyrillic ? 'ru' : 'en'
+      
+      const searchRes = await fetch(`https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(name)}&format=json&origin=*`)
+      const searchData = await searchRes.json()
+      const pageTitle = searchData?.query?.search?.[0]?.title
+
+      if (pageTitle) {
+        const contentRes = await fetch(`https://${lang}.wikipedia.org/w/api.php?action=query&prop=extracts&exintro&explaintext&titles=${encodeURIComponent(pageTitle)}&format=json&origin=*`)
+        const contentData = await contentRes.json()
+        const pages = contentData?.query?.pages || {}
+        const pageId = Object.keys(pages)[0]
+        if (pageId && pageId !== '-1') {
+          const extract = pages[pageId].extract
+          if (extract) {
+            const entity: MythologyEntity = {
+              name: pageTitle,
+              pantheon: 'Unknown', // Hard to extract reliably without AI, but better than nothing
+              description: extract.slice(0, 300) + '...',
+              domain: 'Mythology'
+            }
+            localStorage.setItem(MYTH_CACHE_KEY + key, JSON.stringify(entity))
+            return entity
+          }
+        }
       }
     } catch (e) {
-      console.warn('Mythology serverless fetch failed', e)
+      console.warn('Wiki fallback failed', e)
     }
 
     return null
@@ -231,20 +261,26 @@ export const NumerologyService = {
 // --- Translation Helper (Simple Dictionary) ---
 
 const DICTIONARY: Record<string, string> = {
-  'aries': 'Овен', 'taurus': 'Телец', 'gemini': 'Близнецы', 'cancer': 'Рак',
-  'leo': 'Лев', 'virgo': 'Дева', 'libra': 'Весы', 'scorpio': 'Скорпион',
-  'sagittarius': 'Стрелец', 'capricorn': 'Козерог', 'aquarius': 'Водолей', 'pisces': 'Рыбы',
-  'today': 'сегодня', 'tomorrow': 'завтра', 'yesterday': 'вчера',
-  'compatibility': 'Совместимость', 'mood': 'Настроение', 'color': 'Цвет',
-  'lucky_number': 'Число удачи', 'lucky_time': 'Время удачи',
-  'focused': 'Сфокусированное', 'happy': 'Счастливое', 'calm': 'Спокойное',
-  'energetic': 'Энергичное', 'lazy': 'Ленивое', 'creative': 'Творческое'
+  'aries': 'Овен|Aries', 'taurus': 'Телец|Tauro', 'gemini': 'Близнецы|Géminis', 'cancer': 'Рак|Cáncer',
+  'leo': 'Лев|Leo', 'virgo': 'Дева|Virgo', 'libra': 'Весы|Libra', 'scorpio': 'Скорпион|Escorpio',
+  'sagittarius': 'Стрелец|Sagitario', 'capricorn': 'Козерог|Capricornio', 'aquarius': 'Водолей|Acuario', 'pisces': 'Рыбы|Piscis',
+  'today': 'сегодня|hoy', 'tomorrow': 'завтра|mañana', 'yesterday': 'вчера|ayer',
+  'compatibility': 'Совместимость|Compatibilidad', 'mood': 'Настроение|Estado de ánimo', 'color': 'Цвет|Color',
+  'lucky_number': 'Число удачи|Número de la suerte', 'lucky_time': 'Время удачи|Hora de la suerte',
+  'focused': 'Сфокусированное|Enfocado', 'happy': 'Счастливое|Feliz', 'calm': 'Спокойное|Calmado',
+  'energetic': 'Энергичное|Energético', 'lazy': 'Ленивое|Perezoso', 'creative': 'Творческое|Creativo'
 }
 
 export const TranslationService = {
-  translate(text: string, lang: 'en' | 'ru'): string {
+  translate(text: string, lang: 'en' | 'ru' | 'es'): string {
     if (lang === 'en') return text
     const lower = text.toLowerCase()
-    return DICTIONARY[lower] || text
+    const entry = DICTIONARY[lower]
+    if (!entry) return text
+    
+    const [ru, es] = entry.split('|')
+    if (lang === 'ru') return ru || text
+    if (lang === 'es') return es || ru || text
+    return text
   }
 }

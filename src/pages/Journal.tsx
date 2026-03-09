@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLang } from '../contexts/LanguageContext'
 import { useAudio } from '../contexts/AudioContext'
 import { useIsMobile } from '../hooks/use-mobile'
@@ -28,82 +29,82 @@ export function Journal({ user }: JournalProps) {
   const { t, lang } = useLang()
   const { playUiSound } = useAudio()
   const isMobile = useIsMobile()
-  const [entries, setEntries] = useState<JournalEntry[]>([])
+  const queryClient = useQueryClient()
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null)
   const [showForm, setShowForm] = useState(false)
-  const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({ title: '', content: '', type: 'dream', mood: '🌙' })
 
-  useEffect(() => { loadEntries() }, [user.id])
-
-  async function loadEntries() {
-    try {
-      const { data } = await supabase
+  const { data: entries = [], isLoading: loading } = useQuery({
+    queryKey: ['journals', user.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
         .from('journals')
         .select('*')
         .eq('userId', user.id)
         .order('createdAt', { ascending: false })
         .limit(50)
-      setEntries((data as JournalEntry[]) || [])
-    } catch (e) { console.error(e) } finally { setLoading(false) }
-  }
+      if (error) throw error
+      return (data as JournalEntry[]) || []
+    },
+  })
+
+  const saveEntryMutation = useMutation({
+    mutationFn: async (payload: { title: string; content: string; type: string; mood: string }) => {
+      const { data: entry, error } = await supabase
+        .from('journals')
+        .insert([{ userId: user.id, title: payload.title, content: payload.content, type: payload.type, mood: payload.mood, symbols: JSON.stringify([]), createdAt: new Date().toISOString() }])
+        .select()
+        .single()
+      if (error) throw error
+      return entry as JournalEntry
+    },
+  })
 
   async function saveEntry() {
     if (!form.title.trim() || !form.content.trim()) return
     playUiSound('click')
+    const snapshot = { ...form }
     try {
-      const { data: entry, error } = await supabase
-        .from('journals')
-        .insert([{
-          userId: user.id,
-          title: form.title,
-          content: form.content,
-          type: form.type,
-          mood: form.mood,
-          symbols: JSON.stringify([]),
-          createdAt: new Date().toISOString(),
-        }])
-        .select()
-        .single()
-      if (error) throw error
-      if (entry) {
-        setEntries(prev => [entry as JournalEntry, ...prev])
-        setShowForm(false)
-        setSelectedEntry(entry as JournalEntry)
-        const lengthBonus = Math.min(6, Math.floor(form.content.length / 350))
-        const typeBonus = form.type === 'dream' ? ACTION_POINTS.dreamEntryBonus : 2
-        const pointsAward = ACTION_POINTS.journalEntryBase + typeBonus + lengthBonus
-        const { pointsEarned, progression } = grantProgressionPoints(pointsAward, 'journal')
-        syncProgressionToDb(user.id, progression)
-        setForm({ title: '', content: '', type: 'dream', mood: '🌙' })
-        playUiSound('success')
-        toast.success(
-          lang === 'ru'
-            ? `Запись сохранена (+${pointsEarned} XP)`
-            : `Entry saved (+${pointsEarned} XP)`
-        )
-
-        // Background: extract entities from journal text and merge into Knowledge Graph
-        const fullText = `${form.title}. ${form.content}`
-        extractAndMerge(fullText, lang as 'en' | 'ru', form.type === 'dream' ? 'dream' : 'journal', user.id).then(result => {
-          if (result && result.added > 0) {
-            toast.success(
-              lang === 'ru'
-                ? `🕸 Паутина: +${result.added} ${result.added === 1 ? 'символ' : 'символов'}`
-                : `🕸 Web: +${result.added} ${result.added === 1 ? 'symbol' : 'symbols'}`,
-              { duration: 3000 }
-            )
-          }
-        })
-      }
-    } catch (e) { toast.error(t.error) }
+      const entry = await saveEntryMutation.mutateAsync(snapshot)
+      queryClient.setQueryData<JournalEntry[]>(['journals', user.id], (prev = []) => [entry, ...prev])
+      setShowForm(false)
+      setSelectedEntry(entry)
+      const lengthBonus = Math.min(6, Math.floor(snapshot.content.length / 350))
+      const typeBonus = snapshot.type === 'dream' ? ACTION_POINTS.dreamEntryBonus : 2
+      const pointsAward = ACTION_POINTS.journalEntryBase + typeBonus + lengthBonus
+      const { pointsEarned, progression } = grantProgressionPoints(pointsAward, 'journal')
+      syncProgressionToDb(user.id, progression)
+      setForm({ title: '', content: '', type: 'dream', mood: '🌙' })
+      playUiSound('success')
+      toast.success(lang === 'ru' ? `Запись сохранена (+${pointsEarned} XP)` : `Entry saved (+${pointsEarned} XP)`)
+      const fullText = `${snapshot.title}. ${snapshot.content}`
+      extractAndMerge(fullText, lang as 'en' | 'ru', snapshot.type === 'dream' ? 'dream' : 'journal', user.id).then(result => {
+        if (result && result.added > 0) {
+          toast.success(lang === 'ru' ? `🕸 Паутина: +${result.added} ${result.added === 1 ? 'символ' : 'символов'}` : `🕸 Web: +${result.added} ${result.added === 1 ? 'symbol' : 'symbols'}`, { duration: 3000 })
+        }
+      })
+    } catch {
+      toast.error(t.error)
+    }
   }
+
+  const deleteEntryMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('journals').delete().eq('id', id)
+      if (error) throw error
+      return id
+    },
+  })
 
   async function deleteEntry(id: string) {
     playUiSound('click')
-    await supabase.from('journals').delete().eq('id', id)
-    setEntries(prev => prev.filter(e => e.id !== id))
-    if (selectedEntry?.id === id) setSelectedEntry(null)
+    try {
+      await deleteEntryMutation.mutateAsync(id)
+      queryClient.setQueryData<JournalEntry[]>(['journals', user.id], (prev = []) => prev.filter(e => e.id !== id))
+      if (selectedEntry?.id === id) setSelectedEntry(null)
+    } catch {
+      toast.error(t.error)
+    }
   }
 
   const typeColors: Record<string, string> = {

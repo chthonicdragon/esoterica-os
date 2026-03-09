@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useLang } from '../../contexts/LanguageContext'
+import type { Lang } from '../../i18n/translations'
 import { useAudio } from '../../contexts/AudioContext'
 import { ForumCategories } from './ForumCategories'
 import { ForumCategoryView } from './ForumCategoryView'
@@ -92,8 +93,11 @@ function SearchIcon() {
 
 interface BreadcrumbProps {
   view: ForumView
-  lang: 'en' | 'ru'
-  onNavigate: (to: ForumView, params?: { categoryId?: string; topicId?: string }) => void
+  categoryId?: string
+  categoryName?: string
+  topicTitle?: string
+  onNavigate: (view: ForumView, params?: any) => void
+  lang: Lang
 }
 
 function Breadcrumb({ view, lang, onNavigate }: BreadcrumbProps) {

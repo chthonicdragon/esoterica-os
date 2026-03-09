@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { db } from '../../lib/platformClient'
 import { useLang } from '../../contexts/LanguageContext'
 import { useAudio } from '../../contexts/AudioContext'
@@ -15,9 +16,45 @@ interface Props {
 export function ForumNewTopic({ user, categoryId, onNavigate, onSuccess }: Props) {
   const { lang } = useLang()
   const { playUiSound } = useAudio()
+  const queryClient = useQueryClient()
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+
+  const createTopicMutation = useMutation({
+    mutationFn: async ({ nextTitle, nextContent }: { nextTitle: string; nextContent: string }) => {
+      const topicId = `topic_${Date.now()}`
+      const postId = `post_${Date.now()}`
+      const now = new Date().toISOString()
+
+      await db.forumTopics.create({
+        id: topicId,
+        categoryId,
+        userId: user.id,
+        title: nextTitle,
+        isPinned: 0,
+        isLocked: 0,
+        viewCount: 0,
+        replyCount: 0,
+        lastPostAt: now,
+        lastPostUserId: user.id,
+        createdAt: now,
+        updatedAt: now,
+      })
+
+      await db.forumPosts.create({
+        id: postId,
+        topicId,
+        userId: user.id,
+        content: nextContent,
+        likeCount: 0,
+        isDeleted: 0,
+        isEdited: 0,
+        createdAt: now,
+      })
+
+      return topicId
+    },
+  })
 
   const handleSubmit = async () => {
     // Validation
@@ -38,48 +75,19 @@ export function ForumNewTopic({ user, categoryId, onNavigate, onSuccess }: Props
       return
     }
 
-    setSubmitting(true)
     try {
-      const topicId = `topic_${Date.now()}`
-      const postId = `post_${Date.now()}`
-      const now = new Date().toISOString()
-
-      // Create topic
-      await db.forumTopics.create({
-        id: topicId,
-        categoryId,
-        userId: user.id,
-        title: title.trim(),
-        isPinned: 0,
-        isLocked: 0,
-        viewCount: 0,
-        replyCount: 0,
-        lastPostAt: now,
-        lastPostUserId: user.id,
-        createdAt: now,
-        updatedAt: now,
+      const topicId = await createTopicMutation.mutateAsync({
+        nextTitle: title.trim(),
+        nextContent: content.trim(),
       })
-
-      // Create first post
-      await db.forumPosts.create({
-        id: postId,
-        topicId,
-        userId: user.id,
-        content: content.trim(),
-        likeCount: 0,
-        isDeleted: 0,
-        isEdited: 0,
-        createdAt: now,
-      })
-
+      await queryClient.invalidateQueries({ queryKey: ['forum-categories'] })
+      await queryClient.invalidateQueries({ queryKey: ['forum-category', categoryId] })
       playUiSound('success')
       toast.success(lang === 'ru' ? 'Тема создана!' : 'Topic created!')
       onSuccess(topicId)
     } catch (e) {
       console.error(e)
       toast.error(lang === 'ru' ? 'Ошибка создания темы' : 'Failed to create topic')
-    } finally {
-      setSubmitting(false)
     }
   }
 
@@ -149,10 +157,10 @@ export function ForumNewTopic({ user, categoryId, onNavigate, onSuccess }: Props
           </button>
           <button
             onClick={handleSubmit}
-            disabled={submitting || !title.trim() || !content.trim()}
+            disabled={createTopicMutation.isPending || !title.trim() || !content.trim()}
             className="flex-1 px-4 py-3 rounded-xl bg-primary/15 border border-primary/30 text-primary text-sm font-medium hover:bg-primary/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
-            {submitting ? '...' : lang === 'ru' ? 'Создать тему' : 'Create Topic'}
+            {createTopicMutation.isPending ? '...' : lang === 'ru' ? 'Создать тему' : 'Create Topic'}
           </button>
         </div>
       </div>

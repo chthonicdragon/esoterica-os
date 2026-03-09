@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { db } from '../../lib/platformClient'
 import { useLang } from '../../contexts/LanguageContext'
 import { useAudio } from '../../contexts/AudioContext'
@@ -21,16 +22,10 @@ export function ForumSearch({ onNavigate, initialQuery = '' }: Props) {
   const { lang } = useLang()
   const { playUiSound } = useAudio()
   const [query, setQuery] = useState(initialQuery)
-  const [results, setResults] = useState<SearchResult[]>([])
-  const [searching, setSearching] = useState(false)
   const [searched, setSearched] = useState(false)
 
-  const handleSearch = useCallback(async (q: string) => {
-    if (!q.trim() || q.trim().length < 2) return
-    setSearching(true)
-    setSearched(true)
-    try {
-      // Search in posts content
+  const searchMutation = useMutation({
+    mutationFn: async (q: string) => {
       const allPosts = await db.forumPosts.list({
         where: { isDeleted: { eq: '0' } },
         limit: 200,
@@ -41,7 +36,6 @@ export function ForumSearch({ onNavigate, initialQuery = '' }: Props) {
         .filter(p => p.content.toLowerCase().includes(lowerQ))
         .slice(0, 20)
 
-      // Also search topic titles
       const allTopics = await db.forumTopics.list({ limit: 200 })
       const matchingTopicIds = new Set<string>(
         (allTopics as unknown as ForumTopic[])
@@ -49,7 +43,6 @@ export function ForumSearch({ onNavigate, initialQuery = '' }: Props) {
           .map(t => t.id)
       )
 
-      // Combine: get topics for matching posts
       const combined: SearchResult[] = []
       const seenTopics = new Set<string>()
 
@@ -65,7 +58,6 @@ export function ForumSearch({ onNavigate, initialQuery = '' }: Props) {
         }
       }
 
-      // Add topics found by title
       for (const topicId of matchingTopicIds) {
         if (!seenTopics.has(topicId)) {
           const topic = (allTopics as unknown as ForumTopic[]).find(t => t.id === topicId)
@@ -76,22 +68,30 @@ export function ForumSearch({ onNavigate, initialQuery = '' }: Props) {
         }
       }
 
-      setResults(combined)
+      return combined
+    },
+  })
+
+  const handleSearch = async (q: string) => {
+    if (!q.trim() || q.trim().length < 2) return
+    setSearched(true)
+    try {
+      await searchMutation.mutateAsync(q)
     } catch (e) {
       console.error('Search failed', e)
-    } finally {
-      setSearching(false)
     }
-  }, [])
+  }
 
   useEffect(() => {
-    if (initialQuery) handleSearch(initialQuery)
-  }, [initialQuery, handleSearch])
+    if (initialQuery) {
+      void handleSearch(initialQuery)
+    }
+  }, [initialQuery])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       playUiSound('click')
-      handleSearch(query)
+      void handleSearch(query)
     }
   }
 
@@ -127,27 +127,27 @@ export function ForumSearch({ onNavigate, initialQuery = '' }: Props) {
             autoFocus
           />
           <button
-            onClick={() => { playUiSound('click'); handleSearch(query) }}
-            disabled={searching || !query.trim()}
+            onClick={() => { playUiSound('click'); void handleSearch(query) }}
+            disabled={searchMutation.isPending || !query.trim()}
             className="px-5 py-2.5 rounded-xl bg-primary/15 border border-primary/30 text-primary text-sm font-medium hover:bg-primary/25 disabled:opacity-50 transition-all"
           >
-            {searching ? '...' : lang === 'ru' ? 'Найти' : 'Search'}
+            {searchMutation.isPending ? '...' : lang === 'ru' ? 'Найти' : 'Search'}
           </button>
         </div>
       </div>
 
       {/* Results */}
-      {searched && !searching && (
+      {searched && !searchMutation.isPending && (
         <div>
           <p className="text-xs text-muted-foreground mb-3">
-            {results.length === 0
+            {(searchMutation.data || []).length === 0
               ? lang === 'ru' ? 'Ничего не найдено' : 'No results found'
-              : lang === 'ru' ? `Найдено: ${results.length} тем` : `Found: ${results.length} topics`
+              : lang === 'ru' ? `Найдено: ${(searchMutation.data || []).length} тем` : `Found: ${(searchMutation.data || []).length} topics`
             }
           </p>
 
           <div className="space-y-2">
-            {results.map((result, i) => (
+            {(searchMutation.data || []).map((result, i) => (
               <button
                 key={i}
                 onClick={() => { playUiSound('click'); onNavigate('topic', { topicId: result.topic.id }) }}

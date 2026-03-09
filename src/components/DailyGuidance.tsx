@@ -3,6 +3,7 @@ import { useLang } from '../contexts/LanguageContext'
 import { AstrologyService, NumerologyService, TranslationService, type Horoscope } from '../services/magicalDataService'
 import { Sparkles, Star, Calendar, RefreshCw, Settings } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { AutoTranslate } from './AutoTranslate'
 
 const ZODIAC_SIGNS = [
   'aries', 'taurus', 'gemini', 'cancer', 'leo', 'virgo', 
@@ -159,15 +160,15 @@ export function DailyGuidance() {
             <div className="space-y-2">
               <div className="flex justify-between items-end">
                 <span className="text-lg font-serif text-indigo-100 capitalize">
-                  {TranslationService.translate(sign, lang)}
+                  <AutoTranslate>{sign}</AutoTranslate>
                   {easternSign && <span className="text-sm text-indigo-300 ml-2">({easternSign})</span>}
                 </span>
                 <span className="text-[10px] text-indigo-400">{horoscope.date_range}</span>
               </div>
               
-              <p className="text-xs text-indigo-200/80 leading-relaxed italic">
-                "{horoscope.description}"
-              </p>
+              <div className="text-xs text-indigo-200/80 leading-relaxed italic">
+                <AutoTranslate>{horoscope.description}</AutoTranslate>
+              </div>
               
               <div className="flex flex-wrap gap-2 mt-2">
                 <Badge label={lang === 'ru' ? 'Настроение' : 'Mood'} value={horoscope.mood} color="bg-blue-500/20 text-blue-300" />

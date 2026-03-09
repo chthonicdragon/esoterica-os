@@ -1,4 +1,4 @@
-export type Lang = 'en' | 'ru'
+export type Lang = 'en' | 'ru' | 'es'
 
 export const translations = {
   en: {
@@ -229,14 +229,22 @@ export const translations = {
 
     // Sigil Lab
     sigilLabTitle: 'Лаборатория Сигил',
-    enterIntention: 'Введите своё намерение...',
-    generateSigilBtn: 'Создать сигил',
-    chargeSigil: 'Зарядить сигил',
+    enterIntention: 'Введите ваше намерение...',
+    generateSigilBtn: 'Создать Сигил',
+    chargeSigil: 'Зарядить Сигил',
     exportSigil: 'Экспорт',
-    mySigils: 'Мои сигилы',
-    generating: 'Создание...',
+    mySigils: 'Мои Сигилы',
+    generating: 'Генерация...',
     sigilCharged: 'Сигил заряжен',
     noSigils: 'Сигилов пока нет. Создайте свой первый сигил.',
+
+    // Knowledge Graph
+    pantheons: 'Пантеоны',
+    planetary: 'Планеты',
+    elements: 'Стихии',
+    offerings: 'Подношения',
+    genSigil: 'Созд. Сигил',
+    suggestLinks: 'Предложить связи',
 
     // Journal
     dreamJournal: 'Журнал снов',
@@ -277,6 +285,152 @@ export const translations = {
     close: 'Закрыть',
     confirm: 'Подтвердить',
   },
+  es: {
+    // Nav
+    dashboard: 'Tablero',
+    altars: 'Altares',
+    aiMentor: 'Mentor IA',
+    ritualTracker: 'Rastreador de Rituales',
+    sigilLab: 'Laboratorio de Sigilos',
+    divination: 'Oráculo',
+    journal: 'Diario',
+    forum: 'Foro',
+    knowledgeGraph: 'Gráfico de Conocimiento',
+    marketplace: 'Mercado',
+    settings: 'Ajustes',
+
+    // Dashboard
+    welcomeBack: 'Bienvenido de nuevo',
+    todayPhase: "Fase Lunar de Hoy",
+    currentStreak: 'Racha de Práctica',
+    days: 'días',
+    recentRituals: 'Rituales Recientes',
+    quickActions: 'Acciones Rápidas',
+    newRitual: 'Nuevo Ritual',
+    newJournal: 'Nueva Entrada de Diario',
+    generateSigil: 'Generar Sigilo',
+    openAltar: 'Abrir Altar',
+    initiationLevel: 'Nivel de Iniciación',
+    totalRituals: 'Total de Rituales',
+    noRituals: 'Aún no hay rituales. Comienza tu práctica.',
+    moonPhases: {
+      new: 'Luna Nueva',
+      waxingCrescent: 'Luna Creciente',
+      firstQuarter: 'Cuarto Creciente',
+      waxingGibbous: 'Gibosa Creciente',
+      full: 'Luna Llena',
+      waningGibbous: 'Gibosa Menguante',
+      lastQuarter: 'Cuarto Menguante',
+      waningCrescent: 'Luna Menguante',
+    },
+
+    // Altars
+    myAltars: 'Mis Altares',
+    createAltar: 'Crear Altar',
+    altarName: 'Nombre del Altar',
+    tradition: 'Tradición',
+    addObject: 'Añadir Objeto',
+    beginRitual: 'Comenzar Ritual',
+    endRitual: 'Terminar Ritual',
+    altarObjects: 'Objetos Sagrados',
+    noAltars: 'Aún no hay altares. Crea tu primer espacio sagrado.',
+    traditions: {
+      hellenic: 'Helénica',
+      slavic: 'Eslava',
+      norse: 'Nórdica',
+      daemonic: 'Demoníaca',
+      custom: 'Personalizada',
+      eclectic: 'Ecléctica',
+    },
+
+    // AI Mentor
+    aiMentorTitle: 'Mentor de Arquetipos IA',
+    selectArchetype: 'Selecciona tu arquetipo guía',
+    archetypes: {
+      hecate: 'Hécate — Guardiana de las Encrucijadas',
+      hermes: 'Hermes — Mensajero de los Misterios',
+      morrigan: 'Morrigan — Tejedora del Destino',
+      odin: 'Odín — Buscador de Sabiduría',
+      lilith: 'Lilith — Soberana del Ser',
+    },
+    askMentor: 'Pregunta a tu mentor...',
+    send: 'Enviar',
+    mentorDisclaimer: 'Esta IA ofrece solo perspectivas simbólicas y psicológicas. No es consejo médico o legal.',
+    analyzing: 'Analizando tu práctica...',
+    ritualInsight: 'Perspectiva Ritual',
+    dreamPattern: 'Patrón de Sueños',
+
+    // Ritual Tracker
+    logRitual: 'Registrar Ritual',
+    ritualTitle: 'Título del Ritual',
+    intention: 'Intención',
+    energyLevel: 'Nivel de Energía',
+    outcome: 'Resultado',
+    notes: 'Notas',
+    save: 'Guardar',
+    cancel: 'Cancelar',
+    ritualHistory: 'Historia de Rituales',
+    moonEnergy: 'Energía Lunar',
+    wheelOfYear: 'Rueda del Año',
+
+    // Sigil Lab
+    sigilLabTitle: 'Laboratorio de Sigilos',
+    enterIntention: 'Introduce tu intención...',
+    generateSigilBtn: 'Generar Sigilo',
+    chargeSigil: 'Cargar Sigilo',
+    exportSigil: 'Exportar',
+    mySigils: 'Mis Sigilos',
+    generating: 'Generando...',
+    sigilCharged: 'Sigilo cargado',
+    
+    // Knowledge Graph
+    pantheons: 'Panteones',
+    planetary: 'Planetario',
+    elements: 'Elementos',
+    offerings: 'Ofrendas',
+    genSigil: 'Generar Sigilo',
+    suggestLinks: 'Sugerir Enlaces',
+
+    // Journal
+    dreamJournal: 'Diario de Sueños',
+    newEntry: 'Nueva Entrada',
+    entryTitle: 'Título',
+    journalContent: 'Escribe tu experiencia...',
+    entryType: 'Tipo',
+    types: {
+      dream: 'Sueño',
+      ritual: 'Ritual',
+      vision: 'Visión',
+      meditation: 'Meditación',
+    },
+    myEntries: 'Mis Entradas',
+    noEntries: 'No hay entradas aún.',
+
+    // Settings
+    settingsTitle: 'Ajustes',
+    language: 'Idioma',
+    archetype: 'Tu Arquetipo',
+    yourTradition: 'Tu Tradición',
+    displayName: 'Nombre para mostrar',
+    saveSettings: 'Guardar Ajustes',
+    settingsSaved: 'Ajustes guardados',
+
+    // Auth
+    signIn: 'Iniciar Sesión',
+    welcome: 'Bienvenido a Esoterica OS',
+    tagline: 'Tu sistema operativo de transformación personal',
+    continueWith: 'Continuar para entrar',
+
+    // Common
+    loading: 'Cargando...',
+    error: 'Ocurrió un error',
+    success: 'Éxito',
+    delete: 'Eliminar',
+    edit: 'Editar',
+    close: 'Cerrar',
+    confirm: 'Confirmar',
+    noSigils: 'No hay sigilos aún. Crea tu primer sigilo.',
+  }
 }
 
 export type Translations = typeof translations.en

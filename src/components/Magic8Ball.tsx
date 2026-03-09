@@ -4,11 +4,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Save, HelpCircle } from 'lucide-react';
 import { Node } from '../services/openRouterService';
 import { useLang } from '../contexts/LanguageContext';
+import type { Lang } from '../i18n/translations';
 
 interface Magic8BallProps {
-  entity?: Node;
-  onSave?: (prediction: string, entityId?: string) => void;
-  lang?: 'en' | 'ru';
+  entity: any;
+  onSave: (question: string, answer: string) => void;
+  lang?: Lang;
 }
 
 // Fallback answers if API fails
