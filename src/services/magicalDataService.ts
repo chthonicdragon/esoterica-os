@@ -47,6 +47,14 @@ export const AstrologyService = {
     if (cached) return JSON.parse(cached)
 
     const fetchWithProxy = async () => {
+       // Strategy 0: Serverless proxy (Vercel) to avoid CORS in production
+       try {
+         const serverRes = await fetch(`/api/horoscope?sign=${encodeURIComponent(sign)}&day=${encodeURIComponent(day)}`)
+         if (serverRes.ok) {
+           const serverData = await serverRes.json()
+           return serverData
+         }
+       } catch (e) {}
        // Strategy 1: Horoscope App API (GET) - usually reliable
        try {
          const targetUrl = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/daily?sign=${sign}&day=${day}`
@@ -149,35 +157,24 @@ export const MythologyService = {
     // 2. Check Local Fallback DB
     if (LOCAL_MYTH_DB[key]) return LOCAL_MYTH_DB[key]
 
-    // 3. Try API (API Ninjas) - Requires Key
-    // Note: We use a placeholder key. If it fails, we return null.
-    // In a real app, this should be an env variable: import.meta.env.VITE_API_NINJAS_KEY
-    const apiKey = import.meta.env.VITE_API_NINJAS_KEY
-    if (apiKey) {
-      try {
-        const response = await fetch(`https://api.api-ninjas.com/v1/mythology?name=${name}`, {
-          headers: { 'X-Api-Key': apiKey }
-        })
-        if (response.ok) {
-          const data = await response.json()
-          if (data && data.length > 0) {
-            const entity = {
-              name: data[0].name,
-              pantheon: data[0].culture || data[0].pantheon, // API Ninjas uses 'culture' sometimes
-              domain: data[0].topic || data[0].domain,
-              description: data[0].text
-            }
-            localStorage.setItem(MYTH_CACHE_KEY + key, JSON.stringify(entity))
-            return entity
-          }
-        } else {
-           console.warn('Mythology API Error:', response.status, response.statusText)
+    // 3. Try Serverless API (Vercel) to avoid exposing keys on client
+    try {
+      const serverRes = await fetch(`/api/mythology?name=${encodeURIComponent(name)}`)
+      if (serverRes.status === 204) {
+        console.warn('Mythology server reports missing API key')
+      } else if (serverRes.ok) {
+        const entity = await serverRes.json()
+        if (entity && entity.name) {
+          localStorage.setItem(MYTH_CACHE_KEY + key, JSON.stringify(entity))
+          return entity
         }
-      } catch (e) {
-        console.warn('Mythology API failed, using fallback/null', e)
+      } else if (serverRes.status === 404) {
+        return null
+      } else {
+        console.warn('Mythology server error:', serverRes.status)
       }
-    } else {
-       console.warn('Mythology API Key missing')
+    } catch (e) {
+      console.warn('Mythology serverless fetch failed', e)
     }
 
     return null
