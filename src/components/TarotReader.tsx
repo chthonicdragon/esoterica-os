@@ -2,75 +2,27 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, RefreshCw } from 'lucide-react';
-
-interface TarotCard {
-  name: string;
-  suit?: string;
-  meaning_up: string;
-  meaning_rev: string;
-  image?: string; // We might construct this or get from API
-  desc?: string;
-}
-
-// Minimal fallback set (Major Arcana)
-const FALLBACK_CARDS: TarotCard[] = [
-  { name: 'The Fool', meaning_up: 'Beginnings, innocence, spontaneity, a free spirit', meaning_rev: 'Holding back, recklessness, risk-taking' },
-  { name: 'The Magician', meaning_up: 'Manifestation, resourcefulness, power, inspired action', meaning_rev: 'Manipulation, poor planning, untapped talents' },
-  { name: 'The High Priestess', meaning_up: 'Intuition, sacred knowledge, divine feminine, the subconscious mind', meaning_rev: 'Secrets, disconnected from intuition, withdrawal and silence' },
-  { name: 'The Empress', meaning_up: 'Femininity, beauty, nature, nurturing, abundance', meaning_rev: 'Creative block, dependence on others' },
-  { name: 'The Emperor', meaning_up: 'Authority, establishment, structure, a father figure', meaning_rev: 'Domination, excessive control, lack of discipline' },
-  { name: 'The Hierophant', meaning_up: 'Spiritual wisdom, religious beliefs, conformity, tradition, institutions', meaning_rev: 'Personal beliefs, freedom, challenging the status quo' },
-  { name: 'The Lovers', meaning_up: 'Love, harmony, relationships, values alignment, choices', meaning_rev: 'Self-love, disharmony, imbalance, misalignment of values' },
-  { name: 'The Chariot', meaning_up: 'Control, willpower, success, action, determination', meaning_rev: 'Self-discipline, opposition, lack of direction' },
-  { name: 'Strength', meaning_up: 'Strength, courage, persuasion, influence, compassion', meaning_rev: 'Inner strength, self-doubt, low energy, raw emotion' },
-  { name: 'The Hermit', meaning_up: 'Soul-searching, introspection, being alone, inner guidance', meaning_rev: 'Isolation, loneliness, withdrawal' },
-  { name: 'Wheel of Fortune', meaning_up: 'Good luck, karma, life cycles, destiny, a turning point', meaning_rev: 'Bad luck, resistance to change, breaking cycles' },
-  { name: 'Justice', meaning_up: 'Justice, fairness, truth, cause and effect, law', meaning_rev: 'Unfairness, lack of accountability, dishonesty' },
-  { name: 'The Hanged Man', meaning_up: 'Pause, surrender, letting go, new perspectives', meaning_rev: 'Delays, resistance, stalling, indecision' },
-  { name: 'Death', meaning_up: 'Endings, change, transformation, transition', meaning_rev: 'Resistance to change, personal transformation, inner purging' },
-  { name: 'Temperance', meaning_up: 'Balance, moderation, patience, purpose', meaning_rev: 'Imbalance, excess, self-healing, re-alignment' },
-  { name: 'The Devil', meaning_up: 'Shadow self, attachment, addiction, restriction, sexuality', meaning_rev: 'Releasing limiting beliefs, exploring dark thoughts, detachment' },
-  { name: 'The Tower', meaning_up: 'Sudden change, upheaval, chaos, revelation, awakening', meaning_rev: 'Personal transformation, fear of change, averting disaster' },
-  { name: 'The Star', meaning_up: 'Hope, faith, purpose, renewal, spirituality', meaning_rev: 'Lack of faith, despair, self-trust, disconnection' },
-  { name: 'The Moon', meaning_up: 'Illusion, fear, anxiety, subconscious, intuition', meaning_rev: 'Release of fear, repressed emotion, inner confusion' },
-  { name: 'The Sun', meaning_up: 'Positivity, fun, warmth, success, vitality', meaning_rev: 'Inner child, feeling down, overly optimistic' },
-  { name: 'Judgement', meaning_up: 'Judgement, rebirth, inner calling, absolution', meaning_rev: 'Self-doubt, inner critic, ignoring the call' },
-  { name: 'The World', meaning_up: 'Completion, integration, accomplishment, travel', meaning_rev: 'Seeking personal closure, short-cuts, delays' },
-];
+import { TAROT_DECK, TarotCardData } from '../data/tarotData';
 
 interface TarotReaderProps {
   lang?: 'en' | 'ru';
 }
 
 export const TarotReader: React.FC<TarotReaderProps> = ({ lang = 'en' }) => {
-  const [cards, setCards] = useState<TarotCard[]>([]);
+  const [cards, setCards] = useState<TarotCardData[]>([]);
   const [loading, setLoading] = useState(false);
 
   const drawCards = async (count: number) => {
     setLoading(true);
     setCards([]); // Clear previous
     
-    try {
-      // Attempt to fetch from API
-      // Using n={count} as per common API standard, if it fails we fallback
-      const res = await fetch(`https://tarotapi.dev/api/v1/cards/random?n=${count}`).catch(() => null);
-      
-      if (res && res.ok) {
-        const data = await res.json();
-        // API returns object with 'cards' array usually
-        const fetchedCards = data.cards || (Array.isArray(data) ? data : [data]);
-        setCards(fetchedCards);
-      } else {
-        throw new Error('API failed');
-      }
-    } catch (e) {
-      // Fallback to local data
-      // Shuffle fallback cards
-      const shuffled = [...FALLBACK_CARDS].sort(() => 0.5 - Math.random());
-      setCards(shuffled.slice(0, count));
-    } finally {
-      setLoading(false);
-    }
+    // Simulate network delay for effect
+    await new Promise(r => setTimeout(r, 800));
+    
+    // Shuffle local deck
+    const shuffled = [...TAROT_DECK].sort(() => 0.5 - Math.random());
+    setCards(shuffled.slice(0, count));
+    setLoading(false);
   };
 
   return (
@@ -117,32 +69,30 @@ export const TarotReader: React.FC<TarotReaderProps> = ({ lang = 'en' }) => {
                 transition={{ delay: index * 0.2, duration: 0.5 }}
                 className="relative w-64 bg-[#1a1b26] border border-white/10 rounded-xl overflow-hidden shadow-2xl flex flex-col group hover:border-purple-500/50 transition-colors"
               >
-                {/* Card Image Placeholder (or real if available) */}
-                <div className="h-40 bg-gradient-to-br from-purple-900/40 to-blue-900/40 flex items-center justify-center relative overflow-hidden">
-                   <div className="absolute inset-0 bg-[url('/tarot-pattern.png')] opacity-10 bg-repeat" />
-                   <div className="text-6xl font-serif text-white/10 group-hover:text-purple-400/20 transition-colors">
-                     {index + 1}
+                {/* Card Image */}
+                <div className="h-80 bg-black flex items-center justify-center relative overflow-hidden">
+                   {card.image ? (
+                     <img src={card.image} alt={card.nameEn} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
+                   ) : (
+                     <div className="absolute inset-0 bg-[url('/tarot-pattern.png')] opacity-10 bg-repeat" />
+                   )}
+                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4">
+                     <div className="text-xl font-serif text-purple-100 font-bold">
+                       {lang === 'ru' ? card.nameRu : card.nameEn}
+                     </div>
                    </div>
                 </div>
 
-                <div className="p-4 space-y-2">
-                  <h4 className="text-lg font-bold font-cinzel text-purple-200">
-                    {card.name}
-                  </h4>
-                  {card.suit && (
-                    <span className="text-[10px] uppercase tracking-widest text-muted-foreground bg-white/5 px-2 py-0.5 rounded">
-                      {card.suit}
-                    </span>
-                  )}
-                  
-                  <div className="pt-2 text-xs space-y-2 text-muted-foreground">
+                <div className="p-4 space-y-3 bg-[#111]">
+                  <div className="text-xs space-y-2 text-muted-foreground">
                     <p>
-                      <strong className="text-purple-400/80">{lang === 'ru' ? 'Значение:' : 'Upright:'}</strong>{' '}
-                      {card.meaning_up}
+                      <strong className="text-purple-400/80 uppercase text-[10px] tracking-wider block mb-1">{lang === 'ru' ? 'Прямое значение' : 'Upright'}</strong>
+                      {lang === 'ru' ? card.meaningUpRu : card.meaningUpEn}
                     </p>
+                    <div className="h-px bg-white/5 my-2" />
                     <p>
-                      <strong className="text-blue-400/80">{lang === 'ru' ? 'Тень:' : 'Reversed:'}</strong>{' '}
-                      {card.meaning_rev}
+                      <strong className="text-blue-400/80 uppercase text-[10px] tracking-wider block mb-1">{lang === 'ru' ? 'Перевернутое' : 'Reversed'}</strong>
+                      {lang === 'ru' ? card.meaningRevRu : card.meaningRevEn}
                     </p>
                   </div>
                 </div>

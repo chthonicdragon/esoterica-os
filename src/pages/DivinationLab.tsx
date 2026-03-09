@@ -76,19 +76,22 @@ export function DivinationLab({ user }: DivinationLabProps) {
   const handleSavePrediction = async (prediction: string, entityId?: string) => {
     playUiSound('success')
     
-    // 1. Create text description
-    const text = `Divination result: "${prediction}". Source: ${selectedEntity ? selectedEntity.name : 'The Void'}.`
-    
-    // 2. Extract into graph
     try {
-      const result = await extractAndMerge(
-        text,
-        lang as 'en' | 'ru',
-        'ritual', // Treat divination as a ritual/event
-        user.id
-      )
+      // Create a simple ritual entry for the activity feed
+      await db.rituals.create({
+        userId: user.id,
+        title: lang === 'ru' ? 'Пророчество Оракула' : 'Oracle Prophecy',
+        type: 'divination',
+        intention: selectedEntity ? `Channeling ${selectedEntity.name}` : 'General Guidance',
+        outcome: prediction,
+        deity: selectedEntity?.name || '',
+        date: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        energyLevel: 50, // Default moderate energy
+        notes: selectedEntity ? `Source: ${selectedEntity.name}` : 'Source: The Void'
+      })
       
-      // 3. Grant XP
+      // Grant XP
       const { pointsEarned, progression } = grantProgressionPoints(5, 'divination')
       syncProgressionToDb(user.id, progression)
       
@@ -98,7 +101,8 @@ export function DivinationLab({ user }: DivinationLabProps) {
           : `Prophecy saved (+${pointsEarned} XP)`
       )
     } catch (e) {
-      toast.error("Failed to save prophecy")
+      console.error(e)
+      toast.error(lang === 'ru' ? "Не удалось сохранить" : "Failed to save prophecy")
     }
   }
 
