@@ -18,6 +18,25 @@ function normalizeFromOhmanda(sign: string, raw: any) {
   }
 }
 
+function mapRuSignToEn(raw: string): string {
+  const s = raw.toLowerCase()
+  const ru: Record<string, string> = {
+    'овен': 'aries',
+    'телец': 'taurus',
+    'близнецы': 'gemini',
+    'рак': 'cancer',
+    'лев': 'leo',
+    'дева': 'virgo',
+    'весы': 'libra',
+    'скорпион': 'scorpio',
+    'стрелец': 'sagittarius',
+    'козерог': 'capricorn',
+    'водолей': 'aquarius',
+    'рыбы': 'pisces',
+  }
+  return ru[s] || s
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET')
@@ -25,7 +44,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const sign = String(req.query.sign || '').toLowerCase()
+    const inputSign = String(req.query.sign || '').toLowerCase()
+    const sign = mapRuSignToEn(inputSign)
     const day = (String(req.query.day || 'today').toLowerCase() as DayOpt)
     const allowed = new Set([
       'aries','taurus','gemini','cancer','leo','virgo',
@@ -81,4 +101,3 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: msg })
   }
 }
-
