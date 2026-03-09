@@ -38,7 +38,9 @@ const ATTRIBUTE_COLORS: Record<string, string> = {
   default: '#14b8a6' // Teal
 };
 
-export const Magic8Ball: React.FC<Magic8BallProps> = ({ entity, onSave, lang = 'en' }) => {
+export const Magic8Ball: React.FC<Magic8BallProps> = ({ entity, onSave, lang: propLang = 'en' }) => {
+  const { lang: contextLang } = useLang()
+  const lang = contextLang || propLang
   const [shaking, setShaking] = useState(false);
   const [answer, setAnswer] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);

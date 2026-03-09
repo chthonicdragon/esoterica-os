@@ -56,14 +56,23 @@ export function SigilLab({ user }: SigilLabProps) {
   const [detectedAttributes, setDetectedAttributes] = useState<string[]>([])
   const [entitySearch, setEntitySearch] = useState('')
   const [showEntitySuggestions, setShowEntitySuggestions] = useState(false)
-  const [suggestions, setSuggestions] = useState<{name: string, pantheon?: string, planet?: string, element?: string, offerings?: string[]}[]>([])
+  const [suggestions, setSuggestions] = useState<{name: string, id?: string, pantheon?: string, planet?: string, element?: string, offerings?: string[]}[]>([])
   const [availableAttributes, setAvailableAttributes] = useState<{
     pantheons: string[], planets: string[], elements: string[], offerings: string[]
   }>({ pantheons: [], planets: [], elements: [], offerings: [] })
+  
+  // Graph integration state
+  const [connectedNodes, setConnectedNodes] = useState<string[]>([])
+  const [activeConnectedNodes, setActiveConnectedNodes] = useState<string[]>([])
 
   useEffect(() => { loadSigils() }, [user.id])
   useEffect(() => () => { if (chargeInterval.current) clearInterval(chargeInterval.current) }, [])
   
+  // Reset seed when intention changes to ensure deterministic starting point
+  useEffect(() => {
+    setSeedOffset(0)
+  }, [intention, entitySearch, activeConnectedNodes])
+
   // Load attributes from graph
   useEffect(() => {
     const savedGraph = localStorage.getItem('esoteric_knowledge_web_v1')
@@ -107,6 +116,7 @@ export function SigilLab({ user }: SigilLabProps) {
                .slice(0, 5)
                .map((n: any) => ({
                  name: n.name,
+                 id: n.id,
                  pantheon: n.pantheon,
                  planet: n.planet,
                  element: n.element,
@@ -133,6 +143,36 @@ export function SigilLab({ user }: SigilLabProps) {
     }
     setShowEntitySuggestions(false)
     setIsAutoMode(true)
+    
+    // Find connected nodes
+    try {
+      const savedGraph = localStorage.getItem('esoteric_knowledge_web_v1')
+      if (savedGraph) {
+         const graph = JSON.parse(savedGraph)
+         if (graph.links && graph.nodes) {
+           const entityId = entity.id || entity.name
+           const links = graph.links.filter((l: any) => 
+             l.source === entityId || l.target === entityId || 
+             l.source === entity.name || l.target === entity.name
+           )
+           
+           const connectedIds = new Set<string>()
+           links.forEach((l: any) => {
+             const targetId = (l.source === entityId || l.source === entity.name) ? l.target : l.source
+             connectedIds.add(targetId)
+           })
+           
+           const nodes = graph.nodes
+             .filter((n: any) => connectedIds.has(n.id) || connectedIds.has(n.name))
+             .map((n: any) => n.name)
+             // Also include raw IDs if not found in nodes (for simple string nodes)
+             .concat(Array.from(connectedIds).filter(id => !graph.nodes.find((n:any) => n.id === id || n.name === id)))
+             
+           setConnectedNodes(Array.from(new Set(nodes)) as string[])
+           setActiveConnectedNodes([])
+         }
+      }
+    } catch (e) { console.error('Error finding connected nodes', e) }
   }
 
   const selectRandomEntity = () => {
@@ -176,8 +216,12 @@ export function SigilLab({ user }: SigilLabProps) {
         const canvas = document.createElement('canvas')
         canvas.width = 300
         canvas.height = 300
+        
+        // Combine intention with active connected nodes for the seed/shape
+        const combinedName = [targetIntention, ...activeConnectedNodes].join(' + ')
+        
         drawSigil(canvas, {
-          name: targetIntention,
+          name: combinedName,
           type: 'sigil',
           element: selectedElement,
           planet: selectedPlanet,
@@ -194,10 +238,10 @@ export function SigilLab({ user }: SigilLabProps) {
     }, 100)
   }
   
-  // Re-generate when seed changes
+  // Re-generate when parameters change (Live Preview for attributes)
   useEffect(() => {
     if (currentSigil) generateSigil()
-  }, [seedOffset])
+  }, [seedOffset, selectedElement, selectedPlanet, selectedPantheon, selectedOffering, activeConnectedNodes, generationMode])
 
   async function saveSigil() {
     if (!currentSigil || !currentIntention) return
@@ -301,13 +345,13 @@ export function SigilLab({ user }: SigilLabProps) {
                onClick={() => setGenerationMode('classic')}
                className={`px-3 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider transition-all ${generationMode === 'classic' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
              >
-               Classic
+               {lang === 'ru' ? 'Классический' : 'Classic'}
              </button>
              <button 
                onClick={() => setGenerationMode('procedural')}
                className={`px-3 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider transition-all ${generationMode === 'procedural' ? 'bg-teal-500 text-white' : 'text-muted-foreground hover:text-foreground'}`}
              >
-               Procedural
+               {lang === 'ru' ? 'Процедурный' : 'Procedural'}
              </button>
            </div>
         </div>
@@ -340,6 +384,35 @@ export function SigilLab({ user }: SigilLabProps) {
                 )}
               </div>
             </div>
+
+            {/* Connected Nodes Chips */}
+            {connectedNodes.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2 mb-3 px-1 animate-fade-in">
+                <div className="w-full text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
+                   <span>{lang === 'ru' ? 'Связанные символы:' : 'Connected symbols:'}</span>
+                   <span className="text-[9px] opacity-70">({lang === 'ru' ? 'нажмите, чтобы добавить' : 'click to add'})</span>
+                </div>
+                {connectedNodes.map(node => (
+                  <button
+                    key={node}
+                    onClick={() => {
+                      setActiveConnectedNodes(prev => 
+                        prev.includes(node) ? prev.filter(n => n !== node) : [...prev, node]
+                      )
+                    }}
+                    className={cn(
+                      "px-2 py-0.5 rounded-full text-[10px] border transition-all",
+                      activeConnectedNodes.includes(node)
+                        ? "bg-teal-500/20 border-teal-500/40 text-teal-300"
+                        : "bg-background border-white/10 text-muted-foreground hover:border-white/20 hover:text-foreground"
+                    )}
+                  >
+                    {node}
+                    {activeConnectedNodes.includes(node) && <span className="ml-1 text-[8px]">×</span>}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -483,7 +556,7 @@ export function SigilLab({ user }: SigilLabProps) {
             <p className="text-xs text-muted-foreground text-center italic">"{currentIntention}"</p>
 
             <div className="flex gap-2 justify-center">
-              <button onClick={() => { setSeedOffset(s => s + 1); generateSigil(); }} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 hover:bg-white/5 text-muted-foreground text-sm transition-colors">
+              <button onClick={() => setSeedOffset(s => s + 1)} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 hover:bg-white/5 text-muted-foreground text-sm transition-colors">
                 <RefreshCw className="w-4 h-4" />
                 {lang === 'ru' ? 'Вариант' : 'Regenerate'}
               </button>

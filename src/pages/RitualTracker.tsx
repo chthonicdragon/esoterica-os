@@ -67,6 +67,7 @@ interface HecateDay {
 
 interface MagicalHoliday {
   name: string
+  nameRu: string
   date: string // MM-DD
   description: string
   descriptionRu: string
@@ -126,10 +127,10 @@ const PLANET_ALERT_COPY: Record<PlanetKey, { ru: string; en: string }> = {
 }
 
 const MAGICAL_HOLIDAYS: MagicalHoliday[] = [
-  { name: 'Samhain', date: '10-31', description: 'festival of spirits and ancestors', descriptionRu: 'праздник духов и предков' },
-  { name: 'Beltane', date: '05-01', description: 'festival of life force and union', descriptionRu: 'праздник жизненной силы и союза' },
-  { name: 'Imbolc', date: '02-01', description: 'festival of purification and sacred fire', descriptionRu: 'праздник очищения и священного огня' },
-  { name: 'Lughnasadh', date: '08-01', description: 'first harvest and gratitude festival', descriptionRu: 'праздник первого урожая и благодарности' },
+  { name: 'Samhain', nameRu: 'Самайн', date: '10-31', description: 'festival of spirits and ancestors', descriptionRu: 'праздник духов и предков' },
+  { name: 'Beltane', nameRu: 'Белтейн', date: '05-01', description: 'festival of life force and union', descriptionRu: 'праздник жизненной силы и союза' },
+  { name: 'Imbolc', nameRu: 'Имболк', date: '02-01', description: 'festival of purification and sacred fire', descriptionRu: 'праздник очищения и священного огня' },
+  { name: 'Lughnasadh', nameRu: 'Лугнасад', date: '08-01', description: 'first harvest and gratitude festival', descriptionRu: 'праздник первого урожая и благодарности' },
 ]
 
 const RITUAL_META_STORAGE_KEY = 'esoterica_ritual_meta_v2'
@@ -1020,18 +1021,18 @@ export function RitualTracker({ user }: RitualTrackerProps) {
       </div>
 
       {/* Magical Holidays (compact) */}
-      <div className="rounded-xl bg-card border border-border/40 p-4">
-        <p className="text-[11px] text-muted-foreground mb-2">{lang === 'ru' ? 'Календарь магических праздников' : 'Magical Holidays Calendar'}</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      <div className="rounded-xl bg-card border border-border/40 p-3">
+        <p className="text-[10px] text-muted-foreground mb-1.5">{lang === 'ru' ? 'Календарь магических праздников' : 'Magical Holidays Calendar'}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
           {upcomingHolidays.map((holiday) => {
-            const title = (lang === 'ru' && (holiday as any).nameRu) ? (holiday as any).nameRu : holiday.name
+            const title = lang === 'ru' ? holiday.nameRu : holiday.name
             return (
-              <div key={`${holiday.name}-${holiday.date}`} className="rounded-lg border border-border/40 bg-background/20 p-2">
+              <div key={`${holiday.name}-${holiday.date}`} className="rounded-lg border border-border/40 bg-background/20 px-2 py-1.5 flex flex-col justify-center min-h-[40px]">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-semibold text-foreground truncate">{title}</p>
-                  <p className="text-[10px] text-primary whitespace-nowrap">{holiday.nextDate.toLocaleDateString()}</p>
+                  <p className="text-[11px] font-semibold text-foreground truncate">{title}</p>
+                  <p className="text-[9px] text-primary whitespace-nowrap">{holiday.nextDate.toLocaleDateString()}</p>
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-3">
+                <p className="text-[9px] text-muted-foreground mt-0.5 line-clamp-1 leading-tight">
                   {lang === 'ru' ? holiday.descriptionRu : holiday.description}
                 </p>
               </div>

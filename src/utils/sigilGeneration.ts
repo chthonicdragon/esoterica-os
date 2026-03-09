@@ -73,7 +73,8 @@ export function drawSigil(canvas: HTMLCanvasElement, attrs: SigilAttributes) {
   const height = canvas.height;
   const cx = width / 2;
   const cy = height / 2;
-  const rng = new Random(attrs.name + (attrs.seedOffset || 0));
+  // Use a separator to prevent "Text" + "1" colliding with "Text1" + "0"
+  const rng = new Random(`${attrs.name}::${attrs.seedOffset || 0}`);
 
   // Clear canvas
   ctx.clearRect(0, 0, width, height);
