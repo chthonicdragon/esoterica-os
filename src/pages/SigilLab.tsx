@@ -3,11 +3,13 @@ import { useLang } from '../contexts/LanguageContext'
 import { useAudio } from '../contexts/AudioContext'
 import { db } from '../lib/platformClient'
 import { generateSigilSVG } from '../utils/sigilGenerator'
-import { Sparkles, Download, Zap, Trash2 } from 'lucide-react'
+import { Sparkles, Download, Zap, Trash2, RefreshCw } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { cn } from '../lib/utils'
 import { grantProgressionPoints, syncProgressionToDb } from '../altar/altarStore'
 import { extractAndMerge } from '../services/knowledgeGraphBridge'
+import { drawSigil } from '../utils/sigilGeneration'
+import { Search, Dice5 } from 'lucide-react'
 
 interface Sigil {
   id: string
@@ -21,6 +23,11 @@ interface SigilLabProps {
   user: { id: string }
 }
 
+const PANTHEONS = ['Greek', 'Goetia', 'Egyptian', 'Norse', 'Chaos', 'Folk']
+const PLANETS = ['Saturn', 'Jupiter', 'Mars', 'Sun', 'Venus', 'Mercury', 'Moon']
+const ELEMENTS = ['Fire', 'Water', 'Air', 'Earth', 'Spirit']
+const OFFERINGS = ['incense', 'wine', 'blood', 'honey', 'coins', 'candles']
+
 export function SigilLab({ user }: SigilLabProps) {
   const { t, lang } = useLang()
   const { playUiSound } = useAudio()
@@ -32,9 +39,80 @@ export function SigilLab({ user }: SigilLabProps) {
   const [charging, setCharging] = useState(false)
   const [chargeLevel, setChargeLevel] = useState(0)
   const chargeInterval = useRef<NodeJS.Timeout | null>(null)
+  
+  const [generationMode, setGenerationMode] = useState<'classic' | 'procedural'>('procedural')
+  
+  // Advanced attributes
+  const [selectedPantheon, setSelectedPantheon] = useState('')
+  const [selectedPlanet, setSelectedPlanet] = useState('')
+  const [selectedElement, setSelectedElement] = useState('')
+  const [selectedOffering, setSelectedOffering] = useState('')
+  const [manualAttributes, setManualAttributes] = useState('')
+  const [seedOffset, setSeedOffset] = useState(0)
+
+  // Auto-extraction state
+  const [isAutoMode, setIsAutoMode] = useState(true)
+  const [detectedAttributes, setDetectedAttributes] = useState<string[]>([])
+  const [entitySearch, setEntitySearch] = useState('')
+  const [showEntitySuggestions, setShowEntitySuggestions] = useState(false)
+  const [suggestions, setSuggestions] = useState<{name: string, pantheon?: string, planet?: string, element?: string, offerings?: string[]}[]>([])
 
   useEffect(() => { loadSigils() }, [user.id])
   useEffect(() => () => { if (chargeInterval.current) clearInterval(chargeInterval.current) }, [])
+
+  // Real entity search from graph data
+  useEffect(() => {
+    if (entitySearch.length > 1) {
+       const savedGraph = localStorage.getItem('esoteric_knowledge_web_v1')
+       if (savedGraph) {
+         try {
+           const graph = JSON.parse(savedGraph)
+           if (graph.nodes) {
+             const matches = graph.nodes
+               .filter((n: any) => n.name.toLowerCase().includes(entitySearch.toLowerCase()))
+               .slice(0, 5)
+               .map((n: any) => ({
+                 name: n.name,
+                 pantheon: n.pantheon,
+                 planet: n.planet,
+                 element: n.element,
+                 offerings: n.offerings
+               }))
+             setSuggestions(matches)
+             setShowEntitySuggestions(true)
+           }
+         } catch (e) { console.error('Error parsing graph for autocomplete', e) }
+       }
+    } else {
+      setShowEntitySuggestions(false)
+    }
+  }, [entitySearch])
+
+  const selectEntity = (entity: any) => {
+    setEntitySearch(entity.name)
+    setIntention(entity.name)
+    setSelectedPantheon(entity.pantheon || '')
+    setSelectedPlanet(entity.planet || '')
+    setSelectedElement(entity.element || '')
+    if (entity.offerings && entity.offerings.length > 0) {
+      setSelectedOffering(entity.offerings[0])
+    }
+    setShowEntitySuggestions(false)
+    setIsAutoMode(true)
+  }
+
+  const selectRandomEntity = () => {
+     const savedGraph = localStorage.getItem('esoteric_knowledge_web_v1')
+     if (savedGraph) {
+       try {
+         const graph = JSON.parse(savedGraph)
+         if (graph.nodes && graph.nodes.length > 0) {
+           const randomNode = graph.nodes[Math.floor(Math.random() * graph.nodes.length)]
+           selectEntity(randomNode)
+         }
+       } catch (e) {}
+     }
+  }
 
   async function loadSigils() {
     const data = await db.sigils.list({
@@ -52,12 +130,31 @@ export function SigilLab({ user }: SigilLabProps) {
     setChargeLevel(0)
     setCharging(false)
     setTimeout(() => {
-      const svg = generateSigilSVG(intention)
+      let svg = ''
+      
+      if (generationMode === 'classic') {
+         svg = generateSigilSVG(intention)
+      } else {
+        // Procedural
+        const canvas = document.createElement('canvas')
+        canvas.width = 300
+        canvas.height = 300
+        drawSigil(canvas, {
+          name: intention,
+          type: 'sigil',
+          element: selectedElement,
+          planet: selectedPlanet,
+          seedOffset: seedOffset
+        })
+        const dataUrl = canvas.toDataURL('image/png')
+        svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300"><image href="${dataUrl}" width="300" height="300" /></svg>`
+      }
+      
       setCurrentSigil(svg)
       setCurrentIntention(intention)
       setGenerating(false)
       playUiSound('success')
-    }, 800)
+    }, 500)
   }
 
   async function saveSigil() {
@@ -85,8 +182,11 @@ export function SigilLab({ user }: SigilLabProps) {
       )
 
       // Background: extract intention into Knowledge Graph
+      const attributes = [selectedPantheon, selectedPlanet, selectedElement, selectedOffering, manualAttributes].filter(Boolean).join(', ')
+      const fullText = `Sigil intention: ${currentIntention}. Attributes: ${attributes}`
+      
       extractAndMerge(
-        `Sigil intention: ${currentIntention}`,
+        fullText,
         lang as 'en' | 'ru',
         'sigil',
         user.id
@@ -151,7 +251,58 @@ export function SigilLab({ user }: SigilLabProps) {
 
       {/* Generator */}
       <div className="rounded-2xl bg-card border border-primary/20 p-5 space-y-4">
+        
+        {/* Mode Selector */}
+        <div className="flex justify-end mb-2">
+           <div className="flex bg-white/5 rounded-lg p-1 border border-white/10">
+             <button 
+               onClick={() => setGenerationMode('classic')}
+               className={`px-3 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider transition-all ${generationMode === 'classic' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+             >
+               Classic
+             </button>
+             <button 
+               onClick={() => setGenerationMode('procedural')}
+               className={`px-3 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider transition-all ${generationMode === 'procedural' ? 'bg-teal-500 text-white' : 'text-muted-foreground hover:text-foreground'}`}
+             >
+               Procedural
+             </button>
+           </div>
+        </div>
+
+        {/* Entity Selector (Procedural Mode) */}
+        {generationMode === 'procedural' && (
+          <div className="relative z-10">
+            <div className="flex gap-2 mb-2">
+              <Search className="w-4 h-4 text-muted-foreground mt-2.5" />
+              <div className="flex-1 relative">
+                <input
+                  value={entitySearch}
+                  onChange={e => setEntitySearch(e.target.value)}
+                  placeholder={lang === 'ru' ? 'Выберите сущность (например, Hecate)...' : 'Select entity (e.g. Hecate)...'}
+                  className="w-full bg-background border border-border rounded-xl px-4 py-2 text-sm outline-none focus:border-primary/50"
+                />
+                {showEntitySuggestions && suggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-20">
+                    {suggestions.map(s => (
+                      <button
+                        key={s.name}
+                        onClick={() => selectEntity(s)}
+                        className="w-full text-left px-4 py-2 hover:bg-primary/10 text-xs flex justify-between items-center"
+                      >
+                        <span className="font-bold">{s.name}</span>
+                        <span className="text-[10px] text-muted-foreground">{s.pantheon} • {s.planet}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-3">
+          {generationMode === 'classic' && (
           <input
             value={intention}
             onChange={e => setIntention(e.target.value)}
@@ -159,20 +310,94 @@ export function SigilLab({ user }: SigilLabProps) {
             placeholder={t.enterIntention}
             className="flex-1 bg-background border border-border rounded-xl px-4 py-3 text-sm outline-none focus:border-primary/50"
           />
+          )}
+          
+          {generationMode === 'procedural' && (
+            <div className="flex-1 flex items-center px-4 text-sm text-muted-foreground italic border border-transparent">
+               {entitySearch ? `Generating sigil for ${entitySearch}` : 'Select an entity above'}
+            </div>
+          )}
+
           <button
             onClick={generateSigil}
             disabled={!intention.trim() || generating}
             className="px-5 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
           >
             <Sparkles className="w-4 h-4" />
-            {generating ? t.generating : t.generateSigilBtn}
+            {generating ? t.generating : (lang === 'ru' ? 'Предпросмотр' : 'Preview')}
           </button>
         </div>
+
+        {/* Filters / Attributes (Only show in Procedural Mode) */}
+        {generationMode === 'procedural' && (
+          <div className="space-y-3 animate-fade-in">
+             {/* Auto-Detection Info Panel */}
+             <div className="bg-teal-500/10 border border-teal-500/20 rounded-xl p-3 flex flex-col gap-2">
+               <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-teal-400" />
+                  <span className="text-xs font-bold text-teal-200 uppercase tracking-wider">
+                    {lang === 'ru' ? 'Автоматический анализ' : 'Auto Analysis'}
+                  </span>
+               </div>
+               
+               <div className="text-xs text-muted-foreground/80 pl-6">
+                 {lang === 'ru' 
+                   ? 'Система автоматически подберет атрибуты (Планета, Стихия) на основе введенной сущности или намерения.' 
+                   : 'System automatically detects attributes (Planet, Element) based on entity or intention.'}
+               </div>
+
+               {/* Detected Attributes Display */}
+               {(selectedPantheon || selectedPlanet || selectedElement) && (
+                 <div className="flex flex-wrap gap-2 pl-6 mt-1">
+                    {selectedPantheon && <span className="px-2 py-0.5 rounded bg-rose-500/20 border border-rose-500/30 text-rose-300 text-[10px] uppercase font-bold">{selectedPantheon}</span>}
+                    {selectedPlanet && <span className="px-2 py-0.5 rounded bg-purple-500/20 border border-purple-500/30 text-purple-300 text-[10px] uppercase font-bold">{selectedPlanet}</span>}
+                    {selectedElement && <span className="px-2 py-0.5 rounded bg-orange-500/20 border border-orange-500/30 text-orange-300 text-[10px] uppercase font-bold">{selectedElement}</span>}
+                 </div>
+               )}
+               
+               {!isAutoMode && (
+                 <button onClick={() => setIsAutoMode(true)} className="ml-auto text-[10px] underline opacity-50 hover:opacity-100 text-teal-400">
+                   {lang === 'ru' ? 'Скрыть настройки' : 'Hide manual settings'}
+                 </button>
+               )}
+             </div>
+
+             {/* Manual Overrides (Hidden by default in Auto Mode) */}
+             {!isAutoMode && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 animate-fade-in pt-2 border-t border-white/5">
+                  <select value={selectedPantheon} onChange={e => setSelectedPantheon(e.target.value)} className="bg-background border border-border rounded-lg px-2 py-1.5 text-xs outline-none focus:border-primary/50">
+                    <option value="">{lang === 'ru' ? 'Пантеон' : 'Pantheon'}</option>
+                    {PANTHEONS.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                  <select value={selectedPlanet} onChange={e => setSelectedPlanet(e.target.value)} className="bg-background border border-border rounded-lg px-2 py-1.5 text-xs outline-none focus:border-primary/50">
+                    <option value="">{lang === 'ru' ? 'Планета' : 'Planet'}</option>
+                    {PLANETS.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                  <select value={selectedElement} onChange={e => setSelectedElement(e.target.value)} className="bg-background border border-border rounded-lg px-2 py-1.5 text-xs outline-none focus:border-primary/50">
+                    <option value="">{lang === 'ru' ? 'Стихия' : 'Element'}</option>
+                    {ELEMENTS.map(e => <option key={e} value={e}>{e}</option>)}
+                  </select>
+                  <select value={selectedOffering} onChange={e => setSelectedOffering(e.target.value)} className="bg-background border border-border rounded-lg px-2 py-1.5 text-xs outline-none focus:border-primary/50">
+                    <option value="">{lang === 'ru' ? 'Подношение' : 'Offering'}</option>
+                    {OFFERINGS.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+             )}
+             
+             {isAutoMode && (
+               <div className="flex justify-center">
+                 <button onClick={() => setIsAutoMode(false)} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors underline">
+                   {lang === 'ru' ? 'Настроить атрибуты вручную' : 'Configure attributes manually'}
+                 </button>
+               </div>
+             )}
+          </div>
+        )}
 
         {/* Sigil canvas */}
         {currentSigil && (
           <div className="space-y-4 animate-fade-in">
-            <div className="relative flex justify-center">
+            <div className="relative flex justify-center group">
               {/* Charging glow ring */}
               {charging && (
                 <div
@@ -216,6 +441,10 @@ export function SigilLab({ user }: SigilLabProps) {
             <p className="text-xs text-muted-foreground text-center italic">"{currentIntention}"</p>
 
             <div className="flex gap-2 justify-center">
+              <button onClick={() => { setSeedOffset(s => s + 1); generateSigil(); }} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 hover:bg-white/5 text-muted-foreground text-sm transition-colors">
+                <RefreshCw className="w-4 h-4" />
+                {lang === 'ru' ? 'Вариант' : 'Regenerate'}
+              </button>
               <button
                 onClick={startCharging}
                 disabled={charging}

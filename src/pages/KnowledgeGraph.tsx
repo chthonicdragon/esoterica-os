@@ -11,6 +11,7 @@ import { extractGraph, GraphData, Node, Link, suggestConnections } from '../serv
 import { extractGraphLocally } from '../services/localExtract'
 import GraphVisualization from '../components/GraphVisualization'
 import AnalyticsPanel from '../components/AnalyticsPanel'
+import { SigilGenerator } from '../components/SigilGenerator'
 import KnowledgeWebGuideModal from '../components/KnowledgeWebGuideModal'
 import { useLang } from '../contexts/LanguageContext'
 import { getKnowledgeWeavePoints, grantProgressionPoints, syncProgressionToDb } from '../altar/altarStore'
@@ -144,7 +145,13 @@ const translations = {
     ritualTags: "Теги ритуала",
     activeLinks: "Активные связи",
     noRitualTags: "Для этого ритуала пока нет извлечённых тегов.",
-    noActiveLinks: "Для этого ритуала активные связи пока не найдены."
+    noActiveLinks: "Для этого ритуала активные связи пока не найдены.",
+    suggestLinks: "Найти связи",
+    genSigil: "Создать сигил",
+    pantheons: "Пантеоны",
+    planetary: "Планетарные",
+    elements: "Стихии",
+    offerings: "Подношения"
   }
 }
 
@@ -233,6 +240,7 @@ export function KnowledgeGraph({ user }: Props) {
   const [ritualPreviewTags, setRitualPreviewTags] = useState<string[]>([])
   const [syncNotice, setSyncNotice] = useState<string | null>(null)
   const [autoPullTried, setAutoPullTried] = useState(false)
+  const [showSigilGenerator, setShowSigilGenerator] = useState(false)
 
   const stopwords = useMemo(() => new Set([
     'the', 'and', 'with', 'from', 'this', 'that', 'have', 'your', 'for', 'you', 'are', 'was', 'were', 'into', 'within', 'about',
@@ -442,6 +450,41 @@ export function KnowledgeGraph({ user }: Props) {
   const handleRetryLastAttempt = async () => {
     if (!lastAttempt || isLoading) return
     await runExtract(lastAttempt)
+  }
+
+  const handleSaveSigil = (sigilData: { name: string; imageUrl: string; description: string }) => {
+    if (!selectedNode) return
+    const newSigilId = `sigil_${Date.now()}`
+    const newSigilNode: Node = {
+      id: newSigilId,
+      name: sigilData.name,
+      type: 'sigil',
+      description: sigilData.description,
+      image_url: sigilData.imageUrl,
+      linked_entity_id: selectedNode.id,
+      tags: ['generated', 'sigil']
+    }
+
+    setGraphData(prev => {
+      const nodes = [...prev.nodes, newSigilNode]
+      // Update source node reference
+      const updatedNodes = nodes.map(n => n.id === selectedNode.id ? { ...n, sigil_id: newSigilId } : n)
+      
+      const links = [
+        ...prev.links,
+        { source: selectedNode.id, target: newSigilId, relation: 'symbol_of', strength: 'strong' } as Link
+      ]
+      
+      return { nodes: updatedNodes, links }
+    })
+
+    setShowSigilGenerator(false)
+    setSuccessMsg(lang === 'ru' ? "Сигил создан и вплетен в паутину!" : "Sigil created and woven into the web!")
+    
+    // Trigger sync
+    setTimeout(() => {
+      if (user?.id) pushToRemote(user.id, graphData)
+    }, 500)
   }
 
   const handleDownload = () => {
@@ -850,7 +893,20 @@ export function KnowledgeGraph({ user }: Props) {
                     }}
                     className="px-1 py-[2px] rounded-md text-[8px] leading-none uppercase tracking-wider font-bold transition-colors bg-white/10 text-muted-foreground hover:text-foreground border border-white/15 whitespace-nowrap"
                   >
-                    {lang === 'ru' ? 'Сброс фильтров' : 'Reset Filters'}
+                    {lang === 'ru' ? 'Сброс (Все вкл)' : 'Reset (All On)'}
+                  </button>
+                  <button
+                    onClick={() => { 
+                      setVisibleTypes(new Set()); 
+                      setActivePantheons(new Set()); 
+                      setActivePlanets(new Set()); 
+                      setActiveElements(new Set()); 
+                      setActiveOfferings(new Set());
+                      setShowRitualsOnly(false) 
+                    }}
+                    className="px-1 py-[2px] rounded-md text-[8px] leading-none uppercase tracking-wider font-bold transition-colors bg-white/5 text-muted-foreground hover:text-red-400 border border-white/10 whitespace-nowrap"
+                  >
+                    {lang === 'ru' ? 'Выкл все' : 'All Off'}
                   </button>
                   <button
                     onClick={() => setShowRitualsOnly(!showRitualsOnly)}
@@ -861,7 +917,9 @@ export function KnowledgeGraph({ user }: Props) {
                   </button>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-1.5 mb-3">
+              
+              {/* Type Filters */}
+              <div className="flex flex-wrap gap-1.5 mb-2">
                 {ALL_TYPES.map(type => (
                   <button
                     key={type}
@@ -874,28 +932,26 @@ export function KnowledgeGraph({ user }: Props) {
                 ))}
               </div>
 
-              {/* Extended Filters */}
-              <div className="space-y-3 pt-2 border-t border-white/5">
+              {/* Extended Filters (Inline) */}
+              <div className="flex flex-wrap gap-2 pt-2 border-t border-white/5">
                 {[
-                  { title: 'Pantheons', items: PANTHEONS, set: activePantheons, setter: setActivePantheons, color: 'text-rose-400 border-rose-500/30' },
-                  { title: 'Planetary', items: PLANETS, set: activePlanets, setter: setActivePlanets, color: 'text-purple-400 border-purple-500/30' },
-                  { title: 'Elements', items: ELEMENTS, set: activeElements, setter: setActiveElements, color: 'text-orange-400 border-orange-500/30' },
-                  { title: 'Offerings', items: OFFERINGS, set: activeOfferings, setter: setActiveOfferings, color: 'text-emerald-400 border-emerald-500/30' }
+                  { title: lang === 'ru' ? t.pantheons : 'Pantheons', set: activePantheons, setter: setActivePantheons, color: 'text-rose-400 border-rose-500/30' },
+                  { title: lang === 'ru' ? t.planetary : 'Planetary', set: activePlanets, setter: setActivePlanets, color: 'text-purple-400 border-purple-500/30' },
+                  { title: lang === 'ru' ? t.elements : 'Elements', set: activeElements, setter: setActiveElements, color: 'text-orange-400 border-orange-500/30' },
+                  { title: lang === 'ru' ? t.offerings : 'Offerings', set: activeOfferings, setter: setActiveOfferings, color: 'text-emerald-400 border-emerald-500/30' }
                 ].map(group => (
-                  <div key={group.title}>
-                    <div className="text-[9px] uppercase tracking-widest font-bold text-muted-foreground/50 mb-1.5">{group.title}</div>
-                    <div className="flex flex-wrap gap-1">
-                      {group.items.map(item => (
-                        <button
-                          key={item}
-                          onClick={() => toggleFilter(group.set, item, group.setter)}
-                          className={`px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider font-bold border transition-all ${group.set.has(item) ? `bg-white/10 ${group.color}` : 'bg-white/5 border-white/5 text-muted-foreground/40'}`}
-                        >
-                          {item}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  <button 
+                    key={group.title}
+                    onClick={() => {
+                      const isActive = group.set.size > 0
+                      if (isActive) group.setter(new Set())
+                      else group.setter(new Set(['ALL']))
+                    }}
+                    className={`px-2 py-0.5 rounded-lg text-[9px] uppercase tracking-wider font-bold border transition-all flex items-center gap-1.5 ${group.set.size > 0 ? `bg-white/10 ${group.color}` : 'bg-white/5 border-white/5 text-muted-foreground/40'}`}
+                  >
+                    <span>{group.title}</span>
+                    <span className={`w-1.5 h-1.5 rounded-full ${group.set.size > 0 ? 'bg-current' : 'bg-white/20'}`} />
+                  </button>
                 ))}
               </div>
             </div>
@@ -1125,6 +1181,17 @@ export function KnowledgeGraph({ user }: Props) {
                     )}
                   </AnimatePresence>
 
+                  {/* Sigil Generator Modal */}
+                  <AnimatePresence>
+                    {showSigilGenerator && selectedNode && (
+                      <SigilGenerator 
+                        sourceNode={selectedNode} 
+                        onClose={() => setShowSigilGenerator(false)} 
+                        onSave={handleSaveSigil} 
+                      />
+                    )}
+                  </AnimatePresence>
+
                   {/* Node detail panel */}
                   <AnimatePresence>
                     {selectedNode && (
@@ -1199,7 +1266,11 @@ export function KnowledgeGraph({ user }: Props) {
                                 <button onClick={() => setEditing(true)} className="px-3 py-1.5 rounded-lg bg-primary/20 border border-primary/30 text-primary text-[11px] font-bold tracking-wider">{lang==='ru'?'Редактировать':'Edit'}</button>
                                 <button onClick={handleSuggestConnections} disabled={isLoading} className="px-3 py-1.5 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 text-[11px] font-bold tracking-wider flex items-center gap-1 disabled:opacity-50">
                                   {isLoading ? <Loader2 className="w-3 h-3 animate-spin"/> : <Sparkles className="w-3 h-3"/>}
-                                  Suggest Links
+                                  {lang === 'ru' ? t.suggestLinks : 'Suggest Links'}
+                                </button>
+                                <button onClick={() => setShowSigilGenerator(true)} className="px-3 py-1.5 rounded-lg bg-teal-500/20 border border-teal-500/30 text-teal-400 text-[11px] font-bold tracking-wider flex items-center gap-1">
+                                  <ImageIcon className="w-3 h-3"/>
+                                  {lang === 'ru' ? t.genSigil : 'Gen Sigil'}
                                 </button>
                                 {editing && (
                                   <>
