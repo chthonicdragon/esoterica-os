@@ -34,11 +34,11 @@ export const TarotReader: React.FC<TarotReaderProps> = ({ lang = 'en' }) => {
   return (
     <div className="flex flex-col items-center gap-8 w-full max-w-4xl mx-auto">
       
-      <div className="flex gap-4">
+      <div className="flex flex-wrap justify-center gap-2 sm:gap-4">
         <button
           onClick={() => drawCards(1)}
           disabled={loading}
-          className="px-6 py-3 rounded-xl bg-purple-500/20 border border-purple-500/30 text-purple-300 hover:bg-purple-500/30 transition-all font-bold uppercase tracking-wider text-xs flex items-center gap-2"
+          className="px-4 py-2 sm:px-6 sm:py-3 rounded-xl bg-purple-500/20 border border-purple-500/30 text-purple-300 hover:bg-purple-500/30 transition-all font-bold uppercase tracking-wider text-[11px] sm:text-xs flex items-center gap-2"
         >
           <Sparkles className="w-4 h-4" />
           {lang === 'ru' ? 'Одна карта' : 'Draw One Card'}
@@ -46,28 +46,28 @@ export const TarotReader: React.FC<TarotReaderProps> = ({ lang = 'en' }) => {
         <button
           onClick={() => drawCards(3)}
           disabled={loading}
-          className="px-6 py-3 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-300 hover:bg-blue-500/30 transition-all font-bold uppercase tracking-wider text-xs flex items-center gap-2"
+          className="px-4 py-2 sm:px-6 sm:py-3 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-300 hover:bg-blue-500/30 transition-all font-bold uppercase tracking-wider text-[11px] sm:text-xs flex items-center gap-2"
         >
           <RefreshCw className="w-4 h-4" />
           {lang === 'ru' ? 'Три карты' : 'Draw Three Cards'}
         </button>
-        <div className="ml-2 inline-flex rounded-xl border border-white/10 overflow-hidden">
+        <div className="sm:ml-2 inline-flex rounded-xl border border-white/10 overflow-hidden">
           <button
             onClick={() => setDetailed(false)}
-            className={`px-3 py-3 text-xs font-bold uppercase tracking-wider ${!detailed ? 'bg-white/10 text-foreground' : 'text-muted-foreground'}`}
+            className={`px-2.5 py-2 sm:px-3 sm:py-3 text-[11px] sm:text-xs font-bold uppercase tracking-wider ${!detailed ? 'bg-white/10 text-foreground' : 'text-muted-foreground'}`}
           >
             {lang === 'ru' ? 'Ключи' : 'Keys'}
           </button>
           <button
             onClick={() => setDetailed(true)}
-            className={`px-3 py-3 text-xs font-bold uppercase tracking-wider ${detailed ? 'bg-white/10 text-foreground' : 'text-muted-foreground'}`}
+            className={`px-2.5 py-2 sm:px-3 sm:py-3 text-[11px] sm:text-xs font-bold uppercase tracking-wider ${detailed ? 'bg-white/10 text-foreground' : 'text-muted-foreground'}`}
           >
             {lang === 'ru' ? 'Толкование' : 'Reading'}
           </button>
         </div>
       </div>
 
-      <div className="flex flex-wrap justify-center gap-6 min-h-[300px]">
+      <div className="flex flex-wrap justify-center gap-3 sm:gap-6 min-h-[300px]">
         <AnimatePresence mode="wait">
           {loading ? (
             <motion.div
@@ -85,9 +85,9 @@ export const TarotReader: React.FC<TarotReaderProps> = ({ lang = 'en' }) => {
                 initial={{ opacity: 0, y: 20, rotateY: 90 }}
                 animate={{ opacity: 1, y: 0, rotateY: 0 }}
                 transition={{ delay: index * 0.2, duration: 0.5 }}
-                className="relative w-64 bg-[#1a1b26] border border-white/10 rounded-xl overflow-hidden shadow-2xl flex flex-col group hover:border-purple-500/50 transition-colors"
+                className="relative w-44 sm:w-56 md:w-64 bg-[#1a1b26] border border-white/10 rounded-xl overflow-hidden shadow-2xl flex flex-col group hover:border-purple-500/50 transition-colors"
               >
-                <div className="h-80 bg-black flex items-center justify-center relative overflow-hidden">
+                <div className="h-64 sm:h-72 md:h-80 bg-black flex items-center justify-center relative overflow-hidden">
                    {card.image ? (
                      <img
                        src={card.image}
