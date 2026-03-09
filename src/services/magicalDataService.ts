@@ -36,19 +36,87 @@ const ZODIAC_SIGNS = [
 
 const CACHE_PREFIX = 'esoterica_magical_cache_'
 
+// Use a CORS proxy if direct access fails (e.g., allorigins or similar, or local fallback)
+// Ideally, this should be a backend function. For now, we try direct then fallback.
+const PROXY_URL = 'https://api.allorigins.win/raw?url='
+
 export const AstrologyService = {
   async getDailyHoroscope(sign: string, day: 'today' | 'tomorrow' | 'yesterday' = 'today'): Promise<Horoscope | null> {
     const cacheKey = `${CACHE_PREFIX}astro_${sign}_${day}_${new Date().toDateString()}`
     const cached = localStorage.getItem(cacheKey)
     if (cached) return JSON.parse(cached)
 
+    const fetchWithProxy = async () => {
+       // Strategy 1: Horoscope App API (GET) - usually reliable
+       try {
+         const targetUrl = `https://horoscope-app-api.vercel.app/api/v1/get-horoscope/daily?sign=${sign}&day=${day}`
+         // Try direct first (CORS might allow it)
+         const response = await fetch(targetUrl)
+         if (response.ok) {
+           const data = await response.json()
+           if (data.data) {
+             return {
+               description: data.data.horoscope_data,
+               date_range: data.data.date,
+               current_date: new Date().toDateString(),
+               mood: "Mystical",
+               color: "Unknown",
+               lucky_number: "Unknown",
+               lucky_time: "Unknown",
+               compatibility: "Unknown"
+             }
+           }
+         }
+       } catch (e) {
+         console.warn('Strategy 1 failed', e)
+       }
+
+       // Strategy 2: Aztro (POST) - Direct
+       try {
+         const baseUrl = `https://aztro.sameerkumar.website/?sign=${sign}&day=${day}`
+         const response = await fetch(baseUrl, { method: 'POST' })
+         if (!response.ok) throw new Error('Aztro Direct Failed')
+         return await response.json()
+       } catch (e) {
+         // Strategy 3: Ohmanda (GET) via Proxy
+         try {
+            const ohmandaUrl = `https://ohmanda.com/api/horoscope/${sign}`
+            const proxyResp = await fetch(`${PROXY_URL}${encodeURIComponent(ohmandaUrl)}`)
+            if (!proxyResp.ok) throw new Error('Ohmanda Proxy Failed')
+            const raw = await proxyResp.json()
+            // AllOrigins wraps response in 'contents' sometimes, but using /raw endpoint returns direct body
+            // If raw is string, parse it
+            const data = typeof raw === 'string' ? JSON.parse(raw) : raw
+            
+            return {
+              description: data.horoscope,
+              date_range: data.date,
+              current_date: new Date().toDateString(),
+              mood: 'Mysterious',
+              color: 'Unknown',
+              lucky_number: '7',
+              lucky_time: '12:00',
+              compatibility: 'Unknown'
+            }
+         } catch (e2) {
+            console.warn('All Astrology APIs failed, using mock')
+            // Fallback Mock
+            return {
+              description: "The stars are veiled today. Trust your intuition and proceed with caution. (Offline Mode)",
+              date_range: "N/A",
+              current_date: new Date().toDateString(),
+              mood: "Introspective",
+              color: "Silver",
+              lucky_number: "11",
+              lucky_time: "Midnight",
+              compatibility: "Self"
+            }
+         }
+       }
+    }
+
     try {
-      const response = await fetch(`https://aztro.sameerkumar.website/?sign=${sign}&day=${day}`, {
-        method: 'POST'
-      })
-      if (!response.ok) throw new Error('Astrology API failed')
-      const data = await response.json()
-      
+      const data = await fetchWithProxy()
       localStorage.setItem(cacheKey, JSON.stringify(data))
       return data
     } catch (e) {
@@ -102,10 +170,14 @@ export const MythologyService = {
             localStorage.setItem(MYTH_CACHE_KEY + key, JSON.stringify(entity))
             return entity
           }
+        } else {
+           console.warn('Mythology API Error:', response.status, response.statusText)
         }
       } catch (e) {
-        console.warn('Mythology API failed, using fallback/null')
+        console.warn('Mythology API failed, using fallback/null', e)
       }
+    } else {
+       console.warn('Mythology API Key missing')
     }
 
     return null

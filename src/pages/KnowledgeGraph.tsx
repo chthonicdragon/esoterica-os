@@ -250,12 +250,22 @@ export function KnowledgeGraph({ user }: Props) {
   const fetchMythData = async () => {
     if (!selectedNode) return
     setLoadingMyth(true)
-    const data = await MythologyService.getEntityInfo(selectedNode.name)
-    setMythData(data)
-    setLoadingMyth(false)
-    if (data) {
-       // Auto-merge if user wants (or just suggest)
-       // Here we just show it, but offer a button to Merge
+    setError(null)
+    try {
+      const data = await MythologyService.getEntityInfo(selectedNode.name)
+      setMythData(data)
+      if (!data) {
+        if (!import.meta.env.VITE_API_NINJAS_KEY) {
+           setError(lang === 'ru' ? 'API ключ не настроен. Показаны только локальные данные.' : 'API Key missing. Only local data available.')
+        } else {
+           setError(lang === 'ru' ? 'Информация не найдена в мифах.' : 'No mythology data found.')
+        }
+        setTimeout(() => setError(null), 4000)
+      }
+    } catch (e) {
+      setError(lang === 'ru' ? 'Ошибка поиска.' : 'Search failed.')
+    } finally {
+      setLoadingMyth(false)
     }
   }
 
@@ -286,7 +296,12 @@ export function KnowledgeGraph({ user }: Props) {
     const timer = setTimeout(() => {
       if (graphData.nodes.length > 0) pushToRemote(user.id, graphData)
     }, 3000)
-    return () => clearTimeout(timer)
+    // Fix overlap issue: Close details when opening sigil gen, or use z-index
+  // We'll modify the "Gen Sigil" button to open the generator and close details if needed
+  // But actually the SigilGenerator is a full screen overlay or modal?
+  // Let's check where it is rendered.
+  
+  return () => clearTimeout(timer)
   }, [graphData, user.id])
 
   useEffect(() => {
@@ -743,6 +758,7 @@ export function KnowledgeGraph({ user }: Props) {
     setSelectedNode(node)
     setSelectedLink(null)
     setMythData(null) // Reset on new selection
+    setShowSigilGenerator(false) // Close sigil generator if open
   }, [])
 
   const handleLinkClick = useCallback((link: Link) => {
@@ -862,6 +878,19 @@ export function KnowledgeGraph({ user }: Props) {
         <div className="flex flex-col lg:flex-row gap-4 h-full w-full overflow-y-auto lg:overflow-hidden p-1">
           {/* Left Column: Controls */}
           <div className={`${isExpanded ? 'hidden' : 'flex'} flex-col gap-4 w-full lg:w-[360px] shrink-0 overflow-y-auto pr-1`} style={{ scrollbarWidth: 'thin' }}>
+            {/* Error Message Toast */}
+            <AnimatePresence>
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+                  className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl text-xs font-bold flex items-center gap-2"
+                >
+                  <Info className="w-4 h-4" />
+                  {error}
+                </motion.div>
+              )}
+            </AnimatePresence>
+            
             {/* Header */}
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -1217,24 +1246,42 @@ export function KnowledgeGraph({ user }: Props) {
                   {/* Sigil Generator Modal */}
                   <AnimatePresence>
                     {showSigilGenerator && selectedNode && (
-                      <SigilGenerator 
-                        sourceNode={selectedNode} 
-                        onClose={() => setShowSigilGenerator(false)} 
-                        onSave={handleSaveSigil} 
-                      />
+                      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                        <motion.div 
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          className="w-full max-w-md bg-[hsl(var(--sidebar))] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+                        >
+                          <div className="flex justify-between items-center p-4 border-b border-white/10 bg-white/5">
+                            <h3 className="text-sm font-bold uppercase tracking-wider">{t.genSigil}</h3>
+                            <button onClick={() => setShowSigilGenerator(false)} className="p-1 hover:bg-white/10 rounded-full text-muted-foreground hover:text-foreground">
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <SigilGenerator 
+                            sourceNode={selectedNode} 
+                            onClose={() => setShowSigilGenerator(false)} 
+                            onSave={handleSaveSigil} 
+                          />
+                        </motion.div>
+                      </div>
                     )}
                   </AnimatePresence>
 
                   {/* Node detail panel */}
-                  <AnimatePresence>
-                    {selectedNode && (
+                  <AnimatePresence mode="wait">
+                    {selectedNode && !showSigilGenerator && (
                       <>
                         {selectedNode.type === 'ritual' && (
-                          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                          <motion.div 
+                            key="ritual-backdrop"
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             onClick={() => setSelectedNode(null)}
                             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40" />
                         )}
                         <motion.div
+                          key="entity-details-panel"
                           initial={selectedNode.type === 'ritual' ? { opacity: 0, scale: 0.9, y: 20 } : { x: 280, opacity: 0 }}
                           animate={selectedNode.type === 'ritual' ? { opacity: 1, scale: 1, y: 0 } : { x: 0, opacity: 1 }}
                           exit={selectedNode.type === 'ritual' ? { opacity: 0, scale: 0.9, y: 20 } : { x: 280, opacity: 0 }}

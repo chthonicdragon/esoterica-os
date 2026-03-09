@@ -31,3 +31,4 @@ dist-ssr
 
 # Local duplicate copy (inactive)
 esoterica-os/
+.vercel
