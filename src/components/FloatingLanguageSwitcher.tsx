@@ -58,7 +58,7 @@ export function FloatingLanguageSwitcher() {
           flex items-center justify-center w-12 h-12 rounded-full 
           bg-background/80 backdrop-blur-md border border-primary/30 
           shadow-xl hover:shadow-primary/20 hover:scale-105 hover:border-primary/60
-          transition-all duration-300 group
+          transition-all duration-300 group mb-16 lg:mb-0
           ${isOpen ? 'bg-primary/20 border-primary' : ''}
         `}
         title="Change Language"
