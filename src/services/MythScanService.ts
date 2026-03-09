@@ -289,12 +289,73 @@ Rules:
 
     if (!direct.ok) {
       const text = await direct.text().catch(() => '')
-      throw new Error(`AI API error: ${text || direct.status}`)
+      // Instead of throwing, fallback to regex if AI fails (e.g. 402, 500)
+      console.warn(`AI API error: ${text || direct.status}. Falling back to regex.`)
+      // @ts-ignore
+      return this.extractWithRegex(wikiText, entity, pantheon)
     }
 
     const directData = await direct.json()
     const directContent = directData?.choices?.[0]?.message?.content || ''
-    if (!directContent) throw new Error('Empty AI response')
+    if (!directContent) {
+        console.warn('Empty AI response. Falling back to regex.')
+        // @ts-ignore
+        return this.extractWithRegex(wikiText, entity, pantheon)
+    }
     return JSON.parse(directContent)
+  },
+  
+  // --- Fallback: Regex Extraction ---
+  extractWithRegex(text: string, entity: string, pantheon?: string): MythScanResult {
+    console.warn('Using Regex Fallback for MythScan')
+    const lowerText = text.toLowerCase()
+    
+    const findMatches = (keywords: string[], contextWords: string[] = []) => {
+      // Simple keyword matching in text
+      return keywords.filter(k => {
+        const regex = new RegExp(`\\b${k}\\b`, 'i')
+        if (!regex.test(text)) return false
+        
+        // If context words provided, ensure one appears near the keyword (within 100 chars)
+        if (contextWords.length > 0) {
+          const idx = lowerText.indexOf(k.toLowerCase())
+          if (idx === -1) return false
+          const context = lowerText.slice(Math.max(0, idx - 100), Math.min(lowerText.length, idx + 100))
+          return contextWords.some(cw => context.includes(cw))
+        }
+        return true
+      }).slice(0, 8)
+    }
+
+    // Common lists
+    const COMMON_ANIMALS = ['dog', 'wolf', 'snake', 'serpent', 'owl', 'raven', 'crow', 'eagle', 'lion', 'bull', 'horse', 'bear', 'cat', 'frog', 'toad', 'bat', 'spider', 'goat', 'fish', 'dolphin']
+    const COMMON_PLANTS = ['oak', 'yew', 'cypress', 'willow', 'laurel', 'olive', 'pomegranate', 'poppy', 'rose', 'lily', 'lotus', 'mandrake', 'aconite', 'belladonna', 'hemlock', 'garlic', 'mint', 'sage']
+    const COMMON_SYMBOLS = ['key', 'torch', 'crossroads', 'moon', 'sun', 'star', 'wand', 'staff', 'trident', 'thunderbolt', 'hammer', 'axe', 'sword', 'shield', 'cup', 'grail', 'cauldron', 'mirror', 'mask', 'wheel']
+    const COMMON_OFFERINGS = ['honey', 'wine', 'milk', 'water', 'oil', 'incense', 'cake', 'bread', 'fruit', 'flower', 'coin', 'candle']
+    const COMMON_COLORS = ['black', 'white', 'red', 'blue', 'green', 'yellow', 'gold', 'silver', 'purple', 'saffron']
+    const COMMON_ELEMENTS = ['fire', 'water', 'air', 'earth', 'spirit', 'aether']
+    const COMMON_PLANETS = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto']
+
+    // Context cues
+    const SYMBOL_CUES = ['symbol', 'attribute', 'depicted with', 'holding', 'carrying', 'sacred to']
+    const ANIMAL_CUES = ['sacred animal', 'associated with', 'form of', 'turned into']
+    const PLANT_CUES = ['sacred plant', 'associated with', 'tree', 'flower', 'herb']
+
+    return {
+      entity,
+      pantheon: pantheon || 'Unknown',
+      symbols: findMatches(COMMON_SYMBOLS, SYMBOL_CUES),
+      plants: findMatches(COMMON_PLANTS, PLANT_CUES),
+      animals: findMatches(COMMON_ANIMALS, ANIMAL_CUES),
+      offerings: findMatches(COMMON_OFFERINGS),
+      colors: findMatches(COMMON_COLORS),
+      elements: findMatches(COMMON_ELEMENTS),
+      planets: findMatches(COMMON_PLANETS),
+      days: [],
+      festivals: [],
+      associated_deities: [], // Hard to extract reliably with regex
+      sacred_objects: [],
+      epithets: []
+    }
   }
 }
