@@ -69,9 +69,9 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      port: 3000,
-      strictPort: false,
-      host: true,
+      port: 5000,
+      strictPort: true,
+      host: '0.0.0.0',
       allowedHosts: true,
       proxy: {
         '/_openrouter': {
