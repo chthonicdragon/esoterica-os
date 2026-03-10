@@ -30,20 +30,23 @@ export interface GraphData {
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-type Provider = "groq" | "openrouter";
+type Provider = "groq" | "openrouter" | "deepseek";
 
 const DEV = import.meta.env.DEV;
 const AI_GATEWAY_MODE = (import.meta.env.VITE_AI_GATEWAY_MODE as string | undefined)?.trim()?.toLowerCase() || 'direct';
 const USE_GATEWAY = AI_GATEWAY_MODE === 'gateway';
 const GROQ_API_URL = USE_GATEWAY ? "/api/groq" : "https://api.groq.com/openai/v1/chat/completions";
 const OPENROUTER_API_URL = USE_GATEWAY ? "/api/openrouter" : "https://openrouter.ai/api/v1/chat/completions";
+const DEEPSEEK_API_URL = USE_GATEWAY ? "/api/deepseek" : "https://api.deepseek.com/chat/completions";
 
 const GROQ_API_KEY = (import.meta.env.VITE_GROQ_API_KEY as string | undefined)?.trim();
 const OPENROUTER_API_KEY = (import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined)?.trim();
+const DEEPSEEK_API_KEY = (import.meta.env.VITE_DEEPSEEK_API_KEY as string | undefined)?.trim();
 
-const PROVIDER: Provider | null = GROQ_API_KEY ? "groq" : OPENROUTER_API_KEY ? "openrouter" : null;
-const API_URL = PROVIDER === "groq" ? GROQ_API_URL : PROVIDER === "openrouter" ? OPENROUTER_API_URL : "";
-const API_KEY = PROVIDER === "groq" ? GROQ_API_KEY || "" : PROVIDER === "openrouter" ? OPENROUTER_API_KEY || "" : "";
+const PROVIDERS: Provider[] = []
+if (GROQ_API_KEY) PROVIDERS.push("groq")
+if (OPENROUTER_API_KEY) PROVIDERS.push("openrouter")
+if (DEEPSEEK_API_KEY) PROVIDERS.push("deepseek")
 
 // Fallback chain по скорости: быстрая → большая → запасная.
 const GROQ_MODELS = [
@@ -62,7 +65,15 @@ const OPENROUTER_MODELS = [
   "openai/gpt-4o-mini",
 ];
 
-const MODELS = PROVIDER === "openrouter" ? OPENROUTER_MODELS : GROQ_MODELS;
+const DEEPSEEK_MODELS = [
+  "deepseek-chat",
+]
+
+function getModels(provider: Provider): string[] {
+  if (provider === "openrouter") return OPENROUTER_MODELS
+  if (provider === "groq") return GROQ_MODELS
+  return DEEPSEEK_MODELS
+}
 
 const REQUEST_TIMEOUT_MS = 22000;
 const MENTOR_RETRY_COUNT = 2;
@@ -73,33 +84,36 @@ const MENTOR_CIRCUIT_COOLDOWN_MS = 45000;
 let mentorFailureCount = 0;
 let mentorCircuitOpenUntil = 0;
 
-const COMMON_HEADERS: Record<string, string> = {
-  "Content-Type": "application/json",
-};
-
-if (PROVIDER === "openrouter") {
-  const ENV_SITE_URL = (import.meta.env.VITE_SITE_URL as string | undefined)?.trim();
-  const ENV_SITE_TITLE = (import.meta.env.VITE_SITE_TITLE as string | undefined)?.trim();
-  const FALLBACK_SITE_URL = "https://esoterica-os.vercel.app";
-
-  let siteUrl = FALLBACK_SITE_URL;
-  try {
-    if (typeof window !== "undefined") {
-      const origin = window.location.origin;
-      if (/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.)/i.test(origin)) {
+function buildHeaders(provider: Provider, usingServerless: boolean): Record<string, string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" }
+  if (!usingServerless) {
+    if (provider === "groq" && GROQ_API_KEY) headers.Authorization = `Bearer ${GROQ_API_KEY}`
+    if (provider === "deepseek" && DEEPSEEK_API_KEY) headers.Authorization = `Bearer ${DEEPSEEK_API_KEY}`
+    if (provider === "openrouter" && OPENROUTER_API_KEY) {
+      headers.Authorization = `Bearer ${OPENROUTER_API_KEY}`
+      const ENV_SITE_URL = (import.meta.env.VITE_SITE_URL as string | undefined)?.trim();
+      const ENV_SITE_TITLE = (import.meta.env.VITE_SITE_TITLE as string | undefined)?.trim();
+      const FALLBACK_SITE_URL = "https://esoterica-os.vercel.app";
+      let siteUrl = FALLBACK_SITE_URL;
+      try {
+        if (typeof window !== "undefined") {
+          const origin = window.location.origin;
+          if (/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.)/i.test(origin)) {
+            siteUrl = ENV_SITE_URL || FALLBACK_SITE_URL;
+          } else {
+            siteUrl = origin;
+          }
+        } else {
+          siteUrl = ENV_SITE_URL || FALLBACK_SITE_URL;
+        }
+      } catch {
         siteUrl = ENV_SITE_URL || FALLBACK_SITE_URL;
-      } else {
-        siteUrl = origin;
       }
-    } else {
-      siteUrl = ENV_SITE_URL || FALLBACK_SITE_URL;
+      headers["HTTP-Referer"] = siteUrl;
+      headers["X-Title"] = ENV_SITE_TITLE || "Esoterica OS";
     }
-  } catch {
-    siteUrl = ENV_SITE_URL || FALLBACK_SITE_URL;
   }
-
-  COMMON_HEADERS["HTTP-Referer"] = siteUrl;
-  COMMON_HEADERS["X-Title"] = ENV_SITE_TITLE || "Esoterica OS";
+  return headers
 }
 
 function wait(ms: number) {
@@ -114,7 +128,7 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
     return await fetch(url, { ...init, signal: controller.signal });
   } catch (error: any) {
     if (error?.name === "AbortError") {
-      throw new Error(`[AI:${PROVIDER}] Request timeout after ${timeoutMs}ms`);
+      throw new Error(`[AI] Request timeout after ${timeoutMs}ms`);
     }
     throw error;
   } finally {
@@ -372,58 +386,38 @@ async function extractMissingLinksFallback(
 
 // ── HTTP с fallback по моделям (при 429 или 404 — следующая модель) ─────────
 
-async function fetchWithFallback(body: object, modelIndex = 0): Promise<string> {
-  if (!API_KEY || !PROVIDER || !API_URL) {
-    throw new Error("[AI] Missing API key. Set VITE_GROQ_API_KEY or VITE_OPENROUTER_API_KEY in environment variables.");
+async function fetchWithFallback(body: object, providerIndex = 0, modelIndex = 0): Promise<string> {
+  if (!PROVIDERS.length) {
+    throw new Error("[AI] Missing API key. Set VITE_GROQ_API_KEY or VITE_OPENROUTER_API_KEY or VITE_DEEPSEEK_API_KEY.");
   }
-
-  if (modelIndex >= MODELS.length) {
-    throw new Error(`[AI:${PROVIDER}] All models unavailable (rate limited or not found)`);
+  if (providerIndex >= PROVIDERS.length) {
+    throw new Error(`[AI] All providers unavailable`);
   }
-
-  const model = MODELS[modelIndex];
-  console.log(`[AI:${PROVIDER}] Trying model: ${model}`);
-
-  const headers: Record<string, string> = { ...COMMON_HEADERS };
-  const usingServerless = API_URL.startsWith('/api/')
-  if (!usingServerless) {
-    headers.Authorization = `Bearer ${API_KEY}`;
-    if (PROVIDER === "openrouter") {
-      const ENV_SITE_URL = (import.meta.env.VITE_SITE_URL as string | undefined)?.trim();
-      const ENV_SITE_TITLE = (import.meta.env.VITE_SITE_TITLE as string | undefined)?.trim();
-      const FALLBACK_SITE_URL = "https://esoterica-os.vercel.app";
-      let siteUrl = typeof window !== "undefined" ? window.location.origin : (ENV_SITE_URL || FALLBACK_SITE_URL);
-      if (/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.)/i.test(siteUrl)) {
-        siteUrl = ENV_SITE_URL || FALLBACK_SITE_URL;
-      }
-      headers["HTTP-Referer"] = siteUrl;
-      headers["X-Title"] = ENV_SITE_TITLE || "Esoterica OS";
-    }
-  } // when using serverless, Authorization and Referer headers are added on the server
-
-  const res = await fetchWithTimeout(API_URL, {
+  const provider = PROVIDERS[providerIndex]
+  const apiUrl = provider === "groq" ? GROQ_API_URL : provider === "openrouter" ? OPENROUTER_API_URL : DEEPSEEK_API_URL
+  const models = getModels(provider)
+  if (modelIndex >= models.length) {
+    return fetchWithFallback(body, providerIndex + 1, 0)
+  }
+  const model = models[modelIndex]
+  const usingServerless = apiUrl.startsWith('/api/')
+  const headers = buildHeaders(provider, usingServerless)
+  const res = await fetchWithTimeout(apiUrl, {
     method: "POST",
     headers,
     body: JSON.stringify({ ...body, model }),
   }, REQUEST_TIMEOUT_MS);
-
   const rate = getRateLimitSnapshot(res);
-
   if (res.status === 429 || res.status === 404 || res.status === 400) {
-    console.warn(`[AI:${PROVIDER}] ${model} -> ${res.status}, switching to next model...`, rate);
-    return fetchWithFallback(body, modelIndex + 1);
+    return fetchWithFallback(body, providerIndex, modelIndex + 1)
   }
-
   if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`[AI:${PROVIDER}] HTTP ${res.status}: ${errText} | rate=${JSON.stringify(rate)}`);
+    const errText = await res.text().catch(() => '')
+    throw new Error(`[AI:${provider}] HTTP ${res.status}: ${errText} | rate=${JSON.stringify(rate)}`)
   }
-
   const json = await res.json();
   const text: string = json.choices?.[0]?.message?.content ?? "";
-  if (!text) throw new Error(`[AI:${PROVIDER}] Empty response from model`);
-
-  console.log(`[AI:${PROVIDER}] Success with model: ${model}`);
+  if (!text) throw new Error(`[AI:${provider}] Empty response from model`);
   return text;
 }
 
