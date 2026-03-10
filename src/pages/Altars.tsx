@@ -1,0 +1,864 @@
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { Plus, Trash2, Maximize2, Minimize2, List, ChevronLeft } from 'lucide-react'
+import toast from 'react-hot-toast'
+import { cn } from '../lib/utils'
+import { useLang } from '../contexts/LanguageContext'
+import { useAudio } from '../contexts/AudioContext'
+import { useIsMobile } from '../hooks/use-mobile'
+import { AltarScene3D } from '../altar/AltarScene3D'
+import { ObjectPanel } from '../altar/ObjectPanel'
+import { BasePanel } from '../altar/BasePanel'
+import { RitualPanel } from '../altar/RitualPanel'
+import { ProgressionPanel } from '../altar/ProgressionPanel'
+import { CATALOG, ALTAR_BASES, getRequiredBaseUnlockLevel, getRequiredUnlockLevel, isCatalogItemUnlocked } from '../altar/catalog'
+import {
+  loadLocalState,
+  saveLocalState,
+  createDefaultLayout,
+  addObjectToLayout,
+  updateObjectInLayout,
+  removeObjectFromLayout,
+  completeRitual,
+  addProgressPoints,
+  ACTION_POINTS,
+  recalculateProgressionLevel,
+  syncProgressionToDb,
+  loadProgressionFromDb,
+} from '../altar/altarStore'
+import type { AltarLayout, AltarTheme, AltarBaseId, PlacedObject, RitualSession, Progression } from '../altar/types'
+import { logAltarRitualSession } from '../services/ritualBridge'
+
+type AltarVisualPreset = 'soft' | 'cinematic'
+const WORK_SURFACE_Y = 0.12
+
+interface AltarsProps {
+  user: { id: string; displayName?: string | null; email?: string }
+}
+
+const DEFAULT_SESSION: RitualSession = {
+  active: false,
+  mode: 'soft',
+  durationMinutes: 30,
+  startTime: null,
+  elapsed: 0,
+  completed: false,
+  interrupted: false,
+}
+
+export function Altars({ user }: AltarsProps) {
+  const { lang } = useLang()
+  const { playUiSound } = useAudio()
+  const isMobile = useIsMobile()
+
+  const [layouts, setLayouts] = useState<AltarLayout[]>([])
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const [selectedObjId, setSelectedObjId] = useState<string | null>(null)
+  const [pendingDrop, setPendingDrop] = useState<string | null>(null)
+  const [session, setSession] = useState<RitualSession>(DEFAULT_SESSION)
+  const [progression, setProgression] = useState<Progression>({
+    points: 0, level: 1, streak: 0, lastPracticeDate: null, totalRituals: 0,
+    ritualXp: 0, journalXp: 0, knowledgeXp: 0, altarXp: 0,
+  })
+  const [lastPoints, setLastPoints] = useState(0)
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newBaseId, setNewBaseId] = useState<AltarBaseId>('base_wooden_table')
+  const [activeTab, setActiveTab] = useState<'objects' | 'bases' | 'ritual' | 'progress'>('objects')
+  const [fullscreen, setFullscreen] = useState(false)
+  const [showAltarList, setShowAltarList] = useState(false)
+  const [visualPreset, setVisualPreset] = useState<AltarVisualPreset>('cinematic')
+  const [hydrated, setHydrated] = useState(false)
+  const [safeRenderMode, setSafeRenderMode] = useState(false)
+  const [forceHighRender, setForceHighRender] = useState(false)
+  const [sceneLoading, setSceneLoading] = useState({ active: false, progress: 0 })
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const unlockedBases = useMemo(
+    () => ALTAR_BASES.filter(base => getRequiredBaseUnlockLevel(base.id) <= progression.level),
+    [progression.level],
+  )
+
+  useEffect(() => {
+    if (!showCreateForm || unlockedBases.length === 0) return
+    if (!unlockedBases.some(base => base.id === newBaseId)) {
+      setNewBaseId(unlockedBases[0].id)
+    }
+  }, [showCreateForm, unlockedBases, newBaseId])
+
+  function getThemeForBase(baseId: AltarBaseId): AltarTheme {
+    if (baseId === 'base_stone_altar') return 'stone'
+    if (baseId === 'base_psx_wooden' || baseId === 'base_wooden_table') return 'wood'
+    if (baseId === 'base_sacrificial') return 'obsidian'
+    return 'mystical'
+  }
+
+  const altarBackdropStyle = useMemo(() => ({
+    backgroundImage: visualPreset === 'cinematic'
+      ? (isMobile
+        ? "radial-gradient(120% 70% at 50% 35%, rgba(116, 88, 202, 0.18) 0%, rgba(5, 8, 24, 0) 58%), linear-gradient(180deg, rgba(4, 7, 22, 0.38) 0%, rgba(4, 7, 22, 0.62) 62%, rgba(4, 7, 22, 0.84) 100%), url('/altar-bg-mobile.png')"
+        : "radial-gradient(100% 68% at 50% 32%, rgba(118, 92, 208, 0.14) 0%, rgba(5, 7, 22, 0) 60%), linear-gradient(rgba(3, 6, 20, 0.38), rgba(3, 6, 20, 0.68)), url('/altar-bg-desktop.png')")
+      : (isMobile
+        ? "radial-gradient(110% 66% at 50% 32%, rgba(96, 146, 220, 0.12) 0%, rgba(5, 8, 24, 0) 62%), linear-gradient(180deg, rgba(5, 8, 22, 0.3) 0%, rgba(5, 8, 22, 0.54) 64%, rgba(5, 8, 22, 0.74) 100%), url('/altar-bg-mobile.png')"
+        : "radial-gradient(96% 62% at 50% 30%, rgba(96, 146, 220, 0.1) 0%, rgba(5, 8, 24, 0) 64%), linear-gradient(rgba(4, 7, 20, 0.3), rgba(4, 7, 20, 0.58)), url('/altar-bg-desktop.png')"),
+    backgroundSize: isMobile ? '170% auto' : '122% auto',
+    backgroundPosition: isMobile ? '50% 20%' : '50% 16%',
+    backgroundRepeat: 'no-repeat',
+  }), [isMobile, visualPreset])
+
+  // ── Load state ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const local = loadLocalState()
+    setLayouts(local.layouts)
+    setActiveId(local.activeLayoutId)
+    setProgression(recalculateProgressionLevel(local.progression))
+    loadProgressionFromDb(user.id).then(dbProg => {
+      if (dbProg) {
+        setProgression(prev => {
+          const points = Math.max(prev.points, dbProg.points)
+          return recalculateProgressionLevel({
+            points,
+            level: 1,
+            streak: Math.max(prev.streak, dbProg.streak),
+            lastPracticeDate: prev.lastPracticeDate || dbProg.lastPracticeDate,
+            totalRituals: Math.max(prev.totalRituals, dbProg.totalRituals),
+            ritualXp: Math.max(prev.ritualXp, dbProg.ritualXp),
+            journalXp: Math.max(prev.journalXp, dbProg.journalXp),
+            knowledgeXp: Math.max(prev.knowledgeXp, dbProg.knowledgeXp),
+            altarXp: Math.max(prev.altarXp, dbProg.altarXp),
+          })
+        })
+      }
+    })
+    setHydrated(true)
+  }, [user.id])
+
+  // Grant max level on local dev host for testing all items
+  useEffect(() => {
+    if (typeof window === 'undefined' || !hydrated) return
+    const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    if (!isLocalHost) return
+
+    setProgression(prev => {
+      // If already maxed out, don't churn state
+      if (prev.level >= 10 && prev.points >= 20000) return prev
+
+      return {
+        ...prev,
+        level: 10,
+        points: 20000,
+        ritualXp: 5000,
+        journalXp: 5000,
+        knowledgeXp: 5000,
+        altarXp: 5000,
+        totalRituals: Math.max(prev.totalRituals, 100),
+      }
+    })
+  }, [hydrated])
+
+  useEffect(() => {
+    if (!hydrated) return
+    saveLocalState({ layouts, activeLayoutId: activeId, progression })
+  }, [layouts, activeId, progression, hydrated])
+
+  // ── Timer ───────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (session.active && !session.completed && !session.interrupted) {
+      timerRef.current = setInterval(() => {
+        setSession(s => ({ ...s, elapsed: s.elapsed + 1 }))
+      }, 1000)
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  }, [session.active, session.completed, session.interrupted])
+
+  // ── Derived ─────────────────────────────────────────────────────────────────
+  const activeLayout = layouts.find(l => l.id === activeId) ?? null
+  const selectedObj = activeLayout?.objects.find(o => o.id === selectedObjId)
+  const selectedCatalog = selectedObj ? CATALOG.find(c => c.id === selectedObj.catalogId) : null
+  const ritualProgress = session.active ? session.elapsed / (session.durationMinutes * 60) : 0
+  const objectCount = activeLayout?.objects.length || 0
+  const safeTriggerActive = isMobile || objectCount >= 14 || safeRenderMode
+  const autoSafeRender = !forceHighRender && safeTriggerActive
+
+  const handleSceneContextLost = useCallback(() => {
+    setSafeRenderMode(true)
+    toast.error(lang === 'ru' ? 'Включен облегченный режим алтаря' : 'Switched altar to safe render mode')
+  }, [lang])
+
+  useEffect(() => {
+    if (!isMobile) return
+    if (forceHighRender) setForceHighRender(false)
+  }, [isMobile, forceHighRender])
+
+  // ── Layout mutations ────────────────────────────────────────────────────────
+  function updateLayout(updated: AltarLayout) {
+    setLayouts(l => l.map(x => x.id === updated.id ? updated : x))
+  }
+
+  function getMinObjectY(
+    obj: PlacedObject,
+    catalogItem: typeof CATALOG[number] | undefined,
+    rotationX = obj.rotationX || 0,
+    rotationZ = obj.rotationZ || 0,
+  ) {
+    const baseY = WORK_SURFACE_Y + (catalogItem?.placementYOffset || 0)
+    if (!catalogItem) return baseY
+
+    // Approximate lift needed when tilting object so its lower side does not sink into the table.
+    const tiltStrength = Math.max(Math.abs(Math.sin(rotationX)), Math.abs(Math.sin(rotationZ)))
+    const maxDimension = Math.max(catalogItem.scale[0], catalogItem.scale[1], catalogItem.scale[2]) * obj.scale
+    const tiltLift = tiltStrength * maxDimension * 0.45
+
+    return baseY + tiltLift
+  }
+
+  function createLayout() {
+    if (!newName.trim()) return
+    const selectedBase = unlockedBases.find(base => base.id === newBaseId)
+    const fallbackBase = unlockedBases[0] || ALTAR_BASES[0]
+    const baseId = (selectedBase || fallbackBase).id
+    playUiSound('success')
+    const layout = createDefaultLayout(newName.trim(), getThemeForBase(baseId))
+    const layoutWithBase: AltarLayout = { ...layout, baseId }
+    setLayouts(prev => [...prev, layoutWithBase])
+    setActiveId(layoutWithBase.id)
+    setActiveTab('bases')
+    setProgression(prev => addProgressPoints(prev, ACTION_POINTS.createAltar, 'altar').progression)
+    setShowCreateForm(false)
+    setShowAltarList(false)
+    setNewName('')
+    setNewBaseId(unlockedBases[0]?.id || 'base_wooden_table')
+    toast.success(lang === 'ru' ? 'Алтарь создан' : 'Altar created')
+  }
+
+  function deleteLayout(id: string) {
+    playUiSound('click')
+    setLayouts(l => l.filter(x => x.id !== id))
+    if (activeId === id) setActiveId(null)
+    toast.success(lang === 'ru' ? 'Алтарь удалён' : 'Altar deleted')
+  }
+
+  function changeBase(baseId: AltarBaseId) {
+    if (!activeLayout) return
+    const base = ALTAR_BASES.find(x => x.id === baseId)
+    if (!base) return
+    if (getRequiredBaseUnlockLevel(baseId) > progression.level) {
+      toast.error(
+        lang === 'ru'
+          ? `Нужен уровень ${getRequiredBaseUnlockLevel(baseId)}`
+          : `Requires level ${getRequiredBaseUnlockLevel(baseId)}`
+      )
+      return
+    }
+    if (activeLayout.baseId === baseId) return
+    playUiSound('success')
+    updateLayout({ ...activeLayout, baseId, theme: getThemeForBase(baseId) })
+    toast.success(lang === 'ru' ? 'База алтаря изменена' : 'Altar base changed')
+  }
+
+  // ── Object interactions ─────────────────────────────────────────────────────
+  function handleDropPlaced(pos: [number, number, number]) {
+    if (!pendingDrop || !activeLayout) return
+    const cat = CATALOG.find(c => c.id === pendingDrop)
+    if (!cat) return
+    if (!isCatalogItemUnlocked(cat, progression.level)) {
+      const requiredLevel = getRequiredUnlockLevel(cat)
+      playUiSound('error')
+      toast.error(
+        lang === 'ru'
+          ? `Этот предмет откроется позже (уровень ${requiredLevel})`
+          : `This item unlocks later (level ${requiredLevel})`
+      )
+      setPendingDrop(null)
+      return
+    }
+    const isFirstObject = activeLayout.objects.length === 0
+    const nextX = Math.max(-0.85, Math.min(0.85, pos[0]))
+    const nextZ = Math.max(-0.5, Math.min(0.5, pos[2]))
+    const resolvePlacementCollision = (x: number, z: number) => {
+      const step = 0.06
+      let resolvedX = x
+      let resolvedZ = z
+      const radius = 0.11
+      const occupied = activeLayout.objects.map((obj) => ({ x: obj.position[0], z: obj.position[2] }))
+      for (let i = 0; i < 8; i++) {
+        const overlap = occupied.some((p) => Math.hypot(p.x - resolvedX, p.z - resolvedZ) < radius)
+        if (!overlap) break
+        const angle = (Math.PI / 4) * i
+        resolvedX = Math.max(-0.85, Math.min(0.85, x + Math.cos(angle) * step))
+        resolvedZ = Math.max(-0.5, Math.min(0.5, z + Math.sin(angle) * step))
+      }
+      return [resolvedX, resolvedZ] as const
+    }
+    const [resolvedX, resolvedZ] = resolvePlacementCollision(nextX, nextZ)
+
+    const placed: PlacedObject = {
+      id: `placed_${Date.now()}`,
+      catalogId: pendingDrop,
+      position: [
+        resolvedX,
+        WORK_SURFACE_Y + (cat?.placementYOffset || 0),
+        resolvedZ,
+      ],
+      rotationX: cat?.placementRotationX || 0,
+      rotationY: Math.random() * Math.PI * 2,
+      rotationZ: cat?.placementRotationZ || 0,
+      scale: 1,
+    }
+    playUiSound('success')
+    updateLayout(addObjectToLayout(activeLayout, placed))
+    setProgression(prev => {
+      const reward = ACTION_POINTS.placeObjectBase + (cat?.points || 0) * 0.35 + (isFirstObject ? ACTION_POINTS.placeFirstObject : 0)
+      return addProgressPoints(prev, reward, 'altar').progression
+    })
+    setPendingDrop(null)
+    toast.success(lang === 'ru' ? 'Объект размещён' : 'Object placed', { duration: 1500 })
+  }
+
+  function handleDeleteSelected() {
+    if (!activeLayout || !selectedObjId) return
+    playUiSound('click')
+    updateLayout(removeObjectFromLayout(activeLayout, selectedObjId))
+    setProgression(prev => addProgressPoints(prev, ACTION_POINTS.deleteObject, 'altar').progression)
+    setSelectedObjId(null)
+    toast.success(lang === 'ru' ? 'Объект удалён' : 'Object removed', { duration: 1200 })
+  }
+
+  function rotateSelected(axis: 'x' | 'y' | 'z' = 'y') {
+    if (!activeLayout || !selectedObjId) return
+    const obj = activeLayout.objects.find(o => o.id === selectedObjId)
+    if (!obj) return
+    const cat = CATALOG.find(c => c.id === obj.catalogId)
+    const nextRotationX = axis === 'x' ? (obj.rotationX || 0) + Math.PI / 10 : (obj.rotationX || 0)
+    const nextRotationY = axis === 'y' ? obj.rotationY + Math.PI / 8 : obj.rotationY
+    const nextRotationZ = axis === 'z' ? (obj.rotationZ || 0) + Math.PI / 10 : (obj.rotationZ || 0)
+    const minY = getMinObjectY(obj, cat, nextRotationX, nextRotationZ)
+
+    playUiSound('hover')
+    updateLayout(updateObjectInLayout(activeLayout, {
+      ...obj,
+      rotationX: nextRotationX,
+      rotationY: nextRotationY,
+      rotationZ: nextRotationZ,
+      // Keep object constrained to altar surface when adding tilt.
+      position: [obj.position[0], Math.max(minY, obj.position[1]), obj.position[2]],
+    }))
+  }
+
+  function moveSelected(dx: number, dy: number, dz: number) {
+    if (!activeLayout || !selectedObjId) return
+    const obj = activeLayout.objects.find(o => o.id === selectedObjId)
+    if (!obj) return
+    const cat = CATALOG.find(c => c.id === obj.catalogId)
+    const minY = getMinObjectY(obj, cat)
+
+    const moved: [number, number, number] = [
+      Math.max(-0.85, Math.min(0.85, obj.position[0] + dx)),
+      Math.max(minY, obj.position[1] + dy),
+      Math.max(-0.5, Math.min(0.5, obj.position[2] + dz)),
+    ]
+
+    playUiSound('hover')
+    updateLayout(updateObjectInLayout(activeLayout, { ...obj, position: moved }))
+  }
+
+  function scaleSelected(delta: number) {
+    if (!activeLayout || !selectedObjId) return
+    const obj = activeLayout.objects.find(o => o.id === selectedObjId)
+    if (!obj) return
+    const newScale = Math.max(0.4, Math.min(3.0, obj.scale + delta))
+    playUiSound('hover')
+    updateLayout(updateObjectInLayout(activeLayout, { ...obj, scale: newScale }))
+  }
+
+  // ── Ritual handlers ─────────────────────────────────────────────────────────
+  const handleStartRitual = useCallback((durationMinutes: number, mode: 'soft' | 'strict') => {
+    playUiSound('bell')
+    setSession({ active: true, mode, durationMinutes, startTime: Date.now(), elapsed: 0, completed: false, interrupted: false })
+    setActiveTab('ritual')
+    toast.success(lang === 'ru' ? '✦ Ритуал начат' : '✦ Ritual begun', { duration: 2000 })
+  }, [lang, playUiSound])
+
+  const handleCompleteRitual = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current)
+    const effectiveMinutes = Math.max(1, Math.floor(session.elapsed / 60))
+    const {
+      progression: newProg,
+      pointsEarned,
+      bonusMultiplier,
+      basePoints,
+      streakMultiplier,
+      modeMultiplier,
+    } = completeRitual(progression, effectiveMinutes, session.mode)
+    setProgression(newProg)
+    setLastPoints(pointsEarned)
+    syncProgressionToDb(user.id, newProg)
+    setSession(s => ({ ...s, active: false, completed: true }))
+    playUiSound('success')
+    const breakdown = lang === 'ru'
+      ? `база ${basePoints} × серия ${streakMultiplier.toFixed(2)} × режим ${modeMultiplier.toFixed(2)}`
+      : `base ${basePoints} × streak ${streakMultiplier.toFixed(2)} × mode ${modeMultiplier.toFixed(2)}`
+    const msg = bonusMultiplier > 1
+      ? (lang === 'ru' ? `✦ Завершено! +${pointsEarned} очков (${breakdown})` : `✦ Completed! +${pointsEarned} pts (${breakdown})`)
+      : (lang === 'ru' ? `✦ Завершено! +${pointsEarned} очков (${breakdown})` : `✦ Completed! +${pointsEarned} pts (${breakdown})`)
+    toast.success(msg, { duration: 4000 })
+
+    // Auto-log to RitualTracker so altar sessions appear in ritual history
+    logAltarRitualSession({
+      userId: user.id,
+      durationMinutes: effectiveMinutes,
+      mode: session.mode,
+      pointsEarned,
+      lang: lang as 'en' | 'ru',
+    })
+  }, [progression, session.elapsed, session.mode, user.id, lang, playUiSound])
+
+  const handleInterrupt = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current)
+    setSession(s => ({ ...s, active: false, interrupted: true }))
+    playUiSound('error')
+    // Award small consolation XP only in soft mode, capped at 10
+    if (session.mode === 'soft') {
+      const minutes = Math.max(1, Math.floor(session.elapsed / 60))
+      const raw = Math.min(10, minutes)
+      setProgression(prev => {
+        const { progression: p2, pointsEarned } = addProgressPoints(prev, raw, 'ritual')
+        syncProgressionToDb(user.id, p2)
+        toast(lang === 'ru'
+          ? `Сессия прервана • +${pointsEarned} XP (мягкий режим)`
+          : `Session interrupted • +${pointsEarned} XP (soft mode)`,
+          { duration: 2500 })
+        return p2
+      })
+    } else {
+      toast.error(lang === 'ru' ? 'Сессия прервана' : 'Session interrupted', { duration: 2000 })
+    }
+  }, [lang, playUiSound, session.mode, session.elapsed, user.id])
+
+  function resetSession() {
+    setSession(DEFAULT_SESSION)
+    setLastPoints(0)
+  }
+
+  // Strict mode enforces offline focus: leaving the page interrupts ritual.
+  useEffect(() => {
+    if (!session.active || session.mode !== 'strict') return
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        handleInterrupt()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [session.active, session.mode, handleInterrupt])
+
+  // ── Translations ────────────────────────────────────────────────────────────
+  const t = {
+    myAltars:     lang === 'ru' ? 'Мои Алтари'                        : 'My Altars',
+    create:       lang === 'ru' ? 'Создать алтарь'                    : 'Create Altar',
+    altarName:    lang === 'ru' ? 'Название алтаря...'                : 'Altar name...',
+    save:         lang === 'ru' ? 'Создать'                           : 'Create',
+    cancel:       lang === 'ru' ? 'Отмена'                            : 'Cancel',
+    noAltars:     lang === 'ru' ? 'Нет алтарей'                       : 'No altars yet',
+    selectAltar:  lang === 'ru' ? 'Выберите или создайте алтарь'      : 'Select or create an altar',
+    objects:      lang === 'ru' ? 'Объекты'                           : 'Objects',
+    ritual:       lang === 'ru' ? 'Ритуал'                            : 'Ritual',
+    progress:     lang === 'ru' ? 'Прогресс'                          : 'Progress',
+    bases:        lang === 'ru' ? 'Базы'                              : 'Bases',
+    altarBase:    lang === 'ru' ? 'База алтаря'                       : 'Altar Base',
+    clickToPlace: lang === 'ru' ? 'Нажмите на алтарь для размещения'  : 'Click altar to place',
+    selected:     lang === 'ru' ? 'Выбрано:'                          : 'Selected:',
+    delete:       lang === 'ru' ? 'Удалить'                           : 'Delete',
+    rotate:       lang === 'ru' ? 'Повернуть'                         : 'Rotate',
+    rotateRoll:   lang === 'ru' ? 'Вращ. ось'                         : 'Roll axis',
+    move:         lang === 'ru' ? 'Сдвиг'                             : 'Move',
+    up:           lang === 'ru' ? 'Вверх'                             : 'Up',
+    down:         lang === 'ru' ? 'Вниз'                              : 'Down',
+    scaleUp:      lang === 'ru' ? 'Больше'                            : 'Bigger',
+    scaleDown:    lang === 'ru' ? 'Меньше'                            : 'Smaller',
+    list:         lang === 'ru' ? 'Список'                            : 'List',
+    safeModeOn:   lang === 'ru' ? 'Safe: Вкл'                         : 'Safe: On',
+    safeModeOff:  lang === 'ru' ? 'Safe: Выкл'                        : 'Safe: Off',
+    highForced:   lang === 'ru' ? 'Высокий рендер принудительно включен' : 'High render forced on',
+    highAuto:     lang === 'ru' ? 'Возврат к авто safe-режиму'        : 'Returned to auto safe mode',
+  }
+
+  // ── Altar list sidebar ──────────────────────────────────────────────────────
+  const renderAltarList = () => (
+    <div className={cn(
+      'flex flex-col bg-background/95 backdrop-blur-md border-border/30',
+      isMobile ? 'absolute inset-0 z-50' : 'w-56 border-r h-full shrink-0',
+    )}>
+      <div className="flex items-center justify-between px-3 py-3 border-b border-border/30 shrink-0">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t.myAltars}</h2>
+        {isMobile && (
+          <button onClick={() => setShowAltarList(false)} className="p-1 text-muted-foreground hover:text-foreground transition-colors">
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-2 space-y-1">
+        {layouts.map(l => (
+          <div
+            key={l.id}
+            onClick={() => { setActiveId(l.id); if (isMobile) setShowAltarList(false) }}
+            className={cn(
+              'group flex items-center gap-2 px-3 py-2 rounded-xl text-sm cursor-pointer transition-colors border',
+              l.id === activeId
+                ? 'bg-primary/15 border-primary/30 text-primary'
+                : 'border-transparent hover:bg-white/5 text-foreground/80',
+            )}
+          >
+            <span className="flex-1 truncate">{l.name}</span>
+            <button
+              onClick={e => { e.stopPropagation(); deleteLayout(l.id) }}
+              className={cn(
+                'p-0.5 rounded text-muted-foreground hover:text-destructive transition-all shrink-0',
+                isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+              )}
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          </div>
+        ))}
+        {layouts.length === 0 && (
+          <p className="text-xs text-muted-foreground/60 text-center py-8">{t.noAltars}</p>
+        )}
+      </div>
+
+      <div className="p-2 border-t border-border/30 shrink-0">
+        <button
+          onClick={() => setShowCreateForm(true)}
+          className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-primary/10 border border-primary/20 text-primary text-xs font-medium hover:bg-primary/20 transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          {t.create}
+        </button>
+      </div>
+    </div>
+  )
+
+  // ── Create form modal ───────────────────────────────────────────────────────
+  const renderCreateForm = () => (
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-md p-4">
+      <div className="w-full max-w-sm bg-background border border-border/40 rounded-2xl shadow-2xl p-5 flex flex-col gap-4">
+        <h3 className="text-sm font-semibold text-foreground">{t.create}</h3>
+        <input
+          type="text"
+          placeholder={t.altarName}
+          value={newName}
+          onChange={e => setNewName(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && createLayout()}
+          className="w-full px-3 py-2.5 rounded-xl border border-border/40 text-sm outline-none focus:border-primary/50 bg-white/5 transition-colors"
+          autoFocus
+        />
+        <p className="text-[11px] text-muted-foreground uppercase tracking-wider">{t.altarBase}</p>
+        <div className="grid grid-cols-2 gap-2">
+          {unlockedBases.map(base => (
+            <button
+              key={base.id}
+              onClick={() => setNewBaseId(base.id)}
+              className={cn(
+                'px-3 py-2 rounded-xl text-sm border transition-colors capitalize',
+                newBaseId === base.id
+                  ? 'bg-primary/20 border-primary/50 text-primary'
+                  : 'bg-white/5 border-border/30 text-muted-foreground hover:bg-primary/10',
+              )}
+            >
+              {lang === 'ru' ? base.labelRu : base.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={createLayout}
+            disabled={!newName.trim()}
+            className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-40 transition-all"
+          >
+            {t.save}
+          </button>
+          <button
+            onClick={() => { setShowCreateForm(false); setNewName('') }}
+            className="flex-1 py-2.5 rounded-xl border border-border/40 text-sm hover:bg-white/5 transition-colors"
+          >
+            {t.cancel}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
+  // ── Right panel with tabs ───────────────────────────────────────────────────
+  const renderRightPanel = () => (
+    <div className={cn(
+      'flex-shrink-0 flex flex-col border-border/30 bg-background/50 backdrop-blur-sm overflow-hidden',
+      isMobile ? 'w-full border-t h-60' : 'w-64 border-l h-full',
+    )}>
+      {/* Tab bar */}
+      <div className="flex border-b border-border/30 shrink-0">
+        {(['objects', 'bases', 'ritual', 'progress'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={cn(
+              'flex-1 py-2.5 text-[11px] font-semibold uppercase tracking-wider transition-colors',
+              activeTab === tab
+                ? 'text-primary border-b-2 border-primary'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {tab === 'objects'
+              ? t.objects
+              : tab === 'bases'
+                ? t.bases
+                : tab === 'ritual'
+                  ? t.ritual
+                  : t.progress}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        {activeTab === 'objects' && (
+          <ObjectPanel
+            lang={lang as 'en' | 'ru'}
+            unlockedLevel={progression.level}
+            pendingDrop={pendingDrop}
+            onSelectForDrop={setPendingDrop}
+          />
+        )}
+        {activeTab === 'bases' && activeLayout && (
+          <BasePanel
+            lang={lang as 'en' | 'ru'}
+            unlockedLevel={progression.level}
+            points={progression.points}
+            selectedBaseId={activeLayout.baseId}
+            onSelectBase={changeBase}
+          />
+        )}
+        {activeTab === 'ritual' && (
+          <RitualPanel
+            lang={lang as 'en' | 'ru'}
+            session={session}
+            onStart={handleStartRitual}
+            onComplete={handleCompleteRitual}
+            onInterrupt={handleInterrupt}
+            onReturn={() => resetSession()}
+          />
+        )}
+        {activeTab === 'progress' && (
+          <ProgressionPanel
+            lang={lang as 'en' | 'ru'}
+            progression={progression}
+            lastPointsEarned={lastPoints}
+          />
+        )}
+      </div>
+    </div>
+  )
+
+  // ── Active altar view ───────────────────────────────────────────────────────
+  const renderAltarView = () => (
+    <>
+      {/* Toolbar */}
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30 bg-background/80 backdrop-blur-sm shrink-0">
+        {/* Mobile: open altar list */}
+        {isMobile && (
+          <button
+            onClick={() => setShowAltarList(true)}
+            className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground transition-colors"
+          >
+            <List className="w-4 h-4" />
+          </button>
+        )}
+
+        <span className="text-sm font-medium text-foreground truncate flex-1">{activeLayout!.name}</span>
+
+        <button
+          onClick={() => setShowCreateForm(true)}
+          className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground transition-colors"
+          title={lang === 'ru' ? 'Создать новый алтарь' : 'Create new altar'}
+        >
+          <Plus className="w-3.5 h-3.5" />
+        </button>
+
+        <button
+          onClick={() => deleteLayout(activeLayout!.id)}
+          className="p-1.5 rounded-lg hover:bg-destructive/15 text-muted-foreground hover:text-destructive transition-colors"
+          title={lang === 'ru' ? 'Удалить текущий алтарь' : 'Delete current altar'}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+
+        <div className="flex items-center gap-1 bg-white/5 border border-border/20 rounded-lg p-0.5">
+          <button
+            onClick={() => { setVisualPreset('soft'); playUiSound('click') }}
+            className={cn(
+              'px-2 py-1 text-[10px] rounded-md transition-colors',
+              visualPreset === 'soft' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'
+            )}
+            title={lang === 'ru' ? 'Мягкий мистический пресет' : 'Soft mystical preset'}
+          >
+            Soft
+          </button>
+          <button
+            onClick={() => { setVisualPreset('cinematic'); playUiSound('click') }}
+            className={cn(
+              'px-2 py-1 text-[10px] rounded-md transition-colors',
+              visualPreset === 'cinematic' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'
+            )}
+            title={lang === 'ru' ? 'Кинематографичный ритуальный пресет' : 'Cinematic ritual preset'}
+          >
+            Cine
+          </button>
+        </div>
+
+        <button
+          onClick={() => setActiveTab('bases')}
+          className={cn(
+            'px-2.5 py-1.5 rounded-lg text-xs border transition-colors',
+            activeTab === 'bases'
+              ? 'bg-primary/20 border-primary/40 text-primary'
+              : 'bg-white/5 border-border/20 text-muted-foreground hover:text-foreground',
+          )}
+          title={lang === 'ru' ? 'Открыть вкладку баз алтаря' : 'Open altar bases tab'}
+        >
+          {t.bases}
+        </button>
+
+        {!isMobile && safeTriggerActive && (
+          <button
+            onClick={() => {
+              setForceHighRender(prev => {
+                const next = !prev
+                toast.success(next ? t.highForced : t.highAuto, { duration: 1800 })
+                return next
+              })
+            }}
+            className={cn(
+              'px-2.5 py-1.5 rounded-lg text-xs border transition-colors',
+              autoSafeRender
+                ? 'bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20'
+                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20',
+            )}
+            title={lang === 'ru' ? 'Переключить safe-режим рендера' : 'Toggle safe render mode'}
+          >
+            {autoSafeRender ? t.safeModeOn : t.safeModeOff}
+          </button>
+        )}
+
+        {/* Fullscreen toggle */}
+        <button
+          onClick={() => setFullscreen(v => !v)}
+          className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground transition-colors"
+        >
+          {fullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+        </button>
+      </div>
+
+      {/* Drop hint */}
+      {pendingDrop && (
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-30 bg-primary/90 text-primary-foreground text-xs px-4 py-2 rounded-full shadow-lg pointer-events-none">
+          {t.clickToPlace}
+        </div>
+      )}
+
+      {/* Selected object toolbar */}
+      {selectedObj && !session.active && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 flex-wrap justify-center bg-background/95 backdrop-blur-sm border border-border/30 rounded-2xl px-3 py-2 shadow-2xl max-w-[95vw]">
+          <span className="text-xs text-muted-foreground">{t.selected}</span>
+          <span className="text-xs font-medium text-foreground">{selectedCatalog?.label ?? ''}</span>
+          <div className="w-px h-4 bg-border/40 mx-0.5" />
+          <button onClick={() => rotateSelected('y')} className="px-2 py-1 rounded-lg text-xs bg-white/5 hover:bg-white/10 text-foreground/80 transition-colors">{t.rotate}</button>
+          <button onClick={() => rotateSelected('z')} className="px-2 py-1 rounded-lg text-xs bg-white/5 hover:bg-white/10 text-foreground/80 transition-colors">{t.rotateRoll}</button>
+          <button onClick={() => scaleSelected(0.1)}  className="px-2 py-1 rounded-lg text-xs bg-white/5 hover:bg-white/10 text-foreground/80 transition-colors">{t.scaleUp}</button>
+          <button onClick={() => scaleSelected(-0.1)} className="px-2 py-1 rounded-lg text-xs bg-white/5 hover:bg-white/10 text-foreground/80 transition-colors">{t.scaleDown}</button>
+          <div className="w-px h-4 bg-border/40 mx-0.5" />
+          <span className="text-[11px] text-muted-foreground">{t.move}</span>
+          <button onClick={() => moveSelected(-0.05, 0, 0)} className="px-2 py-1 rounded-lg text-xs bg-white/5 hover:bg-white/10 text-foreground/80 transition-colors" title={lang === 'ru' ? 'Влево' : 'Left'}>←</button>
+          <button onClick={() => moveSelected(0.05, 0, 0)} className="px-2 py-1 rounded-lg text-xs bg-white/5 hover:bg-white/10 text-foreground/80 transition-colors" title={lang === 'ru' ? 'Вправо' : 'Right'}>→</button>
+          <button onClick={() => moveSelected(0, 0, -0.05)} className="px-2 py-1 rounded-lg text-xs bg-white/5 hover:bg-white/10 text-foreground/80 transition-colors" title={lang === 'ru' ? 'Вперёд' : 'Forward'}>↑</button>
+          <button onClick={() => moveSelected(0, 0, 0.05)} className="px-2 py-1 rounded-lg text-xs bg-white/5 hover:bg-white/10 text-foreground/80 transition-colors" title={lang === 'ru' ? 'Назад' : 'Back'}>↓</button>
+          <button onClick={() => moveSelected(0, 0.025, 0)} className="px-2 py-1 rounded-lg text-xs bg-white/5 hover:bg-white/10 text-foreground/80 transition-colors" title={t.up}>+Y</button>
+          <button onClick={() => moveSelected(0, -0.025, 0)} className="px-2 py-1 rounded-lg text-xs bg-white/5 hover:bg-white/10 text-foreground/80 transition-colors" title={t.down}>-Y</button>
+          <div className="w-px h-4 bg-border/40 mx-0.5" />
+          <button onClick={handleDeleteSelected} className="px-2 py-1 rounded-lg text-xs bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors">{t.delete}</button>
+        </div>
+      )}
+
+      {/* 3D Scene */}
+      <div className="flex-1 min-h-0 overflow-hidden relative">
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={altarBackdropStyle}
+        />
+        <div className="relative z-10 h-full">
+          <AltarScene3D
+            layout={activeLayout!}
+            visualPreset={visualPreset}
+            workSurfaceY={WORK_SURFACE_Y}
+            renderQuality={autoSafeRender ? 'safe' : 'high'}
+            selectedId={selectedObjId}
+            ritualActive={session.active}
+            ritualProgress={ritualProgress}
+            pendingDrop={pendingDrop}
+            onSelect={setSelectedObjId}
+            onDropPlaced={handleDropPlaced}
+            onContextLost={handleSceneContextLost}
+            onLoadingProgress={(progress, active) => {
+              setSceneLoading({ progress, active })
+            }}
+          />
+          {sceneLoading.active && (
+            <div className="absolute top-3 right-3 z-30 rounded-xl border border-primary/30 bg-background/80 backdrop-blur px-3 py-2 text-xs text-foreground/80">
+              {lang === 'ru' ? `Загрузка сцены: ${Math.round(sceneLoading.progress)}%` : `Scene loading: ${Math.round(sceneLoading.progress)}%`}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  )
+
+  // ── Empty state ─────────────────────────────────────────────────────────────
+  const renderEmptyState = () => (
+    <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6">
+      <p className="text-sm text-muted-foreground/70 text-center">{t.selectAltar}</p>
+      <button
+        onClick={() => setShowCreateForm(true)}
+        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm font-medium hover:bg-primary/20 transition-colors"
+      >
+        <Plus className="w-4 h-4" />
+        {t.create}
+      </button>
+    </div>
+  )
+
+  // ── Main render ─────────────────────────────────────────────────────────────
+  return (
+    <div className="flex h-full overflow-hidden bg-background relative">
+      {/* Sidebar: always visible on desktop, slide-over on mobile */}
+      {!isMobile && renderAltarList()}
+      {isMobile && showAltarList && renderAltarList()}
+
+      {/* Content area */}
+      <div className={cn(
+        'flex flex-1 overflow-hidden',
+        isMobile || fullscreen ? 'flex-col' : 'flex-row',
+      )}>
+        {/* Center: scene or empty state */}
+        <div className="flex-1 flex flex-col overflow-hidden relative min-h-0">
+          {activeLayout ? renderAltarView() : renderEmptyState()}
+        </div>
+
+        {/* Right panel: only when altar selected and not fullscreen */}
+        {activeLayout && !fullscreen && renderRightPanel()}
+      </div>
+
+      {/* Create form overlay */}
+      {showCreateForm && renderCreateForm()}
+    </div>
+  )
+}

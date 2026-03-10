@@ -1,0 +1,79 @@
+{
+  "altar": {
+    "theme": "stone",
+    "objects": [
+      {
+        "id": "candle_01",
+        "type": "candle",
+        "position": {"x": 0.0, "y": 0.05, "z": 0.0},
+        "rotation": {"x": 0, "y": 45, "z": 0},
+        "scale": 1.0,
+        "activeState": "lit"
+      },
+      {
+        "id": "crystal_01",
+        "type": "crystal",
+        "position": {"x": -0.2, "y": 0.0, "z": 0.1},
+        "rotation": {"x": 0, "y": 0, "z": 0},
+        "scale": 1.2,
+        "activeState": "glowing"
+      },
+      {
+        "id": "statue_01",
+        "type": "statue",
+        "position": {"x": 0.15, "y": 0.0, "z": -0.1},
+        "rotation": {"x": 0, "y": 90, "z": 0},
+        "scale": 0.8,
+        "activeState": "idle"
+      },
+      {
+        "id": "incense_01",
+        "type": "incense",
+        "position": {"x": -0.1, "y": 0.02, "z": -0.2},
+        "rotation": {"x": 0, "y": 30, "z": 0},
+        "scale": 1.0,
+        "activeState": "smoke"
+      }
+    ]
+  },
+  "ritual": {
+    "physicalPracticeMode": true,
+    "timerMinutes": 30,
+    "focusMode": {
+      "soft": {
+        "pauseOnExit": true,
+        "pointsLost": false,
+        "streakLost": false,
+        "notification": "Session paused. Continue when ready."
+      },
+      "strict": {
+        "pauseOnExit": false,
+        "pointsLost": true,
+        "streakLost": true,
+        "notification": "Session interrupted. No points awarded."
+      }
+    },
+    "preRitualConfirmation": "Are you fully committed to this practice session?",
+    "postRitualFeedback": {
+      "completed": "Session Completed",
+      "interrupted": "Session Interrupted"
+    }
+  },
+  "progression": {
+    "streak": 0,
+    "points": 0,
+    "levels": [
+      {"level": 1, "unlockObjects": ["candle_01", "crystal_01"]},
+      {"level": 2, "unlockObjects": ["statue_01", "incense_01"]},
+      {"level": 3, "unlockObjects": ["rare_crystal", "special_candle"]}
+    ],
+    "bonusForRegularity": true,
+    "bonusForLongSessions": true
+  },
+  "ui": {
+    "objectPanelPosition": "bottom",
+    "showTimerAroundAltar": true,
+    "ambientEffects": ["candleFlicker", "crystalGlow", "incenseSmoke"],
+    "themeOptions": ["stone", "wood", "obsidian", "mystical"]
+  }
+}

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gateway Ping</title>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; background: #0b0f1e; color: #d1d5db; padding: 24px; }
+    .card { max-width: 820px; margin: 0 auto; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; }
+    h1 { font-size: 18px; margin: 0 0 12px; color: #e5e7eb; }
+    button { background: #22c55e; color: #0b0f1e; border: 0; border-radius: 8px; padding: 10px 14px; margin-top: 12px; cursor: pointer; font-weight: 600; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+    pre { background: #0f172a; color: #93c5fd; padding: 10px; border-radius: 8px; overflow: auto; font-size: 12px; }
+    .small { font-size: 12px; opacity: 0.8; }
+    .ok { color: #34d399; }
+    .fail { color: #f87171; }
+    .warn { color: #f59e0b; }
+    input[type="text"] { width: 100%; background: #0f172a; color: #e5e7eb; border: 1px solid #334155; border-radius: 8px; padding: 8px; margin-bottom: 8px; }
+    label { display: block; margin-top: 8px; font-size: 13px; color: #9ca3af; }
+  </style>
+  <script>
+    const defaults = {
+      orModel: 'openrouter/free',
+      groqModel: 'llama-3.1-8b-instant',
+      prompt: 'Say hello in one short sentence.'
+    }
+  </script>
+  <script type="module">
+    const $ = (id) => document.getElementById(id)
+    const enc = (v) => JSON.stringify(v, null, 2)
+
+    async function ping(url, body) {
+      const t0 = performance.now()
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const t1 = performance.now()
+      const text = await res.text()
+      try {
+        const json = JSON.parse(text)
+        return { ok: res.ok, status: res.status, ms: (t1 - t0).toFixed(1), body: json }
+      } catch {
+        return { ok: res.ok, status: res.status, ms: (t1 - t0).toFixed(1), body: text }
+      }
+    }
+
+    async function run() {
+      $('out-or').textContent = '…'
+      $('out-groq').textContent = '…'
+      
+      const prompt = $('prompt').value || defaults.prompt
+      
+      // OpenRouter Payload
+      const orModel = $('model-or').value || defaults.orModel
+      const orPayload = { model: orModel, messages: [{ role: 'user', content: prompt }], max_tokens: 32, temperature: 0 }
+      
+      // Groq Payload
+      const groqModel = $('model-groq').value || defaults.groqModel
+      const groqPayload = { model: groqModel, messages: [{ role: 'user', content: prompt }], max_tokens: 32, temperature: 0 }
+
+      // Parallel requests
+      Promise.all([
+        ping('/api/openrouter', orPayload).then(res => $('out-or').textContent = enc(res)).catch(e => $('out-or').textContent = 'Error: ' + e.message),
+        ping('/api/groq', groqPayload).then(res => $('out-groq').textContent = enc(res)).catch(e => $('out-groq').textContent = 'Error: ' + e.message)
+      ])
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      $('model-or').value = defaults.orModel
+      $('model-groq').value = defaults.groqModel
+      $('prompt').value = defaults.prompt
+      $('run').addEventListener('click', run)
+    })
+  </script>
+</head>
+<body>
+  <div class="card">
+    <h1>Gateway Ping (/api)</h1>
+    <div class="small" style="margin-bottom: 16px;">
+      Проверяет доступность serverless‑эндпоинтов <code>/api/openrouter</code> и <code>/api/groq</code>.
+      <br>Нужны серверные переменные <code>OPENROUTER_API_KEY</code> / <code>GROQ_API_KEY</code>.
+    </div>
+
+    <div class="row">
+      <div>
+        <label>OpenRouter Model</label>
+        <input id="model-or" type="text" placeholder="openrouter/free" />
+      </div>
+      <div>
+        <label>Groq Model</label>
+        <input id="model-groq" type="text" placeholder="llama-3.1-8b-instant" />
+      </div>
+    </div>
+
+    <label>
+      Prompt
+      <input id="prompt" type="text" placeholder="Say hello..." />
+    </label>
+
+    <button id="run">Ping Both /api</button>
+
+    <div class="row">
+      <div>
+        <div class="small">/api/openrouter</div>
+        <pre id="out-or"></pre>
+      </div>
+      <div>
+        <div class="small">/api/groq</div>
+        <pre id="out-groq"></pre>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
