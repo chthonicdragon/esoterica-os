@@ -1396,7 +1396,7 @@ export function RitualTracker({ user }: RitualTrackerProps) {
                           setEditing(null)
                           toast.success(lang==='ru'?'Обновлено':'Updated')
                         } catch {
-                          toast.error(lang==='ру'?'Ошибка':'Error')
+                          toast.error(lang==='ru'?'Ошибка':'Error')
                         }
                       }}
                       className="px-3 py-1 rounded bg-emerald-500/20 text-emerald-300 text-[11px] border border-emerald-500/30 hover:bg-emerald-500/30"

@@ -92,8 +92,8 @@ export function DivinationLab({ user }: DivinationLabProps) {
         notes: selectedEntity ? `Source: ${selectedEntity.name}` : 'Source: The Void'
       })
       
-      // Grant XP
-      const { pointsEarned, progression } = grantProgressionPoints(5, 'divination')
+      // Grant XP (knowledge domain fits divination best)
+      const { pointsEarned, progression } = grantProgressionPoints(5, 'knowledge')
       syncProgressionToDb(user.id, progression)
       
       toast.success(

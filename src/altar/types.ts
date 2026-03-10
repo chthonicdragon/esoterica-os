@@ -8,6 +8,7 @@ export type AltarBaseId =
   | 'base_psx_wooden'
   | 'base_sacrificial'
   | 'base_diana'
+  | 'base_occult_table'
 
 export interface CatalogItem {
   id: string

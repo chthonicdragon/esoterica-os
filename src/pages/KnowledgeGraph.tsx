@@ -371,17 +371,98 @@ export function KnowledgeGraph({ user }: Props) {
 
   const mergeMythData = () => {
     if (!selectedNode || !mythData) return
+    const nowIso = new Date().toISOString()
+    const mainId = selectedNode.id
+    const createdNodes: Array<{ id: string; name: string; type: string }> = []
+    const createdLinks: Array<{ source: string; target: string }> = []
+    let updatedFields = 0
+
     setGraphData(prev => {
-      const nodes = prev.nodes.map(n => n.id === selectedNode.id ? {
-        ...n,
-        pantheon: n.pantheon || mythData.pantheon,
-        description: n.description || mythData.description,
-        tags: [...(n.tags || []), ...(mythData.domain ? mythData.domain.split(',').map(s=>s.trim()) : [])]
-      } : n)
-      return { ...prev, nodes }
+      const nodes = [...prev.nodes]
+      const links = [...prev.links]
+      const byName = new Map(nodes.map(n => [n.name.toLowerCase(), n]))
+      const byId = new Map(nodes.map(n => [n.id, n]))
+
+      // Update main node fields
+      const idx = nodes.findIndex(n => n.id === mainId)
+      if (idx !== -1) {
+        const n = nodes[idx]
+        const next = {
+          ...n,
+          pantheon: n.pantheon || mythData.pantheon,
+          description: n.description || mythData.description,
+          tags: [...(n.tags || []), ...(mythData.domain ? mythData.domain.split(',').map(s=>s.trim()) : [])]
+        }
+        // Count updated fields
+        if (!n.pantheon && next.pantheon) updatedFields++
+        if (!n.description && next.description) updatedFields++
+        if ((n.tags?.length || 0) !== (next.tags?.length || 0)) updatedFields++
+        nodes[idx] = next as typeof n
+      }
+
+      // Helper upsert
+      const ensureNode = (name: string, type: string) => {
+        const key = name.trim().toLowerCase()
+        if (!key) return null
+        const existing = byName.get(key)
+        if (existing) return existing.id
+        const id = `node_${Date.now()}_${Math.random().toString(36).slice(2,9)}`
+        const newNode = { id, name: name.trim(), type: type as any, created_at: nowIso, updated_at: nowIso } as any
+        nodes.push(newNode)
+        byName.set(key, newNode)
+        byId.set(id, newNode)
+        createdNodes.push({ id, name: newNode.name, type: newNode.type })
+        return id
+      }
+
+      const ensureLink = (source: string, target: string) => {
+        const exists = links.some(l => (l.source === source && l.target === target))
+        if (exists) return
+        const link = {
+          source,
+          target,
+          relation: 'associated_with',
+          // link metadata kept loosely to avoid TS constraints in Link type
+          merge_date: nowIso,
+          source_tag: 'merge_routine',
+        } as any
+        links.push(link)
+        createdLinks.push({ source, target })
+      }
+
+      // Analyze mythData fields
+      const pantheon = (mythData.pantheon || '').trim()
+      if (pantheon) {
+        const pid = ensureNode(pantheon, 'concept')
+        if (pid) ensureLink(mainId, pid)
+      }
+
+      const domains = (mythData.domain || '').split(',').map(s => s.trim()).filter(Boolean)
+      domains.forEach(d => {
+        const did = ensureNode(d, 'concept')
+        if (did) ensureLink(mainId, did)
+      })
+
+      const symbols = (mythData.symbol || '').split(',').map(s => s.trim()).filter(Boolean)
+      symbols.forEach(sym => {
+        const sid = ensureNode(sym, 'symbol')
+        if (sid) ensureLink(mainId, sid)
+      })
+
+      const report = {
+        createdNodes: createdNodes.length,
+        createdLinks: createdLinks.length,
+        updatedFields,
+      }
+      setSuccessMsg(
+        lang === 'ru'
+          ? `Объединено: поля ${report.updatedFields}, узлов +${report.createdNodes}, связей +${report.createdLinks}`
+          : `Merged: fields ${report.updatedFields}, nodes +${report.createdNodes}, links +${report.createdLinks}`
+      )
+
+      return { ...prev, nodes, links }
     })
-    setMythData(null) // Hide after merge
-    setSuccessMsg(lang === 'ru' ? 'Данные из мифов добавлены!' : 'Myth data merged!')
+    setMythData(null)
   }
 
   const stopwords = useMemo(() => new Set([
