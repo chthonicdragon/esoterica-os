@@ -1484,7 +1484,7 @@ export function KnowledgeGraph({ user }: Props) {
                                      </button>
                                    </div>
                                    {mythData && (
-                                     <div className="bg-indigo-500/10 rounded-xl p-3 border border-indigo-500/20 space-y-2 animate-fade-in">
+                                  <div className="bg-indigo-500/10 rounded-xl p-3 border border-indigo-500/20 space-y-2 animate-fade-in max-h-48 overflow-y-auto">
                                        <div className="flex justify-between items-start">
                                          <div className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider">
                                            {lang === 'ru' ? 'Найдено в мифах' : 'Mythology Data'}

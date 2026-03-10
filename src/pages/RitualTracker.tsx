@@ -18,6 +18,7 @@ interface Ritual {
   title: string
   type?: string
   description?: string
+  source?: 'manual' | 'auto'
   deity?: string
   date?: string
   intention?: string
@@ -654,6 +655,10 @@ export function RitualTracker({ user }: RitualTrackerProps) {
     resultRating: 3,
   })
 
+  const [showManualOnly, setShowManualOnly] = useState(false)
+  const [manualFirst, setManualFirst] = useState(false)
+  const [editing, setEditing] = useState<{ id: string; later: string; result: number } | null>(null)
+
   useEffect(() => { loadRituals() }, [user.id])
 
   async function loadRituals() {
@@ -687,6 +692,7 @@ export function RitualTracker({ user }: RitualTrackerProps) {
 
       const enrichedRitual: Ritual = {
         ...ritual,
+        source: 'manual',
         description: form.description,
         deity: form.deity,
         moon_phase: form.moonPhaseForRitual,
@@ -1125,9 +1131,27 @@ export function RitualTracker({ user }: RitualTrackerProps) {
         )}
       </div>
 
-      {/* Log ritual button */}
-      <div className="flex items-center justify-between">
+      {/* Filters and Log ritual */}
+      <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-foreground">{t.ritualHistory}</h3>
+        <div className="hidden sm:flex items-center gap-3">
+          <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={showManualOnly}
+              onChange={(e) => setShowManualOnly(e.currentTarget.checked)}
+            />
+            {lang === 'ru' ? 'Только добавленные' : 'Manual only'}
+          </label>
+          <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={manualFirst}
+              onChange={(e) => setManualFirst(e.currentTarget.checked)}
+            />
+            {lang === 'ru' ? 'Сначала добавленные' : 'Manual first'}
+          </label>
+        </div>
         <button
           onClick={() => { setShowForm(true); playUiSound('click') }}
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm hover:bg-primary/20 transition-colors"
@@ -1302,7 +1326,12 @@ export function RitualTracker({ user }: RitualTrackerProps) {
         </div>
       ) : (
         <div className="space-y-2">
-          {rituals.map(ritual => (
+          {(() => {
+            let list = rituals.slice()
+            if (showManualOnly) list = list.filter(r => r.source === 'manual')
+            if (manualFirst) list = list.sort((a, b) => (b.source === 'manual' ? 1 : 0) - (a.source === 'manual' ? 1 : 0))
+            return list
+          })().map(ritual => (
             <div key={ritual.id} className="rounded-xl bg-card border border-border/40 p-4 hover:border-primary/20 transition-colors group">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
@@ -1332,6 +1361,49 @@ export function RitualTracker({ user }: RitualTrackerProps) {
                   {ritual.outcome_later && (
                     <p className="text-xs text-blue-300/80 mt-1 line-clamp-1">⏳ {ritual.outcome_later}</p>
                   )}
+                  {/* Inline editor for outcome later & rating (visible on hover) */}
+                  <div className="mt-2 hidden group-hover:flex items-center gap-2">
+                    <select
+                      value={(editing && editing.id === ritual.id ? editing.result : ritual.result_rating) || 3}
+                      onChange={(e) => {
+                        const val = Number(e.target.value)
+                        setEditing({ id: ritual.id, later: editing?.id === ritual.id ? editing.later : (ritual.outcome_later || ''), result: val })
+                      }}
+                      className="text-[11px] bg-background border border-border rounded px-2 py-1"
+                    >
+                      {[1,2,3,4,5].map(n => (
+                        <option key={n} value={n}>{lang==='ru'?RESULT_LABELS_RU[n]:RESULT_LABELS_EN[n]}</option>
+                      ))}
+                    </select>
+                    <input
+                      value={(editing && editing.id === ritual.id ? editing.later : ritual.outcome_later) || ''}
+                      onChange={(e) => {
+                        setEditing({ id: ritual.id, later: e.target.value, result: editing?.id===ritual.id ? editing.result : (ritual.result_rating || 3) })
+                      }}
+                      placeholder={lang==='ru'?'Результат через время':'Outcome later'}
+                      className="flex-1 text-[11px] bg-background border border-border rounded px-2 py-1"
+                    />
+                    <button
+                      onClick={async () => {
+                        try {
+                          const later = editing?.id===ritual.id ? editing.later : (ritual.outcome_later || '')
+                          const res = editing?.id===ritual.id ? editing.result : (ritual.result_rating || 3)
+                          await db.rituals.update(ritual.id, { outcome_later: later, result_rating: res, updatedAt: new Date().toISOString() })
+                          const map = readRitualMetaMap()
+                          map[ritual.id] = { ...(map[ritual.id]||{}), outcome_later: later, result_rating: res }
+                          localStorage.setItem(RITUAL_META_STORAGE_KEY, JSON.stringify(map))
+                          setRituals(prev => prev.map(r => r.id === ritual.id ? { ...r, outcome_later: later, result_rating: res } : r))
+                          setEditing(null)
+                          toast.success(lang==='ru'?'Обновлено':'Updated')
+                        } catch {
+                          toast.error(lang==='ру'?'Ошибка':'Error')
+                        }
+                      }}
+                      className="px-3 py-1 rounded bg-emerald-500/20 text-emerald-300 text-[11px] border border-emerald-500/30 hover:bg-emerald-500/30"
+                    >
+                      {lang==='ru'?'Сохранить':'Save'}
+                    </button>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className="text-xs text-yellow-400 font-bold">⚡{ritual.energyLevel}</span>

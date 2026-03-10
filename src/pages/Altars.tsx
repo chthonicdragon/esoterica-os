@@ -131,14 +131,14 @@ export function Altars({ user }: AltarsProps) {
     setHydrated(true)
   }, [user.id])
 
-  // Grant max level locally for testing all items
+  // Grant max level on local dev (port 3000) for testing all items
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const isLocalHost = /^(localhost|127\.0\.0\.1)/.test(window.location.hostname)
+    const isLocalHost = /^(localhost|127\.0\.0\.1)/.test(window.location.hostname) && String(window.location.port) === '3000'
     if (!isLocalHost) return
     setProgression(prev => {
       if (prev.level >= 10) return prev
-      return recalculateProgressionLevel({ ...prev, points: 999999, level: 10 })
+      return { ...prev, level: 10 }
     })
   }, [])
 
