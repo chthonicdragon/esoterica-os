@@ -12,6 +12,7 @@ import { extractGraphLocally } from '../services/localExtract'
 import GraphVisualization from '../components/GraphVisualization'
 import AnalyticsPanel from '../components/AnalyticsPanel'
 import { SigilGenerator } from '../components/SigilGenerator'
+import { useIsMobile } from '../hooks/use-mobile'
 import KnowledgeWebGuideModal from '../components/KnowledgeWebGuideModal'
 import { useLang } from '../contexts/LanguageContext'
 import { getKnowledgeWeavePoints, grantProgressionPoints, syncProgressionToDb } from '../altar/altarStore'
@@ -250,6 +251,7 @@ export function KnowledgeGraph({ user }: Props) {
   // Mythology
   const [mythData, setMythData] = useState<MythologyEntity | null>(null)
   const [loadingMyth, setLoadingMyth] = useState(false)
+  const isMobile = useIsMobile()
   
   // AI Myth Scan
   const [isScanningMyth, setIsScanningMyth] = useState(false)
@@ -1395,13 +1397,16 @@ export function KnowledgeGraph({ user }: Props) {
                           initial={selectedNode.type === 'ritual' ? { opacity: 0, scale: 0.9, y: 20 } : { x: 280, opacity: 0 }}
                           animate={selectedNode.type === 'ritual' ? { opacity: 1, scale: 1, y: 0 } : { x: 0, opacity: 1 }}
                           exit={selectedNode.type === 'ritual' ? { opacity: 0, scale: 0.9, y: 20 } : { x: 280, opacity: 0 }}
+                          drag={!isMobile}
+                          dragMomentum={false}
+                          dragElastic={0.05}
                           className={`${selectedNode.type === 'ritual'
                             ? 'fixed left-0 right-0 mx-auto top-6 bottom-6 w-[calc(100vw-1rem)] sm:w-[90%] max-w-[480px] max-h-[calc(100vh-3rem)] overflow-y-auto z-50'
                             : 'fixed inset-x-2 top-16 max-h-[72vh] overflow-y-auto z-50 sm:inset-x-auto sm:top-4 sm:right-4 sm:w-[340px] sm:max-w-[calc(100vw-1rem)]'
                           } bg-[hsl(var(--sidebar))]/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl`}
                         >
                           <div className="p-5">
-                            <div className="sticky top-0 z-10 -mx-5 px-5 py-3 flex items-center justify-between bg-[hsl(var(--sidebar))]/95 backdrop-blur border-b border-white/10 mb-4">
+                            <div className="sticky top-0 z-10 -mx-5 px-5 py-3 flex items-center justify-between bg-[hsl(var(--sidebar))]/95 backdrop-blur border-b border-white/10 mb-4 select-none ${!isMobile ? 'cursor-move' : ''}">
                               <div className="flex items-center gap-2">
                                 <Fingerprint className="w-3.5 h-3.5 text-primary" />
                                 <span className="text-[9px] uppercase tracking-widest font-bold text-muted-foreground">{t.entityDetails}</span>
@@ -1457,11 +1462,12 @@ export function KnowledgeGraph({ user }: Props) {
                               {!editing && (selectedNode.type === 'deity' || selectedNode.type === 'spirit' || selectedNode.type === 'creature') && (
                                 <div className="pt-2 border-t border-white/5 space-y-2">
                                    <div className="flex gap-2">
-                                     {!mythData && (
+                                    {!mythData && (
                                        <button 
-                                         onClick={fetchMythData} 
+                                        onClick={fetchMythData} 
                                          disabled={loadingMyth}
-                                         className="flex-1 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
+                                        className="flex-1 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
+                                        title={lang === 'ru' ? 'Быстрый поиск: краткая выжимка из мифологических источников; при недоступности — дипсик' : 'Quick Lookup: concise myth summary; falls back to DeepSeek if needed'}
                                        >
                                          {loadingMyth ? <Loader2 className="w-3 h-3 animate-spin"/> : <Search className="w-3 h-3"/>}
                                          {lang === 'ru' ? 'Быстрый поиск' : 'Quick Lookup'}
@@ -1470,7 +1476,8 @@ export function KnowledgeGraph({ user }: Props) {
                                      <button 
                                        onClick={() => handleMythScan(selectedNode)}
                                        disabled={isScanningMyth}
-                                       className="flex-1 py-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
+                                      className="flex-1 py-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
+                                      title={lang === 'ru' ? 'AI-сканирование: глубокий анализ связей; фолбэк на дипсик' : 'AI Scan: deep relation extraction; DeepSeek used as fallback'}
                                      >
                                        {isScanningMyth ? <Loader2 className="w-3 h-3 animate-spin"/> : <Sparkles className="w-3 h-3"/>}
                                        {lang === 'ru' ? 'AI Сканирование' : 'Find in Myths'}

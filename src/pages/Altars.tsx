@@ -131,6 +131,17 @@ export function Altars({ user }: AltarsProps) {
     setHydrated(true)
   }, [user.id])
 
+  // Grant max level locally for testing all items
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const isLocalHost = /^(localhost|127\.0\.0\.1)/.test(window.location.hostname)
+    if (!isLocalHost) return
+    setProgression(prev => {
+      if (prev.level >= 10) return prev
+      return recalculateProgressionLevel({ ...prev, points: 999999, level: 10 })
+    })
+  }, [])
+
   useEffect(() => {
     if (!hydrated) return
     saveLocalState({ layouts, activeLayoutId: activeId, progression })
