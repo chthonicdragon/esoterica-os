@@ -12,6 +12,7 @@ export const translations = {
     journal: 'Journal',
     forum: 'Forum',
     knowledgeGraph: 'Knowledge Graph',
+    chakras: 'Chakra Intelligence',
     marketplace: 'Marketplace',
     settings: 'Settings',
 
@@ -150,6 +151,7 @@ export const translations = {
     journal: 'Журнал',
     forum: 'Форум',
     knowledgeGraph: 'Паутина знаний',
+    chakras: 'Чакры',
     marketplace: 'Маркетплейс',
     settings: 'Настройки',
 
@@ -296,6 +298,7 @@ export const translations = {
     journal: 'Diario',
     forum: 'Foro',
     knowledgeGraph: 'Gráfico de Conocimiento',
+    chakras: 'Inteligencia de Chakras',
     marketplace: 'Mercado',
     settings: 'Ajustes',
 

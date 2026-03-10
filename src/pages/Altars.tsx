@@ -70,6 +70,7 @@ export function Altars({ user }: AltarsProps) {
   const [hydrated, setHydrated] = useState(false)
   const [safeRenderMode, setSafeRenderMode] = useState(false)
   const [forceHighRender, setForceHighRender] = useState(false)
+  const [sceneLoading, setSceneLoading] = useState({ active: false, progress: 0 })
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const unlockedBases = useMemo(
@@ -131,16 +132,28 @@ export function Altars({ user }: AltarsProps) {
     setHydrated(true)
   }, [user.id])
 
-  // Grant max level on local dev (port 3000) for testing all items
+  // Grant max level on local dev host for testing all items
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    const isLocalHost = /^(localhost|127\.0\.0\.1)/.test(window.location.hostname) && String(window.location.port) === '3000'
+    if (typeof window === 'undefined' || !hydrated) return
+    const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     if (!isLocalHost) return
+
     setProgression(prev => {
-      if (prev.level >= 10) return prev
-      return { ...prev, level: 10 }
+      // If already maxed out, don't churn state
+      if (prev.level >= 10 && prev.points >= 20000) return prev
+
+      return {
+        ...prev,
+        level: 10,
+        points: 20000,
+        ritualXp: 5000,
+        journalXp: 5000,
+        knowledgeXp: 5000,
+        altarXp: 5000,
+        totalRituals: Math.max(prev.totalRituals, 100),
+      }
     })
-  }, [])
+  }, [hydrated])
 
   useEffect(() => {
     if (!hydrated) return
@@ -259,13 +272,32 @@ export function Altars({ user }: AltarsProps) {
       return
     }
     const isFirstObject = activeLayout.objects.length === 0
+    const nextX = Math.max(-0.85, Math.min(0.85, pos[0]))
+    const nextZ = Math.max(-0.5, Math.min(0.5, pos[2]))
+    const resolvePlacementCollision = (x: number, z: number) => {
+      const step = 0.06
+      let resolvedX = x
+      let resolvedZ = z
+      const radius = 0.11
+      const occupied = activeLayout.objects.map((obj) => ({ x: obj.position[0], z: obj.position[2] }))
+      for (let i = 0; i < 8; i++) {
+        const overlap = occupied.some((p) => Math.hypot(p.x - resolvedX, p.z - resolvedZ) < radius)
+        if (!overlap) break
+        const angle = (Math.PI / 4) * i
+        resolvedX = Math.max(-0.85, Math.min(0.85, x + Math.cos(angle) * step))
+        resolvedZ = Math.max(-0.5, Math.min(0.5, z + Math.sin(angle) * step))
+      }
+      return [resolvedX, resolvedZ] as const
+    }
+    const [resolvedX, resolvedZ] = resolvePlacementCollision(nextX, nextZ)
+
     const placed: PlacedObject = {
       id: `placed_${Date.now()}`,
       catalogId: pendingDrop,
       position: [
-        Math.max(-0.85, Math.min(0.85, pos[0])),
+        resolvedX,
         WORK_SURFACE_Y + (cat?.placementYOffset || 0),
-        Math.max(-0.5, Math.min(0.5, pos[2])),
+        resolvedZ,
       ],
       rotationX: cat?.placementRotationX || 0,
       rotationY: Math.random() * Math.PI * 2,
@@ -280,20 +312,6 @@ export function Altars({ user }: AltarsProps) {
     })
     setPendingDrop(null)
     toast.success(lang === 'ru' ? 'Объект размещён' : 'Object placed', { duration: 1500 })
-  }
-
-  function handleObjectMoved(id: string, newPos: [number, number, number]) {
-    if (!activeLayout) return
-    const obj = activeLayout.objects.find(o => o.id === id)
-    if (!obj) return
-    const cat = CATALOG.find(c => c.id === obj.catalogId)
-    const minY = getMinObjectY(obj, cat)
-    const clampedPos: [number, number, number] = [
-      Math.max(-0.85, Math.min(0.85, newPos[0])),
-      Math.max(minY, newPos[1]),
-      Math.max(-0.5, Math.min(0.5, newPos[2])),
-    ]
-    updateLayout(updateObjectInLayout(activeLayout, { ...obj, position: clampedPos }))
   }
 
   function handleDeleteSelected() {
@@ -788,10 +806,17 @@ export function Altars({ user }: AltarsProps) {
             ritualProgress={ritualProgress}
             pendingDrop={pendingDrop}
             onSelect={setSelectedObjId}
-            onObjectMoved={handleObjectMoved}
             onDropPlaced={handleDropPlaced}
             onContextLost={handleSceneContextLost}
+            onLoadingProgress={(progress, active) => {
+              setSceneLoading({ progress, active })
+            }}
           />
+          {sceneLoading.active && (
+            <div className="absolute top-3 right-3 z-30 rounded-xl border border-primary/30 bg-background/80 backdrop-blur px-3 py-2 text-xs text-foreground/80">
+              {lang === 'ru' ? `Загрузка сцены: ${Math.round(sceneLoading.progress)}%` : `Scene loading: ${Math.round(sceneLoading.progress)}%`}
+            </div>
+          )}
         </div>
       </div>
     </>

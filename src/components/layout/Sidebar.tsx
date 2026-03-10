@@ -3,14 +3,14 @@ import { useLang } from '../../contexts/LanguageContext'
 import { useAudio } from '../../contexts/AudioContext'
 import {
   LayoutDashboard, FlameKindling, Bot, Moon, Sparkles,
-  BookOpen, ShoppingBag, Settings, LogOut, Hexagon, MessageSquare, Eye
+  BookOpen, ShoppingBag, Settings, LogOut, Hexagon, MessageSquare, Eye, Activity
 } from 'lucide-react'
 import { SpiderWebIcon } from '../icons/SpiderWebIcon'
 import { cn } from '../../lib/utils'
 import { auth } from '../../lib/platformClient'
 import { getUnreadNotificationCount } from '../../pages/forum/ForumNotifications'
 
-type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'divination' | 'journal' | 'forum' | 'marketplace' | 'settings' | 'knowledge-graph'
+type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'divination' | 'journal' | 'forum' | 'marketplace' | 'settings' | 'knowledge-graph' | 'chakra-intelligence'
 
 interface SidebarProps {
   currentPage: Page
@@ -43,6 +43,7 @@ export function Sidebar({ currentPage, onNavigate, userId }: SidebarProps) {
     { id: 'knowledge-graph' as Page, icon: SpiderWebIcon, label: (t as any).knowledgeGraph || 'Knowledge Graph' },
     { id: 'ai-mentor' as Page, icon: Bot, label: t.aiMentor },
     { id: 'ritual-tracker' as Page, icon: Moon, label: t.ritualTracker },
+    { id: 'chakra-intelligence' as Page, icon: Activity, label: t.chakras },
     { id: 'sigil-lab' as Page, icon: Sparkles, label: t.sigilLab },
     { id: 'divination' as Page, icon: Eye, label: (t as any).divination || 'Oracle' },
     { id: 'journal' as Page, icon: BookOpen, label: t.journal },

@@ -207,6 +207,60 @@ export const MythologyService = {
       console.warn('Wiki fallback failed', e)
     }
 
+    // 5. Last resort: DeepSeek quick summary (serverless or direct)
+    try {
+      const prompt = `Give a concise mythological summary for "${name}". 
+Return JSON with keys: name, pantheon, domain, description (max 260 chars), symbol (one or two).`
+      // Try serverless first
+      const dsRes = await fetch('/api/deepseek', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: [{ role: 'user', content: prompt }],
+          response_format: { type: 'json_object' },
+        }),
+      })
+      if (dsRes.ok) {
+        const dsJson = await dsRes.json().catch(() => null)
+        const content = dsJson?.choices?.[0]?.message?.content || ''
+        if (content) {
+          const entity = JSON.parse(content)
+          if (entity?.name) {
+            localStorage.setItem(MYTH_CACHE_KEY + key, JSON.stringify(entity))
+            return entity
+          }
+        }
+      }
+      // Try direct client call if serverless failed and key exists
+      const deepseekKey = (import.meta as any)?.env?.VITE_DEEPSEEK_API_KEY || ''
+      if (deepseekKey) {
+        const dsDirect = await fetch('https://api.deepseek.com/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${deepseekKey}`,
+          },
+          body: JSON.stringify({
+            model: 'deepseek-chat',
+            messages: [{ role: 'user', content: prompt }],
+            response_format: { type: 'json_object' },
+          }),
+        })
+        if (dsDirect.ok) {
+          const dj = await dsDirect.json().catch(() => null)
+          const c = dj?.choices?.[0]?.message?.content || ''
+          if (c) {
+            const entity = JSON.parse(c)
+            if (entity?.name) {
+              localStorage.setItem(MYTH_CACHE_KEY + key, JSON.stringify(entity))
+              return entity
+            }
+          }
+        }
+      }
+    } catch {}
+
     return null
   }
 }

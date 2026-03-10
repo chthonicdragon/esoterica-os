@@ -11,3 +11,4 @@ export const Settings = lazy(() => import('./Settings').then(m => ({ default: m.
 export const ForumPage = lazy(() => import('./forum/ForumPage').then(m => ({ default: m.ForumPage })))
 export const KnowledgeGraph = lazy(() => import('./KnowledgeGraph').then(m => ({ default: m.KnowledgeGraph })))
 export const DivinationLab = lazy(() => import('./DivinationLab').then(m => ({ default: m.DivinationLab })))
+export const ChakraIntelligence = lazy(() => import('./ChakraIntelligence'))

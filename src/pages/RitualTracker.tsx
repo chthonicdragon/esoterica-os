@@ -4,12 +4,13 @@ import { useLang } from '../contexts/LanguageContext'
 import { useAudio } from '../contexts/AudioContext'
 import { db } from '../lib/platformClient'
 import { getMoonPhase, moonEmoji, moonEnergy, moonEnergyRu, type MoonPhase } from '../utils/moonPhase'
-import { Plus, Moon, Trash2, TrendingUp, X } from 'lucide-react'
+import { Plus, Moon, Trash2, TrendingUp, X, Wand2 } from 'lucide-react'
 import SunCalc from 'suncalc'
 import toast from 'react-hot-toast'
 import { cn } from '../lib/utils'
 import { extractAndMerge } from '../services/knowledgeGraphBridge'
 import { eventBus } from '../lib/eventBus'
+import { ImageGenerationService, type ImageGenerationStyle } from '../services/ImageGenerationService'
 import { WeatherRitualsBanner } from '../components/WeatherRitualsBanner'
 import { DailyGuidance } from '../components/DailyGuidance'
 
@@ -34,6 +35,8 @@ interface Ritual {
   sensations_during?: string
   outcome_later?: string
   createdAt: string
+  generatedImage?: string
+  imageStyle?: 'dark_ritual' | 'surreal_dream' | 'divine_portrait'
 }
 
 interface FestivalDay {
@@ -653,6 +656,8 @@ export function RitualTracker({ user }: RitualTrackerProps) {
     outcome: '',
     outcomeLater: '',
     resultRating: 3,
+    generatedImage: '' as string | undefined,
+    imageStyle: '' as Ritual['imageStyle'] | '',
   })
 
   const [showManualOnly, setShowManualOnly] = useState(false)
@@ -704,6 +709,8 @@ export function RitualTracker({ user }: RitualTrackerProps) {
         sensations_during: form.sensationsDuring,
         outcome: form.outcome,
         outcome_later: form.outcomeLater,
+        generatedImage: form.generatedImage || undefined,
+        imageStyle: (form.imageStyle || undefined) as Ritual['imageStyle'],
       }
 
       writeRitualMeta(ritual.id, {
@@ -717,6 +724,8 @@ export function RitualTracker({ user }: RitualTrackerProps) {
         emotional_state: form.emotionalState,
         sensations_during: form.sensationsDuring,
         outcome_later: form.outcomeLater,
+        generatedImage: form.generatedImage,
+        imageStyle: form.imageStyle || undefined,
       })
 
       setRituals(prev => [enrichedRitual, ...prev])
@@ -755,6 +764,8 @@ export function RitualTracker({ user }: RitualTrackerProps) {
         outcome: '',
         outcomeLater: '',
         resultRating: 3,
+        generatedImage: '',
+        imageStyle: '',
       })
       playUiSound('success')
       toast.success(lang === 'ru' ? 'Ритуал записан' : 'Ritual logged')
@@ -1238,6 +1249,48 @@ export function RitualTracker({ user }: RitualTrackerProps) {
               className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary/50 resize-none"
               rows={4}
             />
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 p-1 rounded-xl border border-border/40 bg-background">
+                {(['dark_ritual','surreal_dream','divine_portrait'] as ImageGenerationStyle[]).map(style => (
+                  <button
+                    key={style}
+                    onClick={() => setForm(p => ({ ...p, imageStyle: style }))}
+                    className={cn(
+                      'px-2 py-1 rounded-lg text-[10px] uppercase tracking-wider transition-colors',
+                      form.imageStyle === style ? 'bg-primary/15 text-primary border border-primary/30' : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    {lang==='ru'
+                      ? style==='dark_ritual' ? 'Ритуал' : style==='surreal_dream' ? 'Сон' : 'Портрет'
+                      : style.replace('_',' ')}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  const text = [form.deity && `Deity: ${form.deity}`, form.description || form.intention].filter(Boolean).join('. ')
+                  if (!text || !form.imageStyle) return
+                  const img = await ImageGenerationService.generateImage(text, form.imageStyle)
+                  if (img) {
+                    setForm(p => ({ ...p, generatedImage: img }))
+                    playUiSound('success')
+                  } else {
+                    playUiSound('error')
+                  }
+                }}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary text-xs hover:bg-primary/20 transition-colors"
+                title={lang==='ru'?'Сгенерировать изображение':'Generate Image'}
+              >
+                <Wand2 className="w-4 h-4" />
+                {lang==='ru'?'Сгенерировать изображение':'Generate Image'}
+              </button>
+            </div>
+            {form.generatedImage && (
+              <div className="rounded-xl overflow-hidden border border-border/40">
+                <img src={form.generatedImage} alt="Ritual Visualization" className="w-full h-auto object-cover max-h-60" />
+              </div>
+            )}
             <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-border/40 bg-background/30 text-xs text-muted-foreground hover:text-foreground cursor-pointer">
               {lang === 'ru' ? 'Загрузить текст ритуала' : 'Upload ritual text'}
               <input
@@ -1355,6 +1408,16 @@ export function RitualTracker({ user }: RitualTrackerProps) {
                     {ritual.planetary_hour && <span className="text-[10px] text-amber-300">{lang === 'ru' ? 'Час:' : 'Hour:'} {ritual.planetary_hour}</span>}
                     {ritual.emotional_state && <span className="text-[10px] text-cyan-300">{lang === 'ru' ? 'Состояние:' : 'State:'} {ritual.emotional_state}</span>}
                   </div>
+                  {(() => {
+                    const meta = readRitualMetaMap()[ritual.id] || {}
+                    const img = (meta as any).generatedImage as string | undefined
+                    if (!img) return null
+                    return (
+                      <div className="mt-2 rounded-lg overflow-hidden border border-border/40">
+                        <img src={img} alt="Ritual" className="w-full h-auto object-cover max-h-40" />
+                      </div>
+                    )
+                  })()}
                   {ritual.outcome && (
                     <p className="text-xs text-green-400/80 mt-1 line-clamp-1">→ {ritual.outcome}</p>
                   )}
@@ -1408,6 +1471,31 @@ export function RitualTracker({ user }: RitualTrackerProps) {
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className="text-xs text-yellow-400 font-bold">⚡{ritual.energyLevel}</span>
                   <span className="text-[10px] text-muted-foreground">{new Date(ritual.createdAt).toLocaleDateString()}</span>
+                  <button
+                    onClick={async () => {
+                      const meta = readRitualMetaMap()[ritual.id] || {}
+                      const style = (meta as any).imageStyle as ImageGenerationStyle | undefined
+                      const text = [
+                        ritual.title,
+                        ritual.deity && `Deity: ${ritual.deity}`,
+                        ritual.description || ritual.intention || ''
+                      ].filter(Boolean).join('. ')
+                      const img = await ImageGenerationService.generateImage(text, style || 'divine_portrait')
+                      if (img) {
+                        const map = readRitualMetaMap()
+                        map[ritual.id] = { ...(map[ritual.id] || {}), generatedImage: img, imageStyle: style || 'divine_portrait' }
+                        localStorage.setItem(RITUAL_META_STORAGE_KEY, JSON.stringify(map))
+                        setRituals(prev => prev.map(r => r.id === ritual.id ? { ...r } : r))
+                        toast.success(lang==='ru'?'Изображение обновлено':'Image updated')
+                      } else {
+                        toast.error(lang==='ru'?'Не удалось сгенерировать':'Failed to generate')
+                      }
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-1 hover:text-primary transition-all"
+                    title={lang==='ru'?'Перегенерировать изображение':'Regenerate image'}
+                  >
+                    <Wand2 className="w-3 h-3" />
+                  </button>
                   <button
                     onClick={() => deleteRitual(ritual.id)}
                     className="opacity-0 group-hover:opacity-100 p-1 hover:text-destructive transition-all"

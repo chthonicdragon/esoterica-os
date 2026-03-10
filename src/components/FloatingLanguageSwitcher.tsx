@@ -5,8 +5,8 @@ import { Globe } from 'lucide-react'
 import type { Lang } from '../i18n/translations'
 
 const LANGUAGES: { code: Lang; label: string; flag: string }[] = [
-  { code: 'en', label: 'English', flag: '🇬🇧' },
   { code: 'ru', label: 'Русский', flag: '🇷🇺' },
+  { code: 'en', label: 'English', flag: '🇬🇧' },
   { code: 'es', label: 'Español', flag: '🇪🇸' },
 ]
 
@@ -35,14 +35,18 @@ export function FloatingLanguageSwitcher() {
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
             className="flex flex-col gap-2 mb-2"
           >
-            {LANGUAGES.filter(l => l.code !== lang).map((l) => (
+            {LANGUAGES.map((l) => (
               <button
                 key={l.code}
                 onClick={() => {
                   setLang(l.code)
                   setIsOpen(false)
                 }}
-                className="flex items-center gap-3 px-4 py-2 bg-background/95 backdrop-blur-md border border-primary/20 rounded-full shadow-lg hover:bg-primary/10 transition-colors text-sm font-medium group"
+                className={`flex items-center gap-3 px-4 py-2 bg-background/95 backdrop-blur-md border rounded-full shadow-lg transition-colors text-sm font-medium group ${
+                  l.code === lang
+                    ? 'border-primary/50 bg-primary/10 text-primary'
+                    : 'border-primary/20 hover:bg-primary/10'
+                }`}
               >
                 <span className="text-lg">{l.flag}</span>
                 <span className="text-foreground/80 group-hover:text-primary transition-colors">{l.label}</span>

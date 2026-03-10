@@ -384,6 +384,53 @@ async function extractMissingLinksFallback(
   return parseLinksJsonWithRecovery(jsonStr);
 }
 
+export async function analyzeChakras(text: string, lang: 'en' | 'ru' = 'en'): Promise<{ emotions: string[], chakraImpact: Record<string, number>, analysis: string }> {
+  const systemPrompt = `You are an expert in Eastern philosophy and energy work. Analyze the user's journal entry for emotional content and map it to the 7 chakras.
+Return a VALID JSON object (no markdown, no extra text) with the following structure:
+{
+  "emotions": ["emotion1", "emotion2"],
+  "chakraImpact": {
+    "root": -5,
+    "sacral": 10,
+    "solar_plexus": 0,
+    "heart": 5,
+    "throat": -2,
+    "third_eye": 0,
+    "crown": 0
+  },
+  "analysis": "Brief explanation of the energy shift."
+}
+Impact values should be between -20 and +20. Use negative values for fear, guilt, shame, grief, lies, illusion, attachment. Use positive for safety, pleasure, willpower, love, truth, insight, connection.
+
+IMPORTANT: The user's language is "${lang}".
+If lang is "ru", the "analysis" and "emotions" fields MUST be in Russian.
+If lang is "en", keep them in English.
+`;
+
+  try {
+    const rawText = await fetchWithFallback({
+      temperature: 0.3,
+      max_tokens: 1000,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: text },
+      ],
+    });
+
+    const jsonStr = extractJSON(rawText);
+    const parsed = JSON.parse(jsonStr);
+    return parsed;
+  } catch (error) {
+    console.error("[ChakraAI] Analysis failed:", error);
+    // Return neutral fallback
+    return {
+      emotions: ["neutral"],
+      chakraImpact: {},
+      analysis: "Energy analysis unavailable.",
+    };
+  }
+}
+
 // ── HTTP с fallback по моделям (при 429 или 404 — следующая модель) ─────────
 
 async function fetchWithFallback(body: object, providerIndex = 0, modelIndex = 0): Promise<string> {

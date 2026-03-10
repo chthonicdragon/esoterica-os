@@ -15,13 +15,33 @@ const LanguageContext = createContext<LanguageContextType>({
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Lang>(() => {
-    return (localStorage.getItem('esoterica-lang') as Lang) || 'en'
+    const saved = localStorage.getItem('esoterica-lang') as Lang | null
+    return saved && saved in translations ? saved : 'en'
   })
 
   const setLang = (newLang: Lang) => {
     setLangState(newLang)
     localStorage.setItem('esoterica-lang', newLang)
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = newLang
+    }
+    window.dispatchEvent(new CustomEvent('eos-language-changed', { detail: { lang: newLang } }))
   }
+
+  useEffect(() => {
+    document.documentElement.lang = lang
+  }, [lang])
+
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== 'esoterica-lang' || !e.newValue) return
+      if (e.newValue in translations) {
+        setLangState(e.newValue as Lang)
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
 
   const t = translations[lang]
 

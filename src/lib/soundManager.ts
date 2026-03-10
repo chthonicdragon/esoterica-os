@@ -11,6 +11,18 @@ interface SoundConfig {
   musicMuted: boolean;
 }
 
+const SOUND_SOURCES: Record<string, string[]> = {
+  'soft-click': ['/sounds/tab.mp3'],
+  success: ['/sounds/success.mp3', '/sounds/bell.mp3', '/sounds/tab.mp3'],
+  error: ['/sounds/error.mp3', '/sounds/tab.mp3'],
+  bell: ['/sounds/bell.mp3', '/sounds/tab.mp3'],
+  candle: ['/sounds/candle.mp3', '/sounds/tab.mp3'],
+  'ritual-start': ['/sounds/ritual-start.mp3', '/sounds/bell.mp3'],
+  'ritual-end': ['/sounds/ritual-end.mp3', '/sounds/bell.mp3'],
+  whisper: ['/sounds/whisper.mp3', '/sounds/wind.mp3', '/sounds/tab.mp3'],
+  wind: ['/sounds/wind.mp3', '/sounds/tab.mp3'],
+}
+
 const DEFAULT_CONFIG: SoundConfig = {
   volume: 0.5,
   muted: false,
@@ -36,16 +48,7 @@ class SoundManager {
     if (this.initialized) return;
     this.initialized = true;
     
-    // Preload common sounds
-    this.preload('soft-click', '/sounds/tab.mp3'); // re-using tab for click
-    this.preload('success', '/sounds/success.mp3');
-    this.preload('error', '/sounds/error.mp3');
-    this.preload('bell', '/sounds/bell.mp3');
-    this.preload('candle', '/sounds/candle.mp3');
-    this.preload('ritual-start', '/sounds/ritual-start.mp3');
-    this.preload('ritual-end', '/sounds/ritual-end.mp3');
-    this.preload('whisper', '/sounds/whisper.mp3');
-    this.preload('wind', '/sounds/wind.mp3');
+    Object.entries(SOUND_SOURCES).forEach(([name, paths]) => this.preloadWithFallback(name, paths));
     
     // Setup music
     this.musicTrack = new Audio('/sounds/ambient.mp3');
@@ -73,9 +76,40 @@ class SoundManager {
     this.sounds.set(name, audio);
   }
 
+  private preloadWithFallback(name: string, paths: string[]) {
+    if (!paths.length) return
+    let index = 0
+    const tryLoad = () => {
+      const path = paths[index]
+      const audio = new Audio(path)
+      const onLoaded = () => {
+        this.sounds.set(name, audio)
+        audio.removeEventListener('canplaythrough', onLoaded)
+        audio.removeEventListener('error', onError)
+      }
+      const onError = () => {
+        audio.removeEventListener('canplaythrough', onLoaded)
+        audio.removeEventListener('error', onError)
+        index += 1
+        if (index < paths.length) {
+          tryLoad()
+          return
+        }
+        this.sounds.set(name, new Audio('/sounds/tab.mp3'))
+      }
+      audio.addEventListener('canplaythrough', onLoaded, { once: true })
+      audio.addEventListener('error', onError, { once: true })
+      audio.load()
+    }
+    tryLoad()
+  }
+
   // --- Playback ---
 
   public play(name: string) {
+    if (!this.initialized) {
+      this.init()
+    }
     if (this.config.muted || this.config.sfxMuted) return;
 
     const sound = this.sounds.get(name);
@@ -85,7 +119,14 @@ class SoundManager {
       clone.volume = this.config.volume;
       clone.play().catch(e => console.warn('Audio play failed', e));
     } else {
-      console.warn(`Sound "${name}" not found`);
+      const fallback = this.sounds.get('soft-click')
+      if (fallback) {
+        const clone = fallback.cloneNode() as HTMLAudioElement
+        clone.volume = this.config.volume * 0.8
+        clone.play().catch(() => {})
+      } else {
+        console.warn(`Sound "${name}" not found`)
+      }
     }
   }
 

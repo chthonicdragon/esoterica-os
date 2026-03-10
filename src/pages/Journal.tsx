@@ -1,14 +1,15 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLang } from '../contexts/LanguageContext'
 import { useAudio } from '../contexts/AudioContext'
 import { useIsMobile } from '../hooks/use-mobile'
 import { supabase } from '../lib/supabaseClient'
-import { Plus, BookOpen, Trash2, ChevronLeft } from 'lucide-react'
+import { Plus, BookOpen, Trash2, ChevronLeft, Wand2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { cn } from '../lib/utils'
 import { ACTION_POINTS, grantProgressionPoints, syncProgressionToDb } from '../altar/altarStore'
 import { extractAndMerge } from '../services/knowledgeGraphBridge'
+import { ImageGenerationService, type ImageGenerationStyle } from '../services/ImageGenerationService'
 
 interface JournalEntry {
   id: string
@@ -20,6 +21,24 @@ interface JournalEntry {
 }
 
 const MOODS = ['✨', '🌙', '🔥', '🌊', '⚡', '🌿', '🌑', '☀️']
+const JOURNAL_META_STORAGE_KEY = 'esoterica_journal_meta_v1'
+
+function readJournalMetaMap(): Record<string, { generatedImage?: string; imageStyle?: ImageGenerationStyle }> {
+  try {
+    const raw = localStorage.getItem(JOURNAL_META_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return typeof parsed === 'object' && parsed ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeJournalMeta(id: string, meta: { generatedImage?: string; imageStyle?: ImageGenerationStyle }) {
+  const current = readJournalMetaMap()
+  current[id] = { ...(current[id] || {}), ...meta }
+  localStorage.setItem(JOURNAL_META_STORAGE_KEY, JSON.stringify(current))
+}
 
 interface JournalProps {
   user: { id: string }
@@ -32,7 +51,16 @@ export function Journal({ user }: JournalProps) {
   const queryClient = useQueryClient()
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ title: '', content: '', type: 'dream', mood: '🌙' })
+  const [metaTick, setMetaTick] = useState(0)
+  const journalMeta = useMemo(() => readJournalMetaMap(), [metaTick])
+  const [form, setForm] = useState({
+    title: '',
+    content: '',
+    type: 'dream',
+    mood: '🌙',
+    generatedImage: '',
+    imageStyle: '' as ImageGenerationStyle | '',
+  })
 
   const { data: entries = [], isLoading: loading } = useQuery({
     queryKey: ['journals', user.id],
@@ -65,16 +93,28 @@ export function Journal({ user }: JournalProps) {
     playUiSound('click')
     const snapshot = { ...form }
     try {
-      const entry = await saveEntryMutation.mutateAsync(snapshot)
+      const entry = await saveEntryMutation.mutateAsync({
+        title: snapshot.title,
+        content: snapshot.content,
+        type: snapshot.type,
+        mood: snapshot.mood,
+      })
       queryClient.setQueryData<JournalEntry[]>(['journals', user.id], (prev = []) => [entry, ...prev])
       setShowForm(false)
       setSelectedEntry(entry)
+      if (snapshot.generatedImage) {
+        writeJournalMeta(entry.id, {
+          generatedImage: snapshot.generatedImage,
+          imageStyle: snapshot.imageStyle || undefined,
+        })
+        setMetaTick(x => x + 1)
+      }
       const lengthBonus = Math.min(6, Math.floor(snapshot.content.length / 350))
       const typeBonus = snapshot.type === 'dream' ? ACTION_POINTS.dreamEntryBonus : 2
       const pointsAward = ACTION_POINTS.journalEntryBase + typeBonus + lengthBonus
       const { pointsEarned, progression } = grantProgressionPoints(pointsAward, 'journal')
       syncProgressionToDb(user.id, progression)
-      setForm({ title: '', content: '', type: 'dream', mood: '🌙' })
+      setForm({ title: '', content: '', type: 'dream', mood: '🌙', generatedImage: '', imageStyle: '' })
       playUiSound('success')
       toast.success(lang === 'ru' ? `Запись сохранена (+${pointsEarned} XP)` : `Entry saved (+${pointsEarned} XP)`)
       const fullText = `${snapshot.title}. ${snapshot.content}`
@@ -159,6 +199,11 @@ export function Journal({ user }: JournalProps) {
                     </div>
                     <p className="text-sm font-medium text-foreground truncate">{entry.title}</p>
                     <p className="text-xs text-muted-foreground truncate mt-0.5 opacity-70 leading-relaxed">{entry.content}</p>
+                    {journalMeta[entry.id]?.generatedImage && (
+                      <div className="mt-2 rounded-lg overflow-hidden border border-border/40">
+                        <img src={journalMeta[entry.id]!.generatedImage} alt="Preview" className="w-full h-auto object-cover max-h-24" />
+                      </div>
+                    )}
                     <p className="text-[10px] text-muted-foreground/40 mt-1 uppercase tracking-wider">{new Date(entry.createdAt).toLocaleDateString()}</p>
                   </div>
                   <button
@@ -223,6 +268,49 @@ export function Journal({ user }: JournalProps) {
                 placeholder={t.journalContent}
                 className="flex-1 w-full bg-card border border-border rounded-xl px-4 py-3 text-sm outline-none focus:border-primary/50 resize-none min-h-[300px]"
               />
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 p-1 rounded-xl border border-border/40 bg-card">
+                    {(['surreal_dream', 'divine_portrait', 'dark_ritual'] as ImageGenerationStyle[]).map(style => (
+                      <button
+                        key={style}
+                        onClick={() => setForm(p => ({ ...p, imageStyle: style }))}
+                        className={cn(
+                          'px-2.5 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider transition-colors',
+                          form.imageStyle === style
+                            ? 'bg-primary/15 text-primary border border-primary/30'
+                            : 'text-muted-foreground hover:text-foreground'
+                        )}
+                      >
+                        {lang === 'ru'
+                          ? style === 'surreal_dream' ? 'Сон' : style === 'divine_portrait' ? 'Портрет' : 'Ритуал'
+                          : style.replace('_', ' ')}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const style = form.imageStyle || (form.type === 'ritual' ? 'dark_ritual' : 'surreal_dream')
+                      const img = await ImageGenerationService.generateImage(`${form.title}. ${form.content}`, style)
+                      if (img) {
+                        setForm(p => ({ ...p, generatedImage: img, imageStyle: style }))
+                        playUiSound('success')
+                      } else {
+                        playUiSound('error')
+                      }
+                    }}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary text-xs hover:bg-primary/20 transition-colors"
+                  >
+                    <Wand2 className="w-4 h-4" />
+                    {lang === 'ru' ? 'Сгенерировать изображение' : 'Generate image'}
+                  </button>
+                </div>
+                {form.generatedImage && (
+                  <div className="rounded-xl overflow-hidden border border-border/40">
+                    <img src={form.generatedImage} alt="Visualization" className="w-full h-auto object-cover max-h-72" />
+                  </div>
+                )}
+              </div>
 
               <button
                 onClick={() => { saveEntry(); playUiSound('click') }}
@@ -247,6 +335,34 @@ export function Journal({ user }: JournalProps) {
                   <span className="text-[10px] text-muted-foreground ml-auto uppercase tracking-widest">{new Date(selectedEntry.createdAt).toLocaleString()}</span>
                 </div>
                 <h2 className="text-2xl font-bold font-cinzel text-foreground mb-6 leading-tight">{selectedEntry.title}</h2>
+                {journalMeta[selectedEntry.id]?.generatedImage && (
+                  <div className="mb-6 rounded-2xl overflow-hidden border border-border/40">
+                    <img src={journalMeta[selectedEntry.id]!.generatedImage} alt="Visualization" className="w-full h-auto object-cover" />
+                  </div>
+                )}
+                <div className="flex items-center gap-2 mb-6">
+                  <button
+                    onClick={async () => {
+                      const current = journalMeta[selectedEntry.id] || {}
+                      const style = current.imageStyle || (selectedEntry.type === 'ritual' ? 'dark_ritual' : 'surreal_dream')
+                      const img = await ImageGenerationService.generateImage(`${selectedEntry.title}. ${selectedEntry.content}`, style)
+                      if (img) {
+                        writeJournalMeta(selectedEntry.id, { generatedImage: img, imageStyle: style })
+                        setMetaTick(x => x + 1)
+                        toast.success(lang === 'ru' ? 'Изображение обновлено' : 'Image updated')
+                      } else {
+                        toast.error(lang === 'ru' ? 'Не удалось сгенерировать' : 'Failed to generate')
+                      }
+                    }}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary text-xs hover:bg-primary/20 transition-colors"
+                  >
+                    <Wand2 className="w-4 h-4" />
+                    {lang === 'ru' ? 'Перегенерировать' : 'Regenerate'}
+                  </button>
+                  <span className="text-[10px] text-muted-foreground">
+                    {lang === 'ru' ? 'Изображение хранится локально для этой записи' : 'Image is stored locally for this entry'}
+                  </span>
+                </div>
                 <div className="prose prose-invert max-w-none">
                   <p className="text-sm sm:text-base text-foreground/80 leading-relaxed whitespace-pre-wrap">{selectedEntry.content}</p>
                 </div>

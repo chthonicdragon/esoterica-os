@@ -1,12 +1,13 @@
-import { useRef, Suspense, useMemo } from 'react'
+import { useRef, Suspense, useMemo, useEffect } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls, useGLTF } from '@react-three/drei'
+import { OrbitControls, useGLTF, useProgress } from '@react-three/drei'
 import * as THREE from 'three'
 import type { AltarLayout } from './types'
 import { CATALOG, ALTAR_THEMES, ALTAR_BASES } from './catalog'
 import { AltarObject3D } from './AltarObject3D'
 
 type AltarVisualPreset = 'soft' | 'cinematic'
+const PRELOADED_MODEL_URLS = new Set<string>()
 
 // Animated ambient smoke / mist
 function AmbientMist({ active }: { active: boolean }) {
@@ -336,6 +337,18 @@ function SceneControls({ ritualActive, workSurfaceY }: { ritualActive: boolean; 
   )
 }
 
+function SceneLoadingBridge({
+  onProgress,
+}: {
+  onProgress?: (progress: number, active: boolean) => void
+}) {
+  const { progress, active } = useProgress()
+  useEffect(() => {
+    onProgress?.(Math.max(0, Math.min(100, progress)), active)
+  }, [progress, active, onProgress])
+  return null
+}
+
 interface AltarScene3DProps {
   layout: AltarLayout
   visualPreset: AltarVisualPreset
@@ -346,9 +359,9 @@ interface AltarScene3DProps {
   ritualProgress: number
   pendingDrop: string | null // catalog item id to place on click
   onSelect: (id: string | null) => void
-  onObjectMoved: (id: string, pos: [number, number, number]) => void
   onDropPlaced: (pos: [number, number, number]) => void
   onContextLost?: () => void
+  onLoadingProgress?: (progress: number, active: boolean) => void
 }
 
 export function AltarScene3D({
@@ -361,9 +374,9 @@ export function AltarScene3D({
   ritualProgress,
   pendingDrop,
   onSelect,
-  onObjectMoved,
   onDropPlaced,
   onContextLost,
+  onLoadingProgress,
 }: AltarScene3DProps) {
   const isSafeQuality = renderQuality === 'safe'
   const theme = ALTAR_THEMES[layout.theme]
@@ -374,6 +387,22 @@ export function AltarScene3D({
     return acc + (cat?.effect === 'flicker' ? 1 : 0)
   }, 0)
   const candleGlowStrength = Math.min(1, 0.2 + candleCount * 0.12)
+
+  useEffect(() => {
+    const baseUrl = ALTAR_BASES.find(base => base.id === layout.baseId)?.modelUrl
+    const modelUrls = new Set<string>()
+    if (baseUrl) modelUrls.add(baseUrl)
+    layout.objects.forEach((placed) => {
+      const catalogItem = catalogMap[placed.catalogId]
+      if (catalogItem?.modelUrl) modelUrls.add(catalogItem.modelUrl)
+    })
+
+    modelUrls.forEach((url) => {
+      if (PRELOADED_MODEL_URLS.has(url)) return
+      PRELOADED_MODEL_URLS.add(url)
+      useGLTF.preload(url)
+    })
+  }, [layout.baseId, layout.objects, catalogMap])
 
   const lighting = useMemo(() => {
     if (visualPreset === 'soft') {
@@ -425,6 +454,7 @@ export function AltarScene3D({
       }}
       onPointerMissed={() => onSelect(null)}
     >
+      <SceneLoadingBridge onProgress={onLoadingProgress} />
       {/* Lighting */}
       <ambientLight color={theme.ambientColor} intensity={lighting.ambientIntensity} />
       <directionalLight
@@ -478,7 +508,6 @@ export function AltarScene3D({
             selected={selectedId === placed.id}
             ritualActive={ritualActive}
             onSelect={onSelect}
-            onPositionChange={onObjectMoved}
           />
         )
       })}

@@ -18,7 +18,7 @@ import { eventBus } from './lib/eventBus'
 import toast from 'react-hot-toast'
 import { FloatingLanguageSwitcher } from './components/FloatingLanguageSwitcher'
 
-type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'divination' | 'journal' | 'forum' | 'marketplace' | 'settings' | 'knowledge-graph'
+type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'divination' | 'journal' | 'forum' | 'marketplace' | 'settings' | 'knowledge-graph' | 'chakra-intelligence'
 const PAGE_STORAGE_KEY = 'esoterica_current_page_v1'
 
 const ALL_PAGES: Page[] = [
@@ -33,6 +33,7 @@ const ALL_PAGES: Page[] = [
   'marketplace',
   'settings',
   'knowledge-graph',
+  'chakra-intelligence',
 ]
 
 const isValidPage = (value: string | null | undefined): value is Page => {
@@ -78,6 +79,7 @@ const PAGE_TITLES: Record<Page, { en: string; ru: string }> = {
   marketplace: { en: 'Marketplace', ru: 'Маркетплейс' },
   settings: { en: 'Settings', ru: 'Настройки' },
   'knowledge-graph': { en: 'Knowledge Graph', ru: 'Паутина знаний' },
+  'chakra-intelligence': { en: 'Chakra Intelligence', ru: 'Чакры' },
 }
 
 function AppContent() {
@@ -332,6 +334,7 @@ function AppContent() {
             {currentPage === 'marketplace' && <Pages.Marketplace />}
             {currentPage === 'settings' && <Pages.Settings user={user} />}
             {currentPage === 'knowledge-graph' && <div className="flex-1 p-4 overflow-hidden"><Pages.KnowledgeGraph user={user} /></div>}
+            {currentPage === 'chakra-intelligence' && <Pages.ChakraIntelligence onBack={() => handleNavigate('dashboard')} />}
           </Suspense>
         </main>
       </div>

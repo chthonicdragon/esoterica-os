@@ -236,7 +236,7 @@ Rules:
       }
     } catch {}
 
-    // Try serverless gateway if available
+    // Try serverless gateway (OpenRouter) if available
     try {
       const gw = await fetch('/api/openrouter', {
         method: 'POST',
@@ -248,6 +248,26 @@ Rules:
           const gwData = await gw.json()
           const gwContent = gwData?.choices?.[0]?.message?.content || ''
           if (gwContent) return JSON.parse(gwContent)
+        } catch {}
+      }
+    } catch {}
+
+    // Try serverless DeepSeek as another provider
+    try {
+      const ds = await fetch('/api/deepseek', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: [{ role: 'user', content: prompt }],
+          response_format: { type: 'json_object' },
+        }),
+      })
+      if (ds.ok) {
+        try {
+          const dsData = await ds.json()
+          const dsContent = dsData?.choices?.[0]?.message?.content || ''
+          if (dsContent) return JSON.parse(dsContent)
         } catch {}
       }
     } catch {}
@@ -273,7 +293,28 @@ Rules:
 
     const clientKey = resolveClientKey()
     if (!clientKey) {
-      throw new Error('Missing OpenRouter API key in client (VITE_OPENROUTER_API_KEY / __VITE_OPENROUTER_KEY / localStorage:eos_openrouter_key)')
+      // If no OpenRouter key on client, try DeepSeek direct as last-resort client call
+      const deepseekKey = (import.meta as any)?.env?.VITE_DEEPSEEK_API_KEY || ''
+      if (deepseekKey) {
+        const directDS = await fetch('https://api.deepseek.com/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${deepseekKey}`,
+          },
+          body: JSON.stringify({
+            model: 'deepseek-chat',
+            messages: [{ role: 'user', content: prompt }],
+            response_format: { type: 'json_object' },
+          }),
+        })
+        if (directDS.ok) {
+          const dsJson = await directDS.json().catch(() => null)
+          const dsContent = dsJson?.choices?.[0]?.message?.content || ''
+          if (dsContent) return JSON.parse(dsContent)
+        }
+      }
+      throw new Error('Missing OpenRouter API key in client (and no DeepSeek) (VITE_OPENROUTER_API_KEY / __VITE_OPENROUTER_KEY / localStorage:eos_openrouter_key)')
     }
 
     const direct = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -288,8 +329,30 @@ Rules:
     })
 
     if (!direct.ok) {
+      // Try DeepSeek client direct before regex
+      const deepseekKey = (import.meta as any)?.env?.VITE_DEEPSEEK_API_KEY || ''
+      if (deepseekKey) {
+        try {
+          const ds = await fetch('https://api.deepseek.com/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${deepseekKey}`,
+            },
+            body: JSON.stringify({
+              model: 'deepseek-chat',
+              messages: [{ role: 'user', content: prompt }],
+              response_format: { type: 'json_object' },
+            }),
+          })
+          if (ds.ok) {
+            const dsData = await ds.json().catch(() => null)
+            const dsContent = dsData?.choices?.[0]?.message?.content || ''
+            if (dsContent) return JSON.parse(dsContent)
+          }
+        } catch {}
+      }
       const text = await direct.text().catch(() => '')
-      // Instead of throwing, fallback to regex if AI fails (e.g. 402, 500)
       console.warn(`AI API error: ${text || direct.status}. Falling back to regex.`)
       // @ts-ignore
       return this.extractWithRegex(wikiText, entity, pantheon)
