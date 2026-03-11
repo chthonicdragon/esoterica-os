@@ -18,7 +18,7 @@ import { eventBus } from './lib/eventBus'
 import toast from 'react-hot-toast'
 import { FloatingLanguageSwitcher } from './components/FloatingLanguageSwitcher'
 
-type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'divination' | 'journal' | 'forum' | 'marketplace' | 'settings' | 'knowledge-graph' | 'chakra-intelligence'
+type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'divination' | 'journal' | 'forum' | 'marketplace' | 'settings' | 'knowledge-graph' | 'chakra-intelligence' | 'covens'
 const PAGE_STORAGE_KEY = 'esoterica_current_page_v1'
 
 const ALL_PAGES: Page[] = [
@@ -34,6 +34,7 @@ const ALL_PAGES: Page[] = [
   'settings',
   'knowledge-graph',
   'chakra-intelligence',
+  'covens',
 ]
 
 const isValidPage = (value: string | null | undefined): value is Page => {
@@ -80,6 +81,7 @@ const PAGE_TITLES: Record<Page, { en: string; ru: string }> = {
   settings: { en: 'Settings', ru: 'Настройки' },
   'knowledge-graph': { en: 'Knowledge Graph', ru: 'Паутина знаний' },
   'chakra-intelligence': { en: 'Chakra Intelligence', ru: 'Чакры' },
+  covens: { en: 'Covens', ru: 'Ковены' },
 }
 
 function AppContent() {
@@ -271,7 +273,7 @@ function AppContent() {
           onMenuClick={isMobile ? () => setIsSidebarOpen(true) : undefined}
         />
         <FloatingLanguageSwitcher />
-        <main className={`flex-1 ${currentPage === 'altars' || currentPage === 'forum' || currentPage === 'knowledge-graph' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
+        <main className={`flex-1 ${currentPage === 'altars' || currentPage === 'forum' || currentPage === 'knowledge-graph' || currentPage === 'covens' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
           <Suspense fallback={<PageLoader />}>
             {currentPage === 'dashboard' && <Pages.Dashboard user={user} onNavigate={(p) => handleNavigate(p as Page)} />}
             {currentPage === 'altars' && (
@@ -335,6 +337,7 @@ function AppContent() {
             {currentPage === 'settings' && <Pages.Settings user={user} />}
             {currentPage === 'knowledge-graph' && <div className="flex-1 p-4 overflow-hidden"><Pages.KnowledgeGraph user={user} /></div>}
             {currentPage === 'chakra-intelligence' && <Pages.ChakraIntelligence onBack={() => handleNavigate('dashboard')} />}
+            {currentPage === 'covens' && <Pages.CovensPage user={user} />}
           </Suspense>
         </main>
       </div>

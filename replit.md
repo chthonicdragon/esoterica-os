@@ -43,5 +43,20 @@ See `.env.example` for all required variables. Key ones:
 ## Project Structure
 
 - `src/` — React app source
+- `src/pages/covens/` — Covens feature (list, detail, create views)
+- `src/services/covensService.ts` — Supabase CRUD for covens
+- `src/types/covens.ts` — TypeScript types for covens
 - `api/` — Vercel serverless API routes (inactive on Replit)
 - `public/` — Static assets
+- `supabase/migrations/create_covens.sql` — SQL to create covens tables (run in Supabase SQL editor)
+
+## Features
+
+### Covens System
+Full social coven system with:
+- Create public/private covens
+- List & filter covens (all / public / mine)
+- View coven detail: members list, leader info, created date
+- Apply to join with optional message
+- Leader: approve/reject join requests, remove members, edit/delete coven
+- All data stored in Supabase (`covens`, `coven_members`, `coven_join_requests` tables)

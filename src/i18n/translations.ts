@@ -13,6 +13,7 @@ export const translations = {
     forum: 'Forum',
     knowledgeGraph: 'Knowledge Graph',
     chakras: 'Chakra Intelligence',
+    covens: 'Covens',
     marketplace: 'Marketplace',
     settings: 'Settings',
 
@@ -152,6 +153,7 @@ export const translations = {
     forum: 'Форум',
     knowledgeGraph: 'Паутина знаний',
     chakras: 'Чакры',
+    covens: 'Ковены',
     marketplace: 'Маркетплейс',
     settings: 'Настройки',
 
@@ -299,6 +301,7 @@ export const translations = {
     forum: 'Foro',
     knowledgeGraph: 'Gráfico de Conocimiento',
     chakras: 'Inteligencia de Chakras',
+    covens: 'Covens',
     marketplace: 'Mercado',
     settings: 'Ajustes',
 
