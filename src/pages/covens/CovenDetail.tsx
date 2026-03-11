@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { covensService } from '../../services/covensService'
 import type { Coven, CovenMember, CovenJoinRequest } from '../../types/covens'
 import { useLang } from '../../contexts/LanguageContext'
+import { CovenBoard } from '../../components/covens/CovenBoard'
 import {
   Globe, Lock, Users, Clock, Crown, UserMinus, CheckCircle, XCircle,
   Loader2, AlertCircle, Edit2, Trash2, Send, UserPlus, X
@@ -14,7 +15,7 @@ interface CovenDetailProps {
   onDeleted: () => void
 }
 
-type Tab = 'info' | 'members' | 'requests'
+type Tab = 'info' | 'members' | 'requests' | 'board'
 
 export function CovenDetail({ user, covenId, onBack, onDeleted }: CovenDetailProps) {
   const { lang } = useLang()
@@ -190,6 +191,7 @@ export function CovenDetail({ user, covenId, onBack, onDeleted }: CovenDetailPro
   const inputCls = 'w-full px-3 py-2 rounded-lg bg-white/5 border border-border/50 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-colors'
   const TABS: { key: Tab; en: string; ru: string }[] = [
     { key: 'info', en: 'Info', ru: 'Инфо' },
+    { key: 'board', en: 'Board', ru: 'Доска' },
     { key: 'members', en: `Members (${members.length})`, ru: `Участники (${members.length})` },
     ...(isLeader ? [{ key: 'requests' as Tab, en: `Requests (${requests.length})`, ru: `Заявки (${requests.length})` }] : []),
   ]
