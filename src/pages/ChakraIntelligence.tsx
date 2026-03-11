@@ -75,14 +75,15 @@ function ChakraDashboard({ onBack }: ChakraDashboardProps) {
       </header>
 
       {/* Main grid */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 px-6 min-h-0 overflow-hidden" style={{ height: 'calc(100vh - 220px)' }}>
-        {/* Left: 3D Body */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 px-6 pb-4 min-h-0 overflow-hidden" style={{ height: 'calc(100vh - 120px)' }}>
+        {/* Left: 3D Body + Chakra editor below */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="lg:col-span-4 h-full"
+          className="lg:col-span-4 h-full flex flex-col gap-3"
         >
-          <div className="h-full bg-gradient-to-b from-purple-900/10 to-transparent rounded-2xl border border-white/5 p-1 relative overflow-hidden group">
+          {/* 3D viewer */}
+          <div className="flex-1 bg-gradient-to-b from-purple-900/10 to-transparent rounded-2xl border border-white/5 p-1 relative overflow-hidden min-h-0">
             <div className="absolute inset-0 bg-[url('/noise.png')] opacity-20 mix-blend-overlay pointer-events-none" />
 
             {/* Gender toggle */}
@@ -120,6 +121,75 @@ function ChakraDashboard({ onBack }: ChakraDashboardProps) {
               onChakraClick={handleSelectChakra}
             />
           </div>
+
+          {/* Chakra editor — directly under the 3D model */}
+          <div
+            className="flex-shrink-0 rounded-2xl border bg-black/60 backdrop-blur-md p-4"
+            style={{ borderColor: `${chakraColor}35` }}
+          >
+            {/* Header row: chakra name + dot */}
+            <div className="flex items-center gap-2 mb-3">
+              <div
+                className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                style={{ backgroundColor: chakraColor, boxShadow: `0 0 8px ${chakraColor}90` }}
+              />
+              <span className="text-xs font-medium text-white/80">
+                {lang === 'ru' ? state.chakras[activeChakra].nameRu : state.chakras[activeChakra].name}
+              </span>
+              <span className="ml-auto text-xs font-mono" style={{ color: chakraColor }}>
+                {Math.round(draftLevel)}%
+              </span>
+            </div>
+
+            {/* Slider */}
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={draftLevel}
+              onChange={(e) => { setDraftLevel(Number(e.target.value)); setSaved(false) }}
+              className="w-full mb-1 cursor-pointer"
+              style={{ accentColor: chakraColor }}
+            />
+            <div className="flex justify-between text-[9px] text-white/20 mb-3">
+              <span>{lang === 'ru' ? 'Заблок.' : 'Blocked'}</span>
+              <span>{lang === 'ru' ? 'Баланс' : 'Balanced'}</span>
+              <span>{lang === 'ru' ? 'Открыта' : 'Open'}</span>
+            </div>
+
+            {/* Textarea */}
+            <textarea
+              value={draftNote}
+              onChange={(e) => { setDraftNote(e.target.value); setSaved(false) }}
+              placeholder={lang === 'ru' ? 'Опишите ощущения…' : 'Describe sensations…'}
+              className="w-full h-16 resize-none bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[11px] text-white/80 placeholder:text-white/25 outline-none focus:border-indigo-400/40 mb-3"
+            />
+
+            {/* Buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={handleSave}
+                disabled={isAnalyzing}
+                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
+                style={{
+                  backgroundColor: `${chakraColor}20`,
+                  borderWidth: 1,
+                  borderStyle: 'solid',
+                  borderColor: `${chakraColor}50`,
+                  color: chakraColor,
+                }}
+              >
+                <Save className="w-3.5 h-3.5" />
+                {saved ? (lang === 'ru' ? '✓ Сохранено' : '✓ Saved') : (lang === 'ru' ? 'Сохранить' : 'Save')}
+              </button>
+              <button
+                onClick={handleReset}
+                className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white/50 text-xs hover:bg-white/10 transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
         </motion.div>
 
         {/* Middle: Map + Journal */}
@@ -147,108 +217,6 @@ function ChakraDashboard({ onBack }: ChakraDashboardProps) {
           <RitualGenerator lang={lang === 'ru' ? 'ru' : 'en'} />
         </motion.div>
       </div>
-
-      {/* Bottom panel: Chakra editor */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="flex-shrink-0 mx-6 mb-4 mt-3 rounded-2xl border border-white/10 bg-black/60 backdrop-blur-md overflow-hidden"
-        style={{ borderColor: `${chakraColor}30` }}
-      >
-        <div className="flex flex-col md:flex-row items-stretch gap-0">
-          {/* Chakra name + indicator */}
-          <div
-            className="flex items-center gap-3 px-5 py-4 md:w-56 flex-shrink-0 border-b md:border-b-0 md:border-r border-white/10"
-            style={{ borderColor: `${chakraColor}20` }}
-          >
-            <div
-              className="w-3 h-3 rounded-full flex-shrink-0 shadow-lg"
-              style={{ backgroundColor: chakraColor, boxShadow: `0 0 10px ${chakraColor}80` }}
-            />
-            <div>
-              <div className="text-[10px] uppercase tracking-widest text-white/40 mb-0.5">
-                {lang === 'ru' ? 'Активная чакра' : 'Active chakra'}
-              </div>
-              <div className="text-sm font-medium text-white/90">
-                {lang === 'ru' ? state.chakras[activeChakra].nameRu : state.chakras[activeChakra].name}
-              </div>
-            </div>
-          </div>
-
-          {/* Slider */}
-          <div className="flex flex-col justify-center px-5 py-4 md:w-56 flex-shrink-0 border-b md:border-b-0 md:border-r border-white/10 gap-1.5">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] uppercase tracking-widest text-white/40">
-                {lang === 'ru' ? 'Уровень энергии' : 'Energy level'}
-              </span>
-              <span className="text-sm font-mono" style={{ color: chakraColor }}>
-                {Math.round(draftLevel)}%
-              </span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={draftLevel}
-              onChange={(e) => { setDraftLevel(Number(e.target.value)); setSaved(false) }}
-              className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
-              style={{ accentColor: chakraColor }}
-            />
-            <div className="flex justify-between text-[9px] text-white/20">
-              <span>{lang === 'ru' ? 'Заблок.' : 'Blocked'}</span>
-              <span>{lang === 'ru' ? 'Баланс' : 'Balanced'}</span>
-              <span>{lang === 'ru' ? 'Открыта' : 'Open'}</span>
-            </div>
-          </div>
-
-          {/* Note textarea */}
-          <div className="flex-1 px-4 py-3 border-b md:border-b-0 md:border-r border-white/10">
-            <div className="text-[10px] uppercase tracking-widest text-white/40 mb-1.5">
-              {lang === 'ru' ? 'Описание ощущений' : 'Describe sensations'}
-            </div>
-            <textarea
-              value={draftNote}
-              onChange={(e) => { setDraftNote(e.target.value); setSaved(false) }}
-              placeholder={lang === 'ru' ? 'Что вы ощущаете в этой зоне тела?...' : 'What do you feel in this area?...'}
-              className="w-full h-14 resize-none bg-transparent text-[12px] text-white/80 placeholder:text-white/20 outline-none leading-relaxed"
-            />
-            <p className="text-[10px] text-white/20 mt-0.5">
-              {lang === 'ru'
-                ? '* Описание также добавится в энергетический дневник'
-                : '* Description will also be saved to the energy journal'}
-            </p>
-          </div>
-
-          {/* Save/Reset buttons */}
-          <div className="flex md:flex-col gap-2 px-4 py-4 justify-center items-center flex-shrink-0">
-            <button
-              onClick={handleSave}
-              disabled={isAnalyzing}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all disabled:opacity-50"
-              style={{
-                backgroundColor: `${chakraColor}25`,
-                borderWidth: 1,
-                borderStyle: 'solid',
-                borderColor: `${chakraColor}50`,
-                color: chakraColor,
-              }}
-            >
-              <Save className="w-3.5 h-3.5" />
-              {saved
-                ? (lang === 'ru' ? '✓ Сохранено' : '✓ Saved')
-                : (lang === 'ru' ? 'Сохранить' : 'Save')}
-            </button>
-            <button
-              onClick={handleReset}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white/50 text-xs hover:bg-white/10 hover:text-white/80 transition-colors"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              {lang === 'ru' ? 'Сброс' : 'Reset'}
-            </button>
-          </div>
-        </div>
-      </motion.div>
     </div>
   )
 }
