@@ -7,14 +7,15 @@ export interface AppUser {
   displayName?: string
   archetype?: string
   tradition?: string
+  avatarUrl?: string
 }
 
 interface UserContextType {
   user: AppUser | null
   loading: boolean
   isAuthenticated: boolean
-  /** Refresh profile metadata (archetype, tradition, displayName) from Supabase */
   refreshProfile: () => Promise<void>
+  updateLocalProfile: (patch: Partial<AppUser>) => void
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined)
@@ -23,7 +24,7 @@ async function loadProfileMeta(userId: string) {
   try {
     const { data, error } = await supabase
       .from('userProfiles')
-      .select('archetype, tradition, displayName')
+      .select('archetype, tradition, displayName, avatarUrl')
       .eq('userId', userId)
       .maybeSingle()
     if (error) return {}
@@ -31,6 +32,7 @@ async function loadProfileMeta(userId: string) {
       archetype: data?.archetype as string | undefined,
       tradition: data?.tradition as string | undefined,
       displayName: data?.displayName as string | undefined,
+      avatarUrl: data?.avatarUrl as string | undefined,
     }
   } catch {
     return {}
@@ -59,6 +61,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         archetype: meta.archetype ?? prev.archetype,
         tradition: meta.tradition ?? prev.tradition,
         displayName: meta.displayName ?? prev.displayName,
+        avatarUrl: meta.avatarUrl ?? prev.avatarUrl,
       }
     })
   }, [])
@@ -67,6 +70,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     if (!user) return
     await enrichWithProfileMeta(user)
   }, [user, enrichWithProfileMeta])
+
+  const updateLocalProfile = useCallback((patch: Partial<AppUser>) => {
+    setUser(prev => prev ? { ...prev, ...patch } : prev)
+  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -112,7 +119,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, [enrichWithProfileMeta])
 
   return (
-    <UserContext.Provider value={{ user, loading, isAuthenticated: !!user, refreshProfile }}>
+    <UserContext.Provider value={{ user, loading, isAuthenticated: !!user, refreshProfile, updateLocalProfile }}>
       {children}
     </UserContext.Provider>
   )

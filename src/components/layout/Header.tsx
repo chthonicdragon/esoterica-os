@@ -9,7 +9,9 @@ interface HeaderProps {
   userName?: string
   userArchetype?: string
   userTradition?: string
+  userAvatarUrl?: string
   onMenuClick?: () => void
+  onProfileClick?: () => void
 }
 
 const ARCHETYPES_RU: Record<string, string> = {
@@ -28,7 +30,7 @@ const TRADITIONS_RU: Record<string, string> = {
 
 const formatTitleCase = (value: string) => value.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
 
-export function Header({ title, userName, userArchetype, userTradition, onMenuClick }: HeaderProps) {
+export function Header({ title, userName, userArchetype, userTradition, userAvatarUrl, onMenuClick, onProfileClick }: HeaderProps) {
   const { t, lang } = useLang()
   const { isMuted, setIsMuted, playUiSound } = useAudio()
   const moonPhase = getMoonPhase()
@@ -46,10 +48,10 @@ export function Header({ title, userName, userArchetype, userTradition, onMenuCl
     e.stopPropagation()
     const newMuted = !isMuted
     setIsMuted(newMuted)
-    if (!newMuted) {
-      playUiSound('click')
-    }
+    if (!newMuted) playUiSound('click')
   }
+
+  const avatarLetter = userName ? userName.charAt(0).toUpperCase() : '?'
 
   return (
     <header className="h-16 flex items-center justify-between px-4 sm:px-6 border-b border-border/40 bg-background/80 backdrop-blur-sm z-20">
@@ -72,7 +74,7 @@ export function Header({ title, userName, userArchetype, userTradition, onMenuCl
         <button
           onClick={toggleMute}
           className="p-2 rounded-lg bg-secondary border border-border/40 text-muted-foreground hover:text-foreground transition-colors"
-          title={isMuted ? "Unmute" : "Mute"}
+          title={isMuted ? 'Unmute' : 'Mute'}
         >
           {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
         </button>
@@ -83,9 +85,13 @@ export function Header({ title, userName, userArchetype, userTradition, onMenuCl
           <span className="text-primary font-medium hidden xs:inline">{moonPhaseLabel}</span>
         </div>
 
-        {/* User */}
+        {/* User avatar — clickable */}
         {userName && (
-          <div className="flex items-center gap-2">
+          <button
+            onClick={onProfileClick}
+            className="flex items-center gap-2 rounded-xl hover:bg-white/5 transition-colors p-1 -m-1"
+            title={lang === 'ru' ? 'Мой профиль' : 'My profile'}
+          >
             <div className="hidden md:flex flex-col items-end gap-1">
               <span className="text-xs text-foreground/90 max-w-[160px] truncate">{userName}</span>
               <div className="flex items-center gap-1">
@@ -101,10 +107,16 @@ export function Header({ title, userName, userArchetype, userTradition, onMenuCl
                 )}
               </div>
             </div>
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-[hsl(var(--neon))] flex items-center justify-center text-xs font-bold text-white shadow-[0_0_10px_hsl(var(--primary)/0.3)]">
-              {userName.charAt(0).toUpperCase()}
+            <div className="w-8 h-8 rounded-full overflow-hidden border border-primary/40 shadow-[0_0_10px_hsl(var(--primary)/0.3)] flex-shrink-0">
+              {userAvatarUrl ? (
+                <img src={userAvatarUrl} alt="avatar" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-primary to-[hsl(var(--neon))] flex items-center justify-center text-xs font-bold text-white">
+                  {avatarLetter}
+                </div>
+              )}
             </div>
-          </div>
+          </button>
         )}
       </div>
     </header>
