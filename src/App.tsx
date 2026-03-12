@@ -18,10 +18,11 @@ import { eventBus } from './lib/eventBus'
 import toast from 'react-hot-toast'
 import { FloatingLanguageSwitcher } from './components/FloatingLanguageSwitcher'
 
-type Page = 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'divination' | 'journal' | 'forum' | 'marketplace' | 'settings' | 'knowledge-graph' | 'chakra-intelligence'
+type Page = 'crossroads' | 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'divination' | 'journal' | 'forum' | 'marketplace' | 'settings' | 'knowledge-graph' | 'chakra-intelligence'
 const PAGE_STORAGE_KEY = 'esoterica_current_page_v1'
 
 const ALL_PAGES: Page[] = [
+  'crossroads',
   'dashboard',
   'altars',
   'ai-mentor',
@@ -68,6 +69,7 @@ const isSafeModeRequested = () => {
 }
 
 const PAGE_TITLES: Record<Page, { en: string; ru: string }> = {
+  crossroads: { en: "Hecate's Crossroads", ru: 'Перекрёсток Гекаты' },
   dashboard: { en: 'Dashboard', ru: 'Главная' },
   altars: { en: 'Altars', ru: 'Алтари' },
   'ai-mentor': { en: 'AI Mentor', ru: 'ИИ Наставник' },
@@ -96,7 +98,7 @@ function AppContent() {
       const storedPage = window.localStorage.getItem(PAGE_STORAGE_KEY)
       if (isValidPage(storedPage)) return storedPage
     }
-    return 'dashboard'
+    return 'crossroads'
   })
   const [hasInteracted, setHasInteracted] = useState(false)
   const [isLandscapeOnMobile, setIsLandscapeOnMobile] = useState(false)
@@ -232,6 +234,15 @@ function AppContent() {
     )
   }
 
+  // ── Crossroads full-screen (no sidebar/header) ──
+  if (currentPage === 'crossroads') {
+    return (
+      <div onClick={handleInteraction}>
+        <HecateCrossroads onNavigate={(page) => handleNavigate(page as Page)} />
+      </div>
+    )
+  }
+
   const pageTitle = PAGE_TITLES[currentPage][lang]
 
   return (
@@ -269,6 +280,7 @@ function AppContent() {
           userArchetype={user.archetype}
           userTradition={user.tradition}
           onMenuClick={isMobile ? () => setIsSidebarOpen(true) : undefined}
+          onCrossroads={() => handleNavigate('crossroads')}
         />
         <FloatingLanguageSwitcher />
         <main className={`flex-1 ${currentPage === 'altars' || currentPage === 'forum' || currentPage === 'knowledge-graph' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
@@ -342,6 +354,7 @@ function AppContent() {
   )
 }
 
+import { HecateCrossroads } from './pages/HecateCrossroads'
 import AuthForm from './components/AuthForm';
 
 function LandingPage() {

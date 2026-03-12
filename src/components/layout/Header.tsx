@@ -10,6 +10,7 @@ interface HeaderProps {
   userArchetype?: string
   userTradition?: string
   onMenuClick?: () => void
+  onCrossroads?: () => void
 }
 
 const ARCHETYPES_RU: Record<string, string> = {
@@ -28,7 +29,7 @@ const TRADITIONS_RU: Record<string, string> = {
 
 const formatTitleCase = (value: string) => value.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
 
-export function Header({ title, userName, userArchetype, userTradition, onMenuClick }: HeaderProps) {
+export function Header({ title, userName, userArchetype, userTradition, onMenuClick, onCrossroads }: HeaderProps) {
   const { t, lang } = useLang()
   const { isMuted, setIsMuted, playUiSound } = useAudio()
   const moonPhase = getMoonPhase()
@@ -68,6 +69,16 @@ export function Header({ title, userName, userArchetype, userTradition, onMenuCl
       </div>
 
       <div className="flex items-center gap-2 sm:gap-4">
+        {/* Crossroads shortcut */}
+        {onCrossroads && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onCrossroads() }}
+            className="p-2 rounded-lg bg-secondary border border-border/40 text-muted-foreground hover:text-foreground transition-colors"
+            title="Return to Hecate's Crossroads"
+          >
+            <span className="text-sm">⭕</span>
+          </button>
+        )}
         {/* Audio Toggle */}
         <button
           onClick={toggleMute}
