@@ -1,0 +1,8 @@
+{
+  "files.exclude": {
+    "esoterica-os": true
+  },
+  "search.exclude": {
+    "esoterica-os": true
+  }
+}
