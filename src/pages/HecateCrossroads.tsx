@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import { useCrossroadsAmbient } from '../hooks/useCrossroadsAmbient'
 import { useAudio } from '../contexts/AudioContext'
+import { useLang } from '../contexts/LanguageContext'
 
 type AppPage =
   | 'dashboard'
@@ -22,60 +23,130 @@ interface HecateCrossroadsProps {
   onNavigate: (page: AppPage) => void
 }
 
-/* ── Path config ─────────────────────────────────────────────── */
+/* ── i18n ─────────────────────────────────────────────────────── */
 
-const PATHS = {
-  wisdom: {
-    id: 'wisdom',
-    name: 'Wisdom Path',
-    subtitle: 'Illuminate the Mind',
-    icon: '⚡',
-    color: '#8b5cf6',
-    dotColor: '#a78bfa',
-    gradientFrom: 'rgba(88, 28, 135, 0.97)',
-    gradientTo: 'rgba(20, 8, 50, 0.99)',
-    pages: [
-      { id: 'dashboard' as AppPage, name: 'Dashboard', icon: '🌙', description: 'Your sacred overview — recent activity, moon phase & daily guidance.' },
-      { id: 'knowledge-graph' as AppPage, name: 'Knowledge Graph', icon: '🕸️', description: 'A living web of arcane knowledge — explore symbols, deities, and traditions.' },
-      { id: 'chakra-intelligence' as AppPage, name: 'Chakra Intelligence', icon: '✨', description: 'Navigate your energy body — balance, visualize, and activate your chakras.' },
-      { id: 'sigil-lab' as AppPage, name: 'Sigil Lab', icon: '🔯', description: 'Craft and charge personal sigils using sacred geometry and intention.' },
-    ],
+const T = {
+  ru: {
+    enter: '✦  войди в священное пространство  ✦',
+    title: 'Перекрёсток Гекаты',
+    chooseYourPath: 'выбери свой путь',
+    hecateLabel: '✦ Геката ✦',
+    paths: {
+      wisdom: {
+        name: 'Путь Мудрости',
+        subtitle: 'Просвети разум',
+        label: 'Путь Мудрости',
+        icon: '⚡' as const,
+        pages: [
+          { id: 'dashboard' as AppPage, name: 'Главная', icon: '🌙', description: 'Священный обзор — активность, фаза луны и ежедневное руководство.' },
+          { id: 'knowledge-graph' as AppPage, name: 'Паутина знаний', icon: '🕸️', description: 'Живая сеть тайных знаний — символы, божества и традиции.' },
+          { id: 'chakra-intelligence' as AppPage, name: 'Чакры', icon: '✨', description: 'Навигация по энергетическому телу — баланс, визуализация и активация чакр.' },
+          { id: 'sigil-lab' as AppPage, name: 'Лаборатория Сигил', icon: '🔯', description: 'Создавай и заряжай личные сигилы с помощью сакральной геометрии и намерения.' },
+        ],
+      },
+      practice: {
+        name: 'Путь Практики',
+        subtitle: 'Углуби работу',
+        label: 'Путь Практики',
+        icon: '🕯️' as const,
+        pages: [
+          { id: 'altars' as AppPage, name: 'Алтари', icon: '🏛️', description: 'Создавай и поддерживай священные пространства — подношения, объекты и стихийные соответствия.' },
+          { id: 'ritual-tracker' as AppPage, name: 'Трекер Ритуалов', icon: '📿', description: 'Записывай и отражай свою ритуальную практику — время, намерение и результаты.' },
+          { id: 'divination' as AppPage, name: 'Гадания', icon: '🔮', description: 'Обратись к оракулу — таро, руны, маятник и другие инструменты гадания.' },
+          { id: 'journal' as AppPage, name: 'Журнал Снов', icon: '📖', description: 'Твой магический дневник — сны, видения, синхроничности и размышления.' },
+        ],
+      },
+      connection: {
+        name: 'Путь Связи',
+        subtitle: 'Сплети паутину',
+        label: 'Путь Связи',
+        icon: '🌐' as const,
+        pages: [
+          { id: 'forum' as AppPage, name: 'Форум', icon: '💬', description: 'Собирайся в священном кругу — общайся, делись и учись у практиков со всего мира.' },
+          { id: 'marketplace' as AppPage, name: 'Маркетплейс', icon: '🪬', description: 'Священные материалы от проверенных практиков — травы, кристаллы и инструменты.' },
+          { id: 'ai-mentor' as AppPage, name: 'ИИ Наставник', icon: '🌟', description: 'Обратись к цифровому оракулу — персонализированное руководство от ИИ, обученного на мистических традициях.' },
+          { id: 'settings' as AppPage, name: 'Настройки', icon: '⚙️', description: 'Персонализируй свою практику — уведомления, конфиденциальность, внешний вид и аккаунт.' },
+        ],
+      },
+    },
+    coven: {
+      title: 'Благословение Гекаты',
+      badge: 'Ковен · Скоро',
+      body: 'Богиня стоит на пороге. Ковен — священное пространство для магического родства, совместных ритуалов и виртуальных кругов — ткётся прямо сейчас.',
+      features: [
+        'Виртуальные ритуальные круги',
+        'Общий гримуар ковена',
+        'Планирование лунных кругов',
+        'Ступени Старейшины и Верховной Жрицы',
+      ],
+    },
   },
-  practice: {
-    id: 'practice',
-    name: 'Practice Path',
-    subtitle: 'Deepen the Work',
-    icon: '🕯️',
-    color: '#3b82f6',
-    dotColor: '#93c5fd',
-    gradientFrom: 'rgba(10, 30, 80, 0.97)',
-    gradientTo: 'rgba(5, 12, 40, 0.99)',
-    pages: [
-      { id: 'altars' as AppPage, name: 'Altars', icon: '🏛️', description: 'Build and tend your sacred spaces — offerings, objects, and elemental correspondences.' },
-      { id: 'ritual-tracker' as AppPage, name: 'Ritual Tracker', icon: '📿', description: 'Record and reflect on your ritual practice — timing, intention, and results.' },
-      { id: 'divination' as AppPage, name: 'Divination', icon: '🔮', description: 'Consult the oracle — tarot, runes, pendulum, and other divination tools.' },
-      { id: 'journal' as AppPage, name: 'Journal', icon: '📖', description: 'Your magical diary — dreams, visions, synchronicities, and reflections.' },
-    ],
+  en: {
+    enter: '✦  enter the sacred space  ✦',
+    title: "Hecate's Crossroads",
+    chooseYourPath: 'choose your path',
+    hecateLabel: '✦ Hecate ✦',
+    paths: {
+      wisdom: {
+        name: 'Wisdom Path',
+        subtitle: 'Illuminate the Mind',
+        label: 'Wisdom Path',
+        icon: '⚡' as const,
+        pages: [
+          { id: 'dashboard' as AppPage, name: 'Dashboard', icon: '🌙', description: 'Your sacred overview — recent activity, moon phase & daily guidance.' },
+          { id: 'knowledge-graph' as AppPage, name: 'Knowledge Graph', icon: '🕸️', description: 'A living web of arcane knowledge — explore symbols, deities, and traditions.' },
+          { id: 'chakra-intelligence' as AppPage, name: 'Chakra Intelligence', icon: '✨', description: 'Navigate your energy body — balance, visualize, and activate your chakras.' },
+          { id: 'sigil-lab' as AppPage, name: 'Sigil Lab', icon: '🔯', description: 'Craft and charge personal sigils using sacred geometry and intention.' },
+        ],
+      },
+      practice: {
+        name: 'Practice Path',
+        subtitle: 'Deepen the Work',
+        label: 'Practice Path',
+        icon: '🕯️' as const,
+        pages: [
+          { id: 'altars' as AppPage, name: 'Altars', icon: '🏛️', description: 'Build and tend your sacred spaces — offerings, objects, and elemental correspondences.' },
+          { id: 'ritual-tracker' as AppPage, name: 'Ritual Tracker', icon: '📿', description: 'Record and reflect on your ritual practice — timing, intention, and results.' },
+          { id: 'divination' as AppPage, name: 'Divination', icon: '🔮', description: 'Consult the oracle — tarot, runes, pendulum, and other divination tools.' },
+          { id: 'journal' as AppPage, name: 'Journal', icon: '📖', description: 'Your magical diary — dreams, visions, synchronicities, and reflections.' },
+        ],
+      },
+      connection: {
+        name: 'Connection Path',
+        subtitle: 'Weave the Web',
+        label: 'Connection Path',
+        icon: '🌐' as const,
+        pages: [
+          { id: 'forum' as AppPage, name: 'Forum', icon: '💬', description: 'Gather in the sacred circle — discuss, share, and learn with practitioners worldwide.' },
+          { id: 'marketplace' as AppPage, name: 'Marketplace', icon: '🪬', description: 'Source sacred supplies from trusted practitioners — herbs, crystals, and tools.' },
+          { id: 'ai-mentor' as AppPage, name: 'AI Mentor', icon: '🌟', description: 'Consult the digital oracle — personalized guidance from an AI trained in mystical traditions.' },
+          { id: 'settings' as AppPage, name: 'Settings', icon: '⚙️', description: 'Personalize your practice — notifications, privacy, appearance, and account.' },
+        ],
+      },
+    },
+    coven: {
+      title: "Hecate's Blessing",
+      badge: 'Coven Central · Coming Soon',
+      body: 'The goddess stands at the threshold. Coven Central — a sacred space for magical kinship, shared rituals, and virtual circles — is being woven into existence.',
+      features: [
+        'Virtual ritual circles',
+        'Shared coven grimoire',
+        'Moon circle planning',
+        'Elder & High Priestess tiers',
+      ],
+    },
   },
-  connection: {
-    id: 'connection',
-    name: 'Connection Path',
-    subtitle: 'Weave the Web',
-    icon: '🌐',
-    color: '#ec4899',
-    dotColor: '#f9a8d4',
-    gradientFrom: 'rgba(70, 10, 50, 0.97)',
-    gradientTo: 'rgba(25, 5, 20, 0.99)',
-    pages: [
-      { id: 'forum' as AppPage, name: 'Forum', icon: '💬', description: 'Gather in the sacred circle — discuss, share, and learn with practitioners worldwide.' },
-      { id: 'marketplace' as AppPage, name: 'Marketplace', icon: '🪬', description: 'Source sacred supplies from trusted practitioners — herbs, crystals, and tools.' },
-      { id: 'ai-mentor' as AppPage, name: 'AI Mentor', icon: '🌟', description: 'Consult the digital oracle — personalized guidance from an AI trained in mystical traditions.' },
-      { id: 'settings' as AppPage, name: 'Settings', icon: '⚙️', description: 'Personalize your practice — notifications, privacy, appearance, and account.' },
-    ],
-  },
-} as const
+}
 
-type PathId = keyof typeof PATHS
+/* ── Colour palette per path ──────────────────────────────────── */
+
+const PATH_COLORS = {
+  wisdom:     { color: '#8b5cf6', dotColor: '#a78bfa', gradientFrom: 'rgba(88, 28, 135, 0.97)', gradientTo: 'rgba(20, 8, 50, 0.99)'   },
+  practice:   { color: '#3b82f6', dotColor: '#93c5fd', gradientFrom: 'rgba(10, 30, 80, 0.97)',  gradientTo: 'rgba(5, 12, 40, 0.99)'   },
+  connection: { color: '#ec4899', dotColor: '#f9a8d4', gradientFrom: 'rgba(70, 10, 50, 0.97)',  gradientTo: 'rgba(25, 5, 20, 0.99)'   },
+}
+
+type PathId = keyof typeof PATH_COLORS
 
 /* ── Glowing dot marker ──────────────────────────────────────── */
 
@@ -96,7 +167,7 @@ function PathMarker({
     <div className="flex flex-col items-center gap-1.5 pointer-events-none select-none">
       {labelPos === 'above' && (
         <motion.span
-          className="text-[9px] tracking-[0.28em] uppercase font-medium"
+          className="text-[9px] tracking-[0.22em] uppercase font-medium whitespace-nowrap"
           style={{ fontFamily: "'Cinzel', serif", color: dotColor, textShadow: `0 0 12px ${color}` }}
           animate={{ opacity: [0.55, 1, 0.55] }}
           transition={{ duration: 3, repeat: Infinity, delay: pulseDelay }}
@@ -107,21 +178,18 @@ function PathMarker({
 
       {/* Dot + rings */}
       <div className="relative flex items-center justify-center" style={{ width: 28, height: 28 }}>
-        {/* Outer ring 1 */}
         <motion.span
           className="absolute rounded-full"
           style={{ width: 28, height: 28, border: `1px solid ${color}` }}
           animate={{ opacity: [0, 0.35, 0], scale: [0.6, 1.5, 1.5] }}
           transition={{ duration: 2.4, repeat: Infinity, ease: 'easeOut', delay: pulseDelay }}
         />
-        {/* Outer ring 2 */}
         <motion.span
           className="absolute rounded-full"
           style={{ width: 28, height: 28, border: `1px solid ${color}` }}
           animate={{ opacity: [0, 0.25, 0], scale: [0.6, 2.1, 2.1] }}
           transition={{ duration: 2.4, repeat: Infinity, ease: 'easeOut', delay: pulseDelay + 0.3 }}
         />
-        {/* Core dot */}
         <motion.span
           className="absolute rounded-full"
           style={{ width: 7, height: 7, background: dotColor, boxShadow: `0 0 10px 3px ${color}88` }}
@@ -132,7 +200,7 @@ function PathMarker({
 
       {labelPos === 'below' && (
         <motion.span
-          className="text-[9px] tracking-[0.28em] uppercase font-medium"
+          className="text-[9px] tracking-[0.22em] uppercase font-medium whitespace-nowrap"
           style={{ fontFamily: "'Cinzel', serif", color: dotColor, textShadow: `0 0 12px ${color}` }}
           animate={{ opacity: [0.55, 1, 0.55] }}
           transition={{ duration: 3, repeat: Infinity, delay: pulseDelay }}
@@ -148,18 +216,22 @@ function PathMarker({
 
 function PathModal({
   pathId,
+  lang,
   onClose,
   onNavigate,
 }: {
   pathId: PathId | null
+  lang: 'ru' | 'en'
   onClose: () => void
   onNavigate: (page: AppPage) => void
 }) {
-  const path = pathId ? PATHS[pathId] : null
+  if (!pathId) return null
+  const t = T[lang].paths[pathId]
+  const colors = PATH_COLORS[pathId]
 
   return (
     <AnimatePresence>
-      {pathId && path && (
+      {pathId && (
         <>
           <motion.div
             key="backdrop"
@@ -177,9 +249,9 @@ function PathModal({
             style={{
               borderRadius: '24px 24px 0 0',
               maxHeight: '82vh',
-              background: `linear-gradient(170deg, ${path.gradientFrom} 0%, ${path.gradientTo} 100%)`,
-              borderTop: `1px solid ${path.color}55`,
-              boxShadow: `0 -12px 50px ${path.color}20`,
+              background: `linear-gradient(170deg, ${colors.gradientFrom} 0%, ${colors.gradientTo} 100%)`,
+              borderTop: `1px solid ${colors.color}55`,
+              boxShadow: `0 -12px 50px ${colors.color}20`,
             }}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
@@ -188,43 +260,46 @@ function PathModal({
           >
             {/* Drag handle */}
             <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full opacity-30" style={{ background: path.color }} />
+              <div className="w-10 h-1 rounded-full opacity-30" style={{ background: colors.color }} />
             </div>
 
             {/* Header */}
             <div className="flex items-start justify-between px-6 pt-3 pb-4">
               <div>
                 <div className="flex items-center gap-3 mb-1">
-                  <span className="text-3xl">{path.icon}</span>
-                  <h2 className="text-xl font-bold tracking-widest" style={{ fontFamily: "'Cinzel', serif", color: path.color }}>
-                    {path.name}
+                  <span className="text-3xl">{t.icon}</span>
+                  <h2
+                    className="text-xl font-bold tracking-widest"
+                    style={{ fontFamily: "'Cinzel', serif", color: colors.color }}
+                  >
+                    {t.name}
                   </h2>
                 </div>
                 <p className="text-xs tracking-[0.2em] uppercase opacity-55 ml-11">
-                  {path.subtitle}
+                  {t.subtitle}
                 </p>
               </div>
               <button
                 onClick={onClose}
                 className="w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-90 mt-1 flex-shrink-0"
-                style={{ background: `${path.color}18`, border: `1px solid ${path.color}33` }}
+                style={{ background: `${colors.color}18`, border: `1px solid ${colors.color}33` }}
               >
-                <X size={15} style={{ color: path.color }} />
+                <X size={15} style={{ color: colors.color }} />
               </button>
             </div>
 
-            <div style={{ height: '1px', background: `${path.color}22`, margin: '0 24px 16px' }} />
+            <div style={{ height: '1px', background: `${colors.color}22`, margin: '0 24px 16px' }} />
 
             {/* Page list */}
             <div className="overflow-y-auto px-5 pb-12" style={{ maxHeight: 'calc(82vh - 130px)' }}>
               <div className="flex flex-col gap-3">
-                {path.pages.map((page, i) => (
+                {t.pages.map((page, i) => (
                   <motion.button
                     key={page.id}
                     className="w-full text-left rounded-2xl px-5 py-4 transition-all"
                     style={{
-                      background: `${path.color}0e`,
-                      border: `1px solid ${path.color}28`,
+                      background: `${colors.color}0e`,
+                      border: `1px solid ${colors.color}28`,
                     }}
                     initial={{ opacity: 0, y: 14 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -238,14 +313,14 @@ function PathModal({
                     <div className="flex items-center gap-4">
                       <div
                         className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
-                        style={{ background: `${path.color}18`, border: `1px solid ${path.color}30` }}
+                        style={{ background: `${colors.color}18`, border: `1px solid ${colors.color}30` }}
                       >
                         {page.icon}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p
                           className="font-semibold tracking-wider text-sm mb-0.5"
-                          style={{ fontFamily: "'Cinzel', serif", color: path.color }}
+                          style={{ fontFamily: "'Cinzel', serif", color: colors.color }}
                         >
                           {page.name}
                         </p>
@@ -253,7 +328,7 @@ function PathModal({
                           {page.description}
                         </p>
                       </div>
-                      <span className="flex-shrink-0 text-lg opacity-35" style={{ color: path.color }}>›</span>
+                      <span className="flex-shrink-0 text-lg opacity-35" style={{ color: colors.color }}>›</span>
                     </div>
                   </motion.button>
                 ))}
@@ -268,7 +343,17 @@ function PathModal({
 
 /* ── Coven modal ─────────────────────────────────────────────── */
 
-function CovenModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+function CovenModal({
+  open,
+  lang,
+  onClose,
+}: {
+  open: boolean
+  lang: 'ru' | 'en'
+  onClose: () => void
+}) {
+  const tc = T[lang].coven
+
   return (
     <AnimatePresence>
       {open && (
@@ -311,10 +396,15 @@ function CovenModal({ open, onClose }: { open: boolean; onClose: () => void }) {
                   🔥
                 </motion.span>
                 <div>
-                  <h2 className="text-lg font-bold tracking-widest text-amber-400" style={{ fontFamily: "'Cinzel', serif" }}>
-                    Hecate's Blessing
+                  <h2
+                    className="text-lg font-bold tracking-widest text-amber-400"
+                    style={{ fontFamily: "'Cinzel', serif" }}
+                  >
+                    {tc.title}
                   </h2>
-                  <p className="text-xs text-amber-400/45 tracking-[0.18em] uppercase">Coven Central · Coming Soon</p>
+                  <p className="text-xs text-amber-400/45 tracking-[0.18em] uppercase">
+                    {tc.badge}
+                  </p>
                 </div>
               </div>
               <button
@@ -325,18 +415,15 @@ function CovenModal({ open, onClose }: { open: boolean; onClose: () => void }) {
                 <X size={15} className="text-amber-400" />
               </button>
             </div>
+
             <div style={{ height: '1px', background: 'rgba(251,191,36,0.18)', margin: '0 24px 16px' }} />
+
             <div className="px-6 pb-8">
               <p className="text-sm text-amber-100/55 leading-relaxed mb-5">
-                The goddess stands at the threshold. Coven Central — a sacred space for magical kinship, shared rituals, and virtual circles — is being woven into existence.
+                {tc.body}
               </p>
               <div className="space-y-2">
-                {[
-                  'Virtual ritual circles',
-                  'Shared coven grimoire',
-                  'Moon circle planning',
-                  'Elder & High Priestess tiers',
-                ].map((feature, i) => (
+                {tc.features.map((feature, i) => (
                   <motion.div
                     key={feature}
                     className="flex items-center gap-3 p-3 rounded-xl text-xs text-amber-100/50"
@@ -364,8 +451,10 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
   const [activeModal, setActiveModal] = useState<PathId | null>(null)
   const [covenOpen, setCovenOpen] = useState(false)
   const { config } = useAudio()
+  const { lang } = useLang()
 
-  // Mystical ambient drone — starts when Crossroads mounts
+  const t = T[lang as 'ru' | 'en'] ?? T.ru
+
   useCrossroadsAmbient({
     enabled: !config.muted && !config.musicMuted,
     volume: config.volume,
@@ -383,10 +472,8 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
         }
       `}</style>
 
-      <div
-        className="relative w-full overflow-hidden select-none"
-        style={{ height: '100dvh' }}
-      >
+      <div className="relative w-full overflow-hidden select-none" style={{ height: '100dvh' }}>
+
         {/* Background image */}
         <motion.img
           src="/hecate-crossroads.jpg"
@@ -408,28 +495,28 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
           }}
         />
 
-        {/* Title */}
+        {/* ── Title ── */}
         <motion.div
           className="absolute top-0 left-0 right-0 flex flex-col items-center pt-12 z-10 pointer-events-none"
           initial={{ opacity: 0, y: -18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.8, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
         >
-          <p className="text-[9px] tracking-[0.45em] uppercase text-amber-300/55 mb-1">
-            ✦ &nbsp; enter the sacred space &nbsp; ✦
+          <p className="text-[9px] tracking-[0.35em] uppercase text-amber-300/55 mb-1">
+            {t.enter}
           </p>
           <h1
-            className="text-2xl font-black tracking-[0.22em] text-white drop-shadow-lg"
+            className="text-2xl font-black tracking-[0.18em] text-white drop-shadow-lg"
             style={{
               fontFamily: "'Cinzel Decorative', 'Cinzel', serif",
               textShadow: '0 0 40px rgba(139,92,246,0.55)',
             }}
           >
-            Hecate's Crossroads
+            {t.title}
           </h1>
         </motion.div>
 
-        {/* ── Wisdom Path zone (upper center — road ahead) ── */}
+        {/* ── Wisdom Path zone (upper center) ── */}
         <motion.button
           data-testid="zone-wisdom-path"
           className="absolute flex items-center justify-center"
@@ -441,9 +528,9 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
           transition={{ delay: 1.2, duration: 0.6 }}
         >
           <PathMarker
-            label="Wisdom Path"
-            color={PATHS.wisdom.color}
-            dotColor={PATHS.wisdom.dotColor}
+            label={t.paths.wisdom.label}
+            color={PATH_COLORS.wisdom.color}
+            dotColor={PATH_COLORS.wisdom.dotColor}
             labelPos="above"
             pulseDelay={0}
           />
@@ -461,9 +548,9 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
           transition={{ delay: 1.35, duration: 0.6 }}
         >
           <PathMarker
-            label="Practice Path"
-            color={PATHS.practice.color}
-            dotColor={PATHS.practice.dotColor}
+            label={t.paths.practice.label}
+            color={PATH_COLORS.practice.color}
+            dotColor={PATH_COLORS.practice.dotColor}
             labelPos="below"
             pulseDelay={0.5}
           />
@@ -481,9 +568,9 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
           transition={{ delay: 1.5, duration: 0.6 }}
         >
           <PathMarker
-            label="Connection Path"
-            color={PATHS.connection.color}
-            dotColor={PATHS.connection.dotColor}
+            label={t.paths.connection.label}
+            color={PATH_COLORS.connection.color}
+            dotColor={PATH_COLORS.connection.dotColor}
             labelPos="below"
             pulseDelay={1.0}
           />
@@ -500,7 +587,6 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
           animate={{ opacity: 1 }}
           transition={{ delay: 1.0, duration: 0.8 }}
         >
-          {/* Subtle golden aura — barely visible unless tapped */}
           <motion.div
             className="absolute inset-0 rounded-full pointer-events-none"
             animate={{
@@ -512,7 +598,6 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
             }}
             transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
           />
-          {/* "Hecate" label at very bottom of zone */}
           <motion.div
             className="absolute bottom-0 left-1/2 -translate-x-1/2 whitespace-nowrap"
             animate={{ opacity: [0.25, 0.5, 0.25] }}
@@ -526,7 +611,7 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
                 textShadow: '0 0 14px rgba(251,191,36,0.5)',
               }}
             >
-              ✦ Hecate ✦
+              {t.hecateLabel}
             </span>
           </motion.div>
         </motion.button>
@@ -540,12 +625,12 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
           transition={{ delay: 1.8, duration: 0.8 }}
         >
           <motion.p
-            className="text-[9px] tracking-[0.42em] uppercase text-center"
+            className="text-[9px] tracking-[0.38em] uppercase text-center"
             style={{ color: 'rgba(251,191,36,0.38)', fontFamily: "'Cinzel', serif" }}
             animate={{ opacity: [0.2, 0.5, 0.2] }}
             transition={{ duration: 5, repeat: Infinity }}
           >
-            choose your path
+            {t.chooseYourPath}
           </motion.p>
         </motion.div>
 
@@ -571,8 +656,17 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
       </div>
 
       {/* Modals */}
-      <PathModal pathId={activeModal} onClose={closeModal} onNavigate={onNavigate} />
-      <CovenModal open={covenOpen} onClose={() => setCovenOpen(false)} />
+      <PathModal
+        pathId={activeModal}
+        lang={lang as 'ru' | 'en'}
+        onClose={closeModal}
+        onNavigate={onNavigate}
+      />
+      <CovenModal
+        open={covenOpen}
+        lang={lang as 'ru' | 'en'}
+        onClose={() => setCovenOpen(false)}
+      />
     </>
   )
 }
