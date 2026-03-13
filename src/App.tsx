@@ -8,6 +8,7 @@ import { Header } from './components/layout/Header'
 import { Sheet, SheetContent } from './components/ui/sheet'
 import { RouteErrorBoundary } from './components/RouteErrorBoundary'
 import * as Pages from './pages'
+import { getNavTheme } from './lib/navTheme'
 import { PageLoader } from './components/PageLoader'
 import { Maximize2 } from 'lucide-react'
 import { useIsMobile } from './hooks/use-mobile'
@@ -98,7 +99,7 @@ function AppContent() {
       const storedPage = window.localStorage.getItem(PAGE_STORAGE_KEY)
       if (isValidPage(storedPage)) return storedPage
     }
-    return 'crossroads'
+    return getNavTheme() === 'crossroads' ? 'crossroads' : 'dashboard'
   })
   const [hasInteracted, setHasInteracted] = useState(false)
   const [isLandscapeOnMobile, setIsLandscapeOnMobile] = useState(false)

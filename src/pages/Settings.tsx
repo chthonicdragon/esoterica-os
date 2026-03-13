@@ -3,9 +3,11 @@ import { useLang } from '../contexts/LanguageContext'
 import { useAudio } from '../contexts/AudioContext'
 import { supabase } from '../lib/supabaseClient'
 import toast from 'react-hot-toast'
-import { Globe, User, Sparkles, Layers, Lock, ChevronDown, Info, BookOpen, Shield, FileText, HelpCircle, Save, Volume2, VolumeX, Music } from 'lucide-react'
+import { Globe, User, Sparkles, Layers, Lock, ChevronDown, Volume2, VolumeX, Music, Palette } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { db, auth } from '../lib/platformClient'
+
+import { getNavTheme, setNavTheme, type NavTheme } from '../lib/navTheme'
 
 const ADMIN_CODE = 'esoterica2025' // Код администратора
 const ARCHETYPES = [
@@ -154,6 +156,25 @@ export function Settings({ user }: SettingsProps) {
   const [openSection, setOpenSection] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [confirmText, setConfirmText] = useState('')
+  const [navTheme, setNavThemeState] = useState<NavTheme>(getNavTheme)
+
+  function handleNavThemeChange(theme: NavTheme) {
+    setNavTheme(theme)
+    setNavThemeState(theme)
+    // Update stored page so next reload respects the new theme default
+    try {
+      localStorage.setItem(
+        'esoterica_current_page_v1',
+        theme === 'crossroads' ? 'crossroads' : 'dashboard'
+      )
+    } catch {}
+    toast.success(
+      theme === 'crossroads'
+        ? (lang === 'ru' ? '✦ Тема «Перекрёсток Гекаты» активирована' : '✦ Hecate\'s Crossroads theme activated')
+        : (lang === 'ru' ? '✦ Тема «Esoterica OS» активирована' : '✦ Esoterica OS theme activated'),
+      { duration: 2200 }
+    )
+  }
 
   useEffect(() => { loadProfile() }, [user.id])
 
@@ -382,6 +403,77 @@ export function Settings({ user }: SettingsProps) {
             {lang === 'ru' ? 'Эффекты' : 'SFX'}
           </button>
         </div>
+      </div>
+
+      {/* Navigation Theme */}
+      <div className="rounded-2xl bg-card border border-border/40 p-5 space-y-4">
+        <div className="flex items-center gap-2 mb-1">
+          <Palette className="w-4 h-4 text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">
+            {lang === 'ru' ? 'Тема навигации' : 'Navigation Theme'}
+          </h3>
+        </div>
+        <p className="text-xs text-muted-foreground -mt-1">
+          {lang === 'ru'
+            ? 'Выберите экран, который открывается при входе в приложение'
+            : 'Choose the screen shown when you open the app'}
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          {/* Hecate's Crossroads theme */}
+          <button
+            data-testid="theme-crossroads"
+            onClick={() => handleNavThemeChange('crossroads')}
+            className={cn(
+              'relative flex flex-col items-center gap-2 p-4 rounded-2xl border text-center transition-all',
+              navTheme === 'crossroads'
+                ? 'bg-violet-500/10 border-violet-500/50 text-violet-300'
+                : 'border-border/40 text-muted-foreground hover:border-primary/25 hover:text-foreground'
+            )}
+          >
+            {navTheme === 'crossroads' && (
+              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-violet-400" />
+            )}
+            <span className="text-2xl">🌙</span>
+            <div>
+              <p className="text-xs font-semibold font-cinzel tracking-wide">
+                {lang === 'ru' ? 'Перекрёсток Гекаты' : "Hecate's Crossroads"}
+              </p>
+              <p className="text-[10px] opacity-60 mt-0.5 leading-tight">
+                {lang === 'ru' ? 'Мистический перекрёсток' : 'Mystical crossroads'}
+              </p>
+            </div>
+          </button>
+
+          {/* Standard theme */}
+          <button
+            data-testid="theme-standard"
+            onClick={() => handleNavThemeChange('standard')}
+            className={cn(
+              'relative flex flex-col items-center gap-2 p-4 rounded-2xl border text-center transition-all',
+              navTheme === 'standard'
+                ? 'bg-primary/10 border-primary/50 text-primary'
+                : 'border-border/40 text-muted-foreground hover:border-primary/25 hover:text-foreground'
+            )}
+          >
+            {navTheme === 'standard' && (
+              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary" />
+            )}
+            <span className="text-2xl">✦</span>
+            <div>
+              <p className="text-xs font-semibold font-cinzel tracking-wide">Esoterica OS</p>
+              <p className="text-[10px] opacity-60 mt-0.5 leading-tight">
+                {lang === 'ru' ? 'Стандартная панель' : 'Standard dashboard'}
+              </p>
+            </div>
+          </button>
+        </div>
+        {navTheme === 'crossroads' && (
+          <p className="text-[10px] text-violet-400/60 text-center">
+            {lang === 'ru'
+              ? '✦ При входе открывается Перекрёсток. Из любой страницы вернитесь через кнопку ⊕'
+              : '✦ Crossroads opens on login. Return from any page via the ⊕ button'}
+          </p>
+        )}
       </div>
 
       {/* Language */}

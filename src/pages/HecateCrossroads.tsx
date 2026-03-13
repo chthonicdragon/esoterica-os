@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
+import { useCrossroadsAmbient } from '../hooks/useCrossroadsAmbient'
+import { useAudio } from '../contexts/AudioContext'
 
 type AppPage =
   | 'dashboard'
@@ -361,6 +363,13 @@ function CovenModal({ open, onClose }: { open: boolean; onClose: () => void }) {
 export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
   const [activeModal, setActiveModal] = useState<PathId | null>(null)
   const [covenOpen, setCovenOpen] = useState(false)
+  const { config } = useAudio()
+
+  // Mystical ambient drone — starts when Crossroads mounts
+  useCrossroadsAmbient({
+    enabled: !config.muted && !config.musicMuted,
+    volume: config.volume,
+  })
 
   const openPath = useCallback((id: PathId) => setActiveModal(id), [])
   const closeModal = useCallback(() => setActiveModal(null), [])
