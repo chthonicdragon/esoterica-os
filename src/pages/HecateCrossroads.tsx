@@ -29,6 +29,7 @@ const PATHS = {
     subtitle: 'Illuminate the Mind',
     icon: '⚡',
     color: '#8b5cf6',
+    dotColor: '#a78bfa',
     gradientFrom: 'rgba(88, 28, 135, 0.97)',
     gradientTo: 'rgba(20, 8, 50, 0.99)',
     pages: [
@@ -44,6 +45,7 @@ const PATHS = {
     subtitle: 'Deepen the Work',
     icon: '🕯️',
     color: '#3b82f6',
+    dotColor: '#93c5fd',
     gradientFrom: 'rgba(10, 30, 80, 0.97)',
     gradientTo: 'rgba(5, 12, 40, 0.99)',
     pages: [
@@ -59,6 +61,7 @@ const PATHS = {
     subtitle: 'Weave the Web',
     icon: '🌐',
     color: '#ec4899',
+    dotColor: '#f9a8d4',
     gradientFrom: 'rgba(70, 10, 50, 0.97)',
     gradientTo: 'rgba(25, 5, 20, 0.99)',
     pages: [
@@ -72,18 +75,70 @@ const PATHS = {
 
 type PathId = keyof typeof PATHS
 
-/* ── Pulse ring ──────────────────────────────────────────────── */
+/* ── Glowing dot marker ──────────────────────────────────────── */
 
-function PulseRing({ color }: { color: string }) {
+function PathMarker({
+  label,
+  color,
+  dotColor,
+  labelPos = 'below',
+  pulseDelay = 0,
+}: {
+  label: string
+  color: string
+  dotColor: string
+  labelPos?: 'above' | 'below'
+  pulseDelay?: number
+}) {
   return (
-    <span
-      className="absolute inset-0 pointer-events-none"
-      style={{
-        borderRadius: '50%',
-        animation: 'crossroads-pulse 2.8s ease-out infinite',
-        boxShadow: `0 0 0 0 ${color}`,
-      }}
-    />
+    <div className="flex flex-col items-center gap-1.5 pointer-events-none select-none">
+      {labelPos === 'above' && (
+        <motion.span
+          className="text-[9px] tracking-[0.28em] uppercase font-medium"
+          style={{ fontFamily: "'Cinzel', serif", color: dotColor, textShadow: `0 0 12px ${color}` }}
+          animate={{ opacity: [0.55, 1, 0.55] }}
+          transition={{ duration: 3, repeat: Infinity, delay: pulseDelay }}
+        >
+          {label}
+        </motion.span>
+      )}
+
+      {/* Dot + rings */}
+      <div className="relative flex items-center justify-center" style={{ width: 28, height: 28 }}>
+        {/* Outer ring 1 */}
+        <motion.span
+          className="absolute rounded-full"
+          style={{ width: 28, height: 28, border: `1px solid ${color}` }}
+          animate={{ opacity: [0, 0.35, 0], scale: [0.6, 1.5, 1.5] }}
+          transition={{ duration: 2.4, repeat: Infinity, ease: 'easeOut', delay: pulseDelay }}
+        />
+        {/* Outer ring 2 */}
+        <motion.span
+          className="absolute rounded-full"
+          style={{ width: 28, height: 28, border: `1px solid ${color}` }}
+          animate={{ opacity: [0, 0.25, 0], scale: [0.6, 2.1, 2.1] }}
+          transition={{ duration: 2.4, repeat: Infinity, ease: 'easeOut', delay: pulseDelay + 0.3 }}
+        />
+        {/* Core dot */}
+        <motion.span
+          className="absolute rounded-full"
+          style={{ width: 7, height: 7, background: dotColor, boxShadow: `0 0 10px 3px ${color}88` }}
+          animate={{ opacity: [0.8, 1, 0.8], scale: [0.92, 1.08, 0.92] }}
+          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', delay: pulseDelay }}
+        />
+      </div>
+
+      {labelPos === 'below' && (
+        <motion.span
+          className="text-[9px] tracking-[0.28em] uppercase font-medium"
+          style={{ fontFamily: "'Cinzel', serif", color: dotColor, textShadow: `0 0 12px ${color}` }}
+          animate={{ opacity: [0.55, 1, 0.55] }}
+          transition={{ duration: 3, repeat: Infinity, delay: pulseDelay }}
+        >
+          {label}
+        </motion.span>
+      )}
+    </div>
   )
 }
 
@@ -312,16 +367,10 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
 
   return (
     <>
-      {/* CSS keyframes injected once */}
       <style>{`
-        @keyframes crossroads-pulse {
-          0%   { box-shadow: 0 0 0 0 currentColor; opacity: 0.8; }
-          70%  { box-shadow: 0 0 0 18px transparent; opacity: 0; }
-          100% { box-shadow: 0 0 0 18px transparent; opacity: 0; }
-        }
         @keyframes crossroads-float {
-          0%,100% { transform: translateY(0);   opacity: 0.4; }
-          50%      { transform: translateY(-9px); opacity: 0.7; }
+          0%,100% { transform: translateY(0);   opacity: 0.35; }
+          50%      { transform: translateY(-9px); opacity: 0.6; }
         }
       `}</style>
 
@@ -329,7 +378,7 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
         className="relative w-full overflow-hidden select-none"
         style={{ height: '100dvh' }}
       >
-        {/* Background */}
+        {/* Background image */}
         <motion.img
           src="/hecate-crossroads.jpg"
           alt="Hecate's Crossroads"
@@ -340,13 +389,13 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
           draggable={false}
         />
 
-        {/* Atmospheric gradient */}
+        {/* Atmospheric gradient overlay */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
             background:
               'radial-gradient(ellipse 60% 38% at 50% 0%, rgba(139,92,246,0.07) 0%, transparent 70%), ' +
-              'linear-gradient(0deg, rgba(4,2,14,0.68) 0%, rgba(4,2,14,0.0) 38%, rgba(4,2,14,0.18) 100%)',
+              'linear-gradient(0deg, rgba(4,2,14,0.72) 0%, rgba(4,2,14,0.0) 35%, rgba(4,2,14,0.22) 100%)',
           }}
         />
 
@@ -371,160 +420,101 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
           </h1>
         </motion.div>
 
-        {/* ── Wisdom Path zone (upper center road) ── */}
+        {/* ── Wisdom Path zone (upper center — road ahead) ── */}
         <motion.button
           data-testid="zone-wisdom-path"
-          className="absolute"
-          style={{
-            left: '34%', top: '30%', width: '32%', height: '10%',
-            borderRadius: '50%',
-            border: '1.5px solid rgba(139,92,246,0.35)',
-            background: 'radial-gradient(ellipse, rgba(139,92,246,0.14) 0%, transparent 80%)',
-          }}
-          whileTap={{ scale: 0.93 }}
+          className="absolute flex items-center justify-center"
+          style={{ left: '30%', top: '24%', width: '40%', height: '14%' }}
+          whileTap={{ scale: 0.92 }}
           onClick={() => openPath('wisdom')}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.2, duration: 0.6 }}
         >
-          <PulseRing color="rgba(139,92,246,0.6)" />
-          <motion.div
-            className="absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap"
-            animate={{ opacity: [0.65, 1, 0.65] }}
-            transition={{ duration: 3, repeat: Infinity }}
-          >
-            <span
-              className="text-[9px] tracking-[0.3em] uppercase font-semibold px-2.5 py-1 rounded-full"
-              style={{
-                color: '#c4b5fd',
-                background: 'rgba(88,28,135,0.58)',
-                border: '1px solid rgba(139,92,246,0.45)',
-                backdropFilter: 'blur(4px)',
-                fontFamily: "'Cinzel', serif",
-              }}
-            >
-              Wisdom
-            </span>
-          </motion.div>
+          <PathMarker
+            label="Wisdom Path"
+            color={PATHS.wisdom.color}
+            dotColor={PATHS.wisdom.dotColor}
+            labelPos="above"
+            pulseDelay={0}
+          />
         </motion.button>
 
         {/* ── Practice Path zone (left road) ── */}
         <motion.button
           data-testid="zone-practice-path"
-          className="absolute"
-          style={{
-            left: '2%', top: '50%', width: '24%', height: '13%',
-            borderRadius: '50%',
-            border: '1.5px solid rgba(59,130,246,0.35)',
-            background: 'radial-gradient(ellipse, rgba(59,130,246,0.14) 0%, transparent 80%)',
-          }}
-          whileTap={{ scale: 0.93 }}
+          className="absolute flex items-center justify-center"
+          style={{ left: '2%', top: '50%', width: '28%', height: '16%' }}
+          whileTap={{ scale: 0.92 }}
           onClick={() => openPath('practice')}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.35, duration: 0.6 }}
         >
-          <PulseRing color="rgba(59,130,246,0.6)" />
-          <motion.div
-            className="absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap"
-            animate={{ opacity: [0.65, 1, 0.65] }}
-            transition={{ duration: 3.3, repeat: Infinity }}
-          >
-            <span
-              className="text-[9px] tracking-[0.3em] uppercase font-semibold px-2.5 py-1 rounded-full"
-              style={{
-                color: '#93c5fd',
-                background: 'rgba(10,30,80,0.62)',
-                border: '1px solid rgba(59,130,246,0.45)',
-                backdropFilter: 'blur(4px)',
-                fontFamily: "'Cinzel', serif",
-              }}
-            >
-              Practice
-            </span>
-          </motion.div>
+          <PathMarker
+            label="Practice Path"
+            color={PATHS.practice.color}
+            dotColor={PATHS.practice.dotColor}
+            labelPos="below"
+            pulseDelay={0.5}
+          />
         </motion.button>
 
         {/* ── Connection Path zone (right road) ── */}
         <motion.button
           data-testid="zone-connection-path"
-          className="absolute"
-          style={{
-            left: '74%', top: '50%', width: '24%', height: '13%',
-            borderRadius: '50%',
-            border: '1.5px solid rgba(236,72,153,0.35)',
-            background: 'radial-gradient(ellipse, rgba(236,72,153,0.13) 0%, transparent 80%)',
-          }}
-          whileTap={{ scale: 0.93 }}
+          className="absolute flex items-center justify-center"
+          style={{ left: '70%', top: '50%', width: '28%', height: '16%' }}
+          whileTap={{ scale: 0.92 }}
           onClick={() => openPath('connection')}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.5, duration: 0.6 }}
         >
-          <PulseRing color="rgba(236,72,153,0.6)" />
-          <motion.div
-            className="absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap"
-            animate={{ opacity: [0.65, 1, 0.65] }}
-            transition={{ duration: 2.8, repeat: Infinity }}
-          >
-            <span
-              className="text-[9px] tracking-[0.3em] uppercase font-semibold px-2.5 py-1 rounded-full"
-              style={{
-                color: '#f9a8d4',
-                background: 'rgba(70,10,50,0.62)',
-                border: '1px solid rgba(236,72,153,0.45)',
-                backdropFilter: 'blur(4px)',
-                fontFamily: "'Cinzel', serif",
-              }}
-            >
-              Connection
-            </span>
-          </motion.div>
+          <PathMarker
+            label="Connection Path"
+            color={PATHS.connection.color}
+            dotColor={PATHS.connection.dotColor}
+            labelPos="below"
+            pulseDelay={1.0}
+          />
         </motion.button>
 
         {/* ── Hecate statue zone (center) ── */}
         <motion.button
           data-testid="zone-hecate-statue"
-          className="absolute"
-          style={{
-            left: '28%', top: '48%', width: '44%', height: '22%',
-            borderRadius: '50%',
-            background: 'transparent',
-          }}
+          className="absolute flex items-center justify-center"
+          style={{ left: '28%', top: '46%', width: '44%', height: '22%' }}
           whileTap={{ scale: 0.97 }}
           onClick={() => setCovenOpen(true)}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.0, duration: 0.8 }}
         >
-          {/* Golden aura */}
+          {/* Subtle golden aura — barely visible unless tapped */}
           <motion.div
             className="absolute inset-0 rounded-full pointer-events-none"
-            style={{
-              border: '1.5px solid rgba(251,191,36,0.30)',
-            }}
             animate={{
               boxShadow: [
-                '0 0 18px rgba(251,191,36,0.10), inset 0 0 18px rgba(251,191,36,0.05)',
-                '0 0 38px rgba(251,191,36,0.22), inset 0 0 28px rgba(251,191,36,0.10)',
-                '0 0 18px rgba(251,191,36,0.10), inset 0 0 18px rgba(251,191,36,0.05)',
+                'inset 0 0 0px rgba(251,191,36,0)',
+                'inset 0 0 28px rgba(251,191,36,0.06)',
+                'inset 0 0 0px rgba(251,191,36,0)',
               ],
             }}
-            transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
+            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
           />
+          {/* "Hecate" label at very bottom of zone */}
           <motion.div
-            className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap"
-            animate={{ opacity: [0.35, 0.65, 0.35] }}
-            transition={{ duration: 4, repeat: Infinity }}
+            className="absolute bottom-0 left-1/2 -translate-x-1/2 whitespace-nowrap"
+            animate={{ opacity: [0.25, 0.5, 0.25] }}
+            transition={{ duration: 4.5, repeat: Infinity }}
           >
             <span
-              className="text-[8px] tracking-[0.38em] uppercase px-2.5 py-1 rounded-full"
+              className="text-[8px] tracking-[0.38em] uppercase"
               style={{
                 color: '#fcd34d',
-                background: 'rgba(25,12,2,0.65)',
-                border: '1px solid rgba(251,191,36,0.30)',
-                backdropFilter: 'blur(4px)',
                 fontFamily: "'Cinzel', serif",
+                textShadow: '0 0 14px rgba(251,191,36,0.5)',
               }}
             >
               ✦ Hecate ✦
@@ -535,16 +525,16 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
         {/* ── Bottom "choose your path" label ── */}
         <motion.div
           className="absolute flex items-center justify-center pointer-events-none"
-          style={{ left: '15%', top: '83%', width: '70%', height: '10%' }}
+          style={{ left: '15%', bottom: '5%', width: '70%' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 1.6, duration: 0.8 }}
+          transition={{ delay: 1.8, duration: 0.8 }}
         >
           <motion.p
             className="text-[9px] tracking-[0.42em] uppercase text-center"
-            style={{ color: 'rgba(251,191,36,0.40)', fontFamily: "'Cinzel', serif" }}
-            animate={{ opacity: [0.3, 0.6, 0.3] }}
-            transition={{ duration: 4.5, repeat: Infinity }}
+            style={{ color: 'rgba(251,191,36,0.38)', fontFamily: "'Cinzel', serif" }}
+            animate={{ opacity: [0.2, 0.5, 0.2] }}
+            transition={{ duration: 5, repeat: Infinity }}
           >
             choose your path
           </motion.p>
@@ -559,28 +549,19 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
               style={{
                 width: `${32 + i * 14}px`,
                 height: `${13 + i * 5}px`,
-                background: 'rgba(200,190,240,0.05)',
+                background: 'rgba(200,190,240,0.04)',
                 left: `${10 + i * 18}%`,
                 top: `${56 + (i % 3) * 7}%`,
-                filter: 'blur(7px)',
-              }}
-              animate={{
-                y: [0, -(9 + i * 2), 0],
-                opacity: [0.25, 0.55, 0.25],
-                x: [0, i % 2 === 0 ? 8 : -8, 0],
-              }}
-              transition={{
-                duration: 4 + i * 0.8,
-                repeat: Infinity,
-                ease: 'easeInOut',
-                delay: i * 0.55,
+                filter: 'blur(8px)',
+                animation: `crossroads-float ${4.5 + i * 0.7}s ease-in-out infinite`,
+                animationDelay: `${i * 0.9}s`,
               }}
             />
           ))}
         </div>
       </div>
 
-      {/* ── Modals (portaled outside the overflow-hidden container) ── */}
+      {/* Modals */}
       <PathModal pathId={activeModal} onClose={closeModal} onNavigate={onNavigate} />
       <CovenModal open={covenOpen} onClose={() => setCovenOpen(false)} />
     </>
