@@ -3,7 +3,7 @@ import { useLang } from '../contexts/LanguageContext'
 import { useAudio } from '../contexts/AudioContext'
 import { supabase } from '../lib/supabaseClient'
 import toast from 'react-hot-toast'
-import { Globe, User, Sparkles, Layers, Lock, ChevronDown, Volume2, VolumeX, Music, Palette } from 'lucide-react'
+import { Globe, User, Sparkles, Layers, Lock, ChevronDown, Volume2, VolumeX, Music, Palette, Info, BookOpen, Shield, FileText, HelpCircle } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { db, auth } from '../lib/platformClient'
 
