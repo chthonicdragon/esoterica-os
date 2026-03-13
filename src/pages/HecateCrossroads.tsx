@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import { useCrossroadsAmbient } from '../hooks/useCrossroadsAmbient'
@@ -450,10 +450,18 @@ function CovenModal({
 export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
   const [activeModal, setActiveModal] = useState<PathId | null>(null)
   const [covenOpen, setCovenOpen] = useState(false)
-  const { config } = useAudio()
+  const { config, playAmbient } = useAudio()
   const { lang } = useLang()
 
   const t = T[lang as 'ru' | 'en'] ?? T.ru
+
+  // Stop the standard app ambient when Crossroads mounts; restore it on unmount
+  useEffect(() => {
+    playAmbient(false)
+    return () => {
+      playAmbient(true)
+    }
+  }, [playAmbient])
 
   useCrossroadsAmbient({
     enabled: !config.muted && !config.musicMuted,
