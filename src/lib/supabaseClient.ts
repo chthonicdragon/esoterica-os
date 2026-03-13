@@ -1,7 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
-const urlFromEnv = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim();
-const keyFromEnv = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim();
+const rawUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim();
+const rawKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim();
+
+// Remove trailing slash from URL if present
+const urlFromEnv = rawUrl?.replace(/\/$/, '');
+const keyFromEnv = rawKey;
 
 if (!urlFromEnv || !keyFromEnv) {
   if (import.meta.env.DEV) {
@@ -16,8 +20,4 @@ if (!urlFromEnv || !keyFromEnv) {
 const supabaseUrl = urlFromEnv || 'https://placeholder.supabase.co';
 const supabaseKey = keyFromEnv || 'placeholder-anon-key';
 
-export const supabase = createClient(supabaseUrl, supabaseKey, {
-  global: {
-    headers: { apikey: supabaseKey },
-  },
-});
+export const supabase = createClient(supabaseUrl, supabaseKey);
