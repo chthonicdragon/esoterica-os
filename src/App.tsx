@@ -305,7 +305,7 @@ function AppContent() {
         <Sidebar currentPage={currentPage} onNavigate={handleNavigate} userId={user.id} />
       )}
 
-      {isMobile && user && (
+      {isMobile && user && (effectiveNavTheme !== 'crossroads' || effectiveCrossroadsSidebarMode === 'show') && (
         <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
           <SheetContent side="left" className="p-0 w-64 bg-[hsl(var(--sidebar))] border-r border-border/40">
             <Sidebar currentPage={currentPage} onNavigate={handleNavigate} userId={user.id} />
