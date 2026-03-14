@@ -460,16 +460,16 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
   const closeModal = () => setActiveModal(null)
   const layout = isMobile
     ? {
-        wisdom: { left: '50%', top: '40%', width: '42%', height: '12%', transform: 'translateX(-50%)' },
-        practice: { left: '23%', top: '67%', width: '34%', height: '16%', transform: 'translate(-50%, -50%)' },
-        connection: { right: '23%', top: '67%', width: '34%', height: '16%', transform: 'translate(50%, -50%)' },
-        hecate: { left: '50%', top: '63%', width: '28%', height: '15%', transform: 'translate(-50%, -50%)' },
+        wisdom: { left: '69%', top: '40%', width: '42%', height: '12%', transform: 'translateX(-50%)' },
+        practice: { left: '35%', top: '67%', width: '34%', height: '16%', transform: 'translate(-50%, -50%)' },
+        connection: { right: '6%', top: '67%', width: '34%', height: '16%', transform: 'translate(50%, -50%)' },
+        hecate: { left: '58%', top: '63%', width: '28%', height: '15%', transform: 'translate(-50%, -50%)' },
       }
     : {
-        wisdom: { left: '50%', top: '35%', width: 'clamp(180px, 16vw, 260px)', height: 'clamp(86px, 9vw, 118px)', transform: 'translateX(-50%)' },
-        practice: { left: '37%', top: '61%', width: 'clamp(180px, 16vw, 260px)', height: 'clamp(96px, 10vw, 128px)', transform: 'translate(-50%, -50%)' },
-        connection: { right: '35%', top: '61%', width: 'clamp(180px, 16vw, 260px)', height: 'clamp(96px, 10vw, 128px)', transform: 'translate(50%, -50%)' },
-        hecate: { left: '50%', top: '59%', width: 'clamp(140px, 11vw, 190px)', height: 'clamp(132px, 12vw, 190px)', transform: 'translate(-50%, -50%)' },
+        wisdom: { left: '54%', top: '40%', width: 'clamp(180px, 16vw, 260px)', height: 'clamp(86px, 9vw, 118px)', transform: 'translateX(-50%)' },
+        practice: { left: '42%', top: '61%', width: 'clamp(180px, 16vw, 260px)', height: 'clamp(96px, 10vw, 128px)', transform: 'translate(-50%, -50%)' },
+        connection: { right: '33%', top: '61%', width: 'clamp(180px, 16vw, 260px)', height: 'clamp(96px, 10vw, 128px)', transform: 'translate(50%, -50%)' },
+        hecate: { left: '53%', top: '72%', width: 'clamp(140px, 11vw, 190px)', height: 'clamp(132px, 12vw, 190px)', transform: 'translate(-50%, -50%)' },
       }
 
   return (
@@ -542,9 +542,10 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
             <motion.button
               data-testid="zone-wisdom-path"
               aria-label={currentLang === 'ru' ? 'Открыть Путь Мудрости' : 'Open Wisdom Path'}
-              className="w-full h-full flex items-center justify-center"
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.92 }}
+              className="flex flex-col items-center justify-center"
+              style={{ width: 28, height: 28 }}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => openPath('wisdom')}
             >
               <PathMarker
@@ -568,9 +569,10 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
             <motion.button
               data-testid="zone-practice-path"
               aria-label={currentLang === 'ru' ? 'Открыть Путь Практики' : 'Open Practice Path'}
-              className="w-full h-full flex items-center justify-center"
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.92 }}
+              className="flex flex-col items-center justify-center"
+              style={{ width: 28, height: 28 }}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => openPath('practice')}
             >
               <PathMarker
@@ -594,9 +596,10 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
             <motion.button
               data-testid="zone-connection-path"
               aria-label={currentLang === 'ru' ? 'Открыть Путь Связи' : 'Open Connection Path'}
-              className="w-full h-full flex items-center justify-center"
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.92 }}
+              className="flex flex-col items-center justify-center"
+              style={{ width: 28, height: 28 }}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => openPath('connection')}
             >
               <PathMarker
@@ -620,7 +623,8 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
             <motion.button
               data-testid="zone-hecate-statue"
               aria-label={currentLang === 'ru' ? 'Открыть Ковен Гекаты' : 'Open Hecate Coven'}
-              className="relative w-full h-full flex items-center justify-center"
+              className="relative flex flex-col items-center justify-center"
+              style={{ width: 60, height: 60 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => setCovenOpen(true)}
             >
@@ -628,15 +632,15 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
                 className="absolute inset-0 rounded-full pointer-events-none"
                 animate={{
                   boxShadow: [
-                    'inset 0 0 0px rgba(251,191,36,0)',
-                    'inset 0 0 40px rgba(251,191,36,0.08)',
-                    'inset 0 0 0px rgba(251,191,36,0)',
+                    '0 0 0px rgba(251,191,36,0)',
+                    '0 0 24px rgba(251,191,36,0.08)',
+                    '0 0 0px rgba(251,191,36,0)',
                   ],
                 }}
                 transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
               />
               <motion.div
-                className="absolute bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap"
+                className="absolute bottom-0 left-1/2 -translate-x-1/2 whitespace-nowrap pointer-events-none"
                 animate={{ opacity: [0.3, 0.7, 0.3] }}
                 transition={{ duration: 4.5, repeat: Infinity }}
               >

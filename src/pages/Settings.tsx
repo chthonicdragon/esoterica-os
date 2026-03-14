@@ -8,6 +8,7 @@ import toast from 'react-hot-toast'
 import { Globe, User, Sparkles, Layers, Lock, ChevronDown, Volume2, VolumeX, Music, Palette, Info, BookOpen, Shield, FileText, HelpCircle, ExternalLink } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { db, auth } from '../lib/platformClient'
+import { ThemeSelector } from '../components/theme/ThemeSelector'
 
 import { getNavTheme, setNavTheme, getCrossroadsSidebarMode, setCrossroadsSidebarMode, type NavTheme, type CrossroadsSidebarMode } from '../lib/navTheme'
 
@@ -161,6 +162,7 @@ export function Settings({ user }: SettingsProps) {
   const [confirmText, setConfirmText] = useState('')
   const [navTheme, setNavThemeState] = useState<NavTheme>(getNavTheme)
   const [crossroadsSidebarMode, setCrossroadsSidebarModeState] = useState<CrossroadsSidebarMode>(getCrossroadsSidebarMode)
+  const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState(false)
 
   function handleNavThemeChange(theme: NavTheme) {
     setNavTheme(theme)
@@ -357,6 +359,7 @@ export function Settings({ user }: SettingsProps) {
 
   return (
     <div className="p-6 max-w-2xl space-y-6 animate-fade-in">
+      <ThemeSelector open={isThemeSelectorOpen} onClose={() => setIsThemeSelectorOpen(false)} />
       <h2 className="text-lg font-bold font-cinzel text-foreground">{t.settingsTitle}</h2>
 
       {/* Sound Settings */}
@@ -534,9 +537,7 @@ export function Settings({ user }: SettingsProps) {
           </div>
           <button
             onClick={() => {
-              if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('open-theme-selector'))
-              }
+              setIsThemeSelectorOpen(true)
             }}
             className="text-[10px] text-primary hover:underline flex items-center gap-1"
           >

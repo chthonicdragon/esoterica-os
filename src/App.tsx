@@ -10,7 +10,7 @@ import { RouteErrorBoundary } from './components/RouteErrorBoundary'
 import * as Pages from './pages'
 import { getNavTheme, getCrossroadsSidebarMode } from './lib/navTheme'
 import { PageLoader } from './components/PageLoader'
-import { Maximize2, Palette } from 'lucide-react'
+import { Maximize2 } from 'lucide-react'
 import { useIsMobile } from './hooks/use-mobile'
 import { supabase } from './lib/supabaseClient'
 import { registerFeatureOpened } from './lib/unlockNotifications'
@@ -19,7 +19,6 @@ import { eventBus } from './lib/eventBus'
 import toast from 'react-hot-toast'
 import { FloatingLanguageSwitcher } from './components/FloatingLanguageSwitcher'
 import { ThemeBackground } from './components/theme/ThemeBackground'
-import { ThemeSelector } from './components/theme/ThemeSelector'
 import { soundManager } from './lib/soundManager'
 
 type Page = 'crossroads' | 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'divination' | 'journal' | 'forum' | 'marketplace' | 'settings' | 'knowledge-graph' | 'chakra-intelligence'
@@ -108,7 +107,6 @@ function AppContent() {
   const [isLandscapeOnMobile, setIsLandscapeOnMobile] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [showLandscapeHint, setShowLandscapeHint] = useState(true)
-  const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState(false)
   const [navTheme, setNavThemeState] = useState(() => getNavTheme())
   const [crossroadsSidebarMode, setCrossroadsSidebarMode] = useState<'show' | 'hide'>(getCrossroadsSidebarMode())
 
@@ -201,31 +199,33 @@ function AppContent() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const openThemeSelector = () => setIsThemeSelectorOpen(true)
     const syncSidebarMode = () => setCrossroadsSidebarMode(getCrossroadsSidebarMode())
     const syncNavTheme = () => setNavThemeState(getNavTheme())
-    window.addEventListener('open-theme-selector', openThemeSelector as EventListener)
+    const syncThemeState = () => {
+      syncSidebarMode()
+      syncNavTheme()
+    }
+    syncThemeState()
     window.addEventListener('crossroads-sidebar-mode-changed', syncSidebarMode)
     window.addEventListener('nav-theme-changed', syncNavTheme)
     window.addEventListener('storage', syncSidebarMode)
     window.addEventListener('storage', syncNavTheme)
+    window.addEventListener('focus', syncThemeState)
+    window.addEventListener('pageshow', syncThemeState)
     return () => {
-      window.removeEventListener('open-theme-selector', openThemeSelector as EventListener)
       window.removeEventListener('crossroads-sidebar-mode-changed', syncSidebarMode)
       window.removeEventListener('nav-theme-changed', syncNavTheme)
       window.removeEventListener('storage', syncSidebarMode)
       window.removeEventListener('storage', syncNavTheme)
+      window.removeEventListener('focus', syncThemeState)
+      window.removeEventListener('pageshow', syncThemeState)
     }
   }, [])
 
   useEffect(() => {
     const nextTrack = navTheme === 'crossroads' ? '/sounds/Crossroads of Hecate.mp3' : '/sounds/ambient.mp3'
-    soundManager.pauseMusic()
     soundManager.setMusicTrack(nextTrack)
-    if (hasInteracted) {
-      soundManager.playMusic().catch(() => {})
-    }
-  }, [navTheme, hasInteracted])
+  }, [navTheme])
 
   const handleNavigate = (page: Page) => {
     if (page !== 'dashboard' && user) {
@@ -284,7 +284,6 @@ function AppContent() {
   return (
     <div className="flex h-screen overflow-hidden bg-background" onClick={handleInteraction}>
       <ThemeBackground />
-      <ThemeSelector open={isThemeSelectorOpen} onClose={() => setIsThemeSelectorOpen(false)} />
       
       {isLandscapeOnMobile && showLandscapeHint && (
         <div className="pointer-events-auto fixed top-3 left-1/2 -translate-x-1/2 z-[60] px-3 py-2 rounded-xl border border-white/10 bg-black/40 backdrop-blur text-xs text-muted-foreground flex items-center gap-2">
@@ -300,7 +299,7 @@ function AppContent() {
         </div>
       )}
 
-      {!isMobile && user && (crossroadsSidebarMode === 'show' || navTheme !== 'crossroads') && (
+      {!isMobile && user && (navTheme !== 'crossroads' || crossroadsSidebarMode === 'show') && (
         <Sidebar currentPage={currentPage} onNavigate={handleNavigate} userId={user.id} />
       )}
 
@@ -320,20 +319,10 @@ function AppContent() {
             userArchetype={user.archetype}
             userTradition={user.tradition}
             onMenuClick={isMobile ? () => setIsSidebarOpen(true) : undefined}
-            onCrossroads={navTheme === 'crossroads' ? () => handleNavigate('crossroads') : undefined}
+            onCrossroads={() => handleNavigate('crossroads')}
           />
         )}
         <FloatingLanguageSwitcher />
-        
-        {/* Theme Switcher Pill */}
-        <button
-          onClick={() => setIsThemeSelectorOpen(true)}
-          className="fixed bottom-6 right-6 z-40 h-12 px-3 rounded-full bg-violet-500/20 border border-violet-400/40 backdrop-blur-md flex items-center justify-center text-violet-200 shadow-lg hover:scale-105 transition-all group gap-2"
-          title={lang === 'ru' ? 'Изменить тему' : 'Change Theme'}
-        >
-          <span className="text-sm">✣</span>
-          <Palette className="w-4 h-4 group-hover:rotate-12 transition-transform" />
-        </button>
 
         <main className={`flex-1 ${currentPage === 'altars' || currentPage === 'forum' || currentPage === 'knowledge-graph' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
           <Suspense fallback={<PageLoader />}>
