@@ -457,6 +457,19 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
 
   // Stop the standard app ambient when Crossroads mounts; restore it on unmount
   useEffect(() => {
+    // Attempt to resume audio context on mount in case it was suspended by browser policy
+    if (typeof window !== 'undefined' && (window.AudioContext || (window as any).webkitAudioContext)) {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const dummyCtx = new AudioCtx();
+      if (dummyCtx.state === 'suspended') {
+        const resume = () => {
+          dummyCtx.resume();
+          window.removeEventListener('click', resume);
+        };
+        window.addEventListener('click', resume);
+      }
+    }
+    
     playAmbient(false)
     return () => {
       playAmbient(true)
@@ -480,41 +493,43 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
         }
       `}</style>
 
-      <div className="relative w-full overflow-hidden select-none" style={{ height: '100dvh' }}>
+      <div className="relative w-full overflow-hidden select-none bg-[#04020e]" style={{ height: '100dvh' }}>
 
         {/* Background image */}
-        <motion.img
-          src="/hecate-crossroads.jpg"
-          alt="Hecate's Crossroads"
-          className="absolute inset-0 w-full h-full object-cover object-top"
-          initial={{ opacity: 0, scale: 1.04 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1.4, ease: 'easeOut' }}
-          draggable={false}
-        />
+        <div className="absolute inset-0 w-full h-full overflow-hidden">
+          <motion.img
+            src="/hecate-crossroads.jpg"
+            alt="Hecate's Crossroads"
+            className="absolute inset-0 w-full h-full object-cover object-center lg:object-top"
+            initial={{ opacity: 0, scale: 1.04 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1.4, ease: 'easeOut' }}
+            draggable={false}
+          />
+        </div>
 
         {/* Atmospheric gradient overlay */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
             background:
-              'radial-gradient(ellipse 60% 38% at 50% 0%, rgba(139,92,246,0.07) 0%, transparent 70%), ' +
-              'linear-gradient(0deg, rgba(4,2,14,0.72) 0%, rgba(4,2,14,0.0) 35%, rgba(4,2,14,0.22) 100%)',
+              'radial-gradient(circle at 50% 50%, rgba(139,92,246,0.05) 0%, transparent 70%), ' +
+              'linear-gradient(0deg, rgba(4,2,14,0.85) 0%, rgba(4,2,14,0.2) 50%, rgba(4,2,14,0.4) 100%)',
           }}
         />
 
         {/* ── Title ── */}
         <motion.div
-          className="absolute top-0 left-0 right-0 flex flex-col items-center pt-12 z-10 pointer-events-none"
+          className="absolute top-0 left-0 right-0 flex flex-col items-center pt-8 md:pt-12 z-10 pointer-events-none"
           initial={{ opacity: 0, y: -18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.8, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
         >
-          <p className="text-[9px] tracking-[0.35em] uppercase text-amber-300/55 mb-1">
+          <p className="text-[8px] md:text-[9px] tracking-[0.35em] uppercase text-amber-300/55 mb-1">
             {t.enter}
           </p>
           <h1
-            className="text-2xl font-black tracking-[0.18em] text-white drop-shadow-lg"
+            className="text-xl md:text-2xl font-black tracking-[0.18em] text-white drop-shadow-lg text-center px-4"
             style={{
               fontFamily: "'Cinzel Decorative', 'Cinzel', serif",
               textShadow: '0 0 40px rgba(139,92,246,0.55)',
@@ -524,118 +539,122 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
           </h1>
         </motion.div>
 
-        {/* ── Wisdom Path zone (upper center) ── */}
-        <motion.button
-          data-testid="zone-wisdom-path"
-          className="absolute flex items-center justify-center"
-          style={{ left: '30%', top: '24%', width: '40%', height: '14%' }}
-          whileTap={{ scale: 0.92 }}
-          onClick={() => openPath('wisdom')}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.2, duration: 0.6 }}
-        >
-          <PathMarker
-            label={t.paths.wisdom.label}
-            color={PATH_COLORS.wisdom.color}
-            dotColor={PATH_COLORS.wisdom.dotColor}
-            labelPos="above"
-            pulseDelay={0}
-          />
-        </motion.button>
-
-        {/* ── Practice Path zone (left road) ── */}
-        <motion.button
-          data-testid="zone-practice-path"
-          className="absolute flex items-center justify-center"
-          style={{ left: '2%', top: '50%', width: '28%', height: '16%' }}
-          whileTap={{ scale: 0.92 }}
-          onClick={() => openPath('practice')}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.35, duration: 0.6 }}
-        >
-          <PathMarker
-            label={t.paths.practice.label}
-            color={PATH_COLORS.practice.color}
-            dotColor={PATH_COLORS.practice.dotColor}
-            labelPos="below"
-            pulseDelay={0.5}
-          />
-        </motion.button>
-
-        {/* ── Connection Path zone (right road) ── */}
-        <motion.button
-          data-testid="zone-connection-path"
-          className="absolute flex items-center justify-center"
-          style={{ left: '70%', top: '50%', width: '28%', height: '16%' }}
-          whileTap={{ scale: 0.92 }}
-          onClick={() => openPath('connection')}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.5, duration: 0.6 }}
-        >
-          <PathMarker
-            label={t.paths.connection.label}
-            color={PATH_COLORS.connection.color}
-            dotColor={PATH_COLORS.connection.dotColor}
-            labelPos="below"
-            pulseDelay={1.0}
-          />
-        </motion.button>
-
-        {/* ── Hecate statue zone (center) ── */}
-        <motion.button
-          data-testid="zone-hecate-statue"
-          className="absolute flex items-center justify-center"
-          style={{ left: '28%', top: '46%', width: '44%', height: '22%' }}
-          whileTap={{ scale: 0.97 }}
-          onClick={() => setCovenOpen(true)}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.0, duration: 0.8 }}
-        >
-          <motion.div
-            className="absolute inset-0 rounded-full pointer-events-none"
-            animate={{
-              boxShadow: [
-                'inset 0 0 0px rgba(251,191,36,0)',
-                'inset 0 0 28px rgba(251,191,36,0.06)',
-                'inset 0 0 0px rgba(251,191,36,0)',
-              ],
-            }}
-            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-          />
-          <motion.div
-            className="absolute bottom-0 left-1/2 -translate-x-1/2 whitespace-nowrap"
-            animate={{ opacity: [0.25, 0.5, 0.25] }}
-            transition={{ duration: 4.5, repeat: Infinity }}
+        {/* ── Interaction Zones Container ── */}
+        <div className="absolute inset-0 max-w-5xl mx-auto w-full h-full">
+          {/* ── Wisdom Path zone (upper center) ── */}
+          <motion.button
+            data-testid="zone-wisdom-path"
+            className="absolute flex items-center justify-center z-20"
+            style={{ left: '50%', top: '22%', transform: 'translateX(-50%)', width: '200px', height: '100px' }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.92 }}
+            onClick={() => openPath('wisdom')}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.2, duration: 0.6 }}
           >
-            <span
-              className="text-[8px] tracking-[0.38em] uppercase"
-              style={{
-                color: '#fcd34d',
-                fontFamily: "'Cinzel', serif",
-                textShadow: '0 0 14px rgba(251,191,36,0.5)',
+            <PathMarker
+              label={t.paths.wisdom.label}
+              color={PATH_COLORS.wisdom.color}
+              dotColor={PATH_COLORS.wisdom.dotColor}
+              labelPos="above"
+              pulseDelay={0}
+            />
+          </motion.button>
+
+          {/* ── Practice Path zone (left road) ── */}
+          <motion.button
+            data-testid="zone-practice-path"
+            className="absolute flex items-center justify-center z-20"
+            style={{ left: '15%', top: '55%', transform: 'translate(-50%, -50%)', width: '200px', height: '100px' }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.92 }}
+            onClick={() => openPath('practice')}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.35, duration: 0.6 }}
+          >
+            <PathMarker
+              label={t.paths.practice.label}
+              color={PATH_COLORS.practice.color}
+              dotColor={PATH_COLORS.practice.dotColor}
+              labelPos="below"
+              pulseDelay={0.5}
+            />
+          </motion.button>
+
+          {/* ── Connection Path zone (right road) ── */}
+          <motion.button
+            data-testid="zone-connection-path"
+            className="absolute flex items-center justify-center z-20"
+            style={{ right: '15%', top: '55%', transform: 'translate(50%, -50%)', width: '200px', height: '100px' }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.92 }}
+            onClick={() => openPath('connection')}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.5, duration: 0.6 }}
+          >
+            <PathMarker
+              label={t.paths.connection.label}
+              color={PATH_COLORS.connection.color}
+              dotColor={PATH_COLORS.connection.dotColor}
+              labelPos="below"
+              pulseDelay={1.0}
+            />
+          </motion.button>
+
+          {/* ── Hecate statue zone (center) ── */}
+          <motion.button
+            data-testid="zone-hecate-statue"
+            className="absolute flex items-center justify-center z-10"
+            style={{ left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: '180px', height: '280px' }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => setCovenOpen(true)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.0, duration: 0.8 }}
+          >
+            <motion.div
+              className="absolute inset-0 rounded-full pointer-events-none"
+              animate={{
+                boxShadow: [
+                  'inset 0 0 0px rgba(251,191,36,0)',
+                  'inset 0 0 40px rgba(251,191,36,0.08)',
+                  'inset 0 0 0px rgba(251,191,36,0)',
+                ],
               }}
+              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+            />
+            <motion.div
+              className="absolute bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap"
+              animate={{ opacity: [0.3, 0.7, 0.3] }}
+              transition={{ duration: 4.5, repeat: Infinity }}
             >
-              {t.hecateLabel}
-            </span>
-          </motion.div>
-        </motion.button>
+              <span
+                className="text-[9px] md:text-[10px] tracking-[0.4em] uppercase font-cinzel"
+                style={{
+                  color: '#fcd34d',
+                  textShadow: '0 0 14px rgba(251,191,36,0.6)',
+                }}
+              >
+                {t.hecateLabel}
+              </span>
+            </motion.div>
+          </motion.button>
+        </div>
 
         {/* ── Bottom "choose your path" label ── */}
         <motion.div
-          className="absolute flex items-center justify-center pointer-events-none"
-          style={{ left: '15%', bottom: '5%', width: '70%' }}
+          className="absolute bottom-8 left-0 right-0 flex items-center justify-center pointer-events-none z-10"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.8, duration: 0.8 }}
         >
           <motion.p
-            className="text-[9px] tracking-[0.38em] uppercase text-center"
-            style={{ color: 'rgba(251,191,36,0.38)', fontFamily: "'Cinzel', serif" }}
-            animate={{ opacity: [0.2, 0.5, 0.2] }}
+            className="text-[9px] md:text-[10px] tracking-[0.4em] uppercase text-center font-cinzel"
+            style={{ color: 'rgba(251,191,36,0.45)' }}
+            animate={{ opacity: [0.3, 0.6, 0.3] }}
             transition={{ duration: 5, repeat: Infinity }}
           >
             {t.chooseYourPath}
@@ -644,19 +663,19 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
 
         {/* ── Mist particles ── */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          {[0, 1, 2, 3, 4].map((i) => (
+          {[0, 1, 2, 3, 4, 5, 6].map((i) => (
             <motion.div
               key={i}
               className="absolute rounded-full"
               style={{
-                width: `${32 + i * 14}px`,
-                height: `${13 + i * 5}px`,
-                background: 'rgba(200,190,240,0.04)',
-                left: `${10 + i * 18}%`,
-                top: `${56 + (i % 3) * 7}%`,
-                filter: 'blur(8px)',
-                animation: `crossroads-float ${4.5 + i * 0.7}s ease-in-out infinite`,
-                animationDelay: `${i * 0.9}s`,
+                width: `${40 + i * 20}px`,
+                height: `${15 + i * 8}px`,
+                background: 'rgba(200,190,240,0.03)',
+                left: `${(i * 15) % 100}%`,
+                top: `${45 + (i % 4) * 10}%`,
+                filter: 'blur(12px)',
+                animation: `crossroads-float ${5 + i * 0.8}s ease-in-out infinite`,
+                animationDelay: `${i * 0.7}s`,
               }}
             />
           ))}

@@ -28,21 +28,41 @@ export function useCrossroadsAmbient({ enabled, volume = 0.5 }: CrossroadsAmbien
       return
     }
 
-    start(volume)
+    if (nodesRef.current.length > 0) {
+      updateVolume(volume)
+    } else {
+      start(volume)
+    }
 
     return () => {
-      fadeOut()
+      // Only fade out on unmount or when disabled
+      if (!enabled) fadeOut()
     }
   }, [enabled, volume])
+
+  function updateVolume(vol: number) {
+    if (masterGainRef.current && ctxRef.current) {
+      const ctx = ctxRef.current
+      const now = ctx.currentTime
+      masterGainRef.current.gain.cancelScheduledValues(now)
+      masterGainRef.current.gain.linearRampToValueAtTime(vol * 0.28, now + 1)
+    }
+  }
 
   function start(vol: number) {
     try {
       if (!ctxRef.current || ctxRef.current.state === 'closed') {
-        ctxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
+        const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+        ctxRef.current = new AudioCtx()
       }
-      const ctx = ctxRef.current
+      const ctx = ctxRef.current!
 
       if (ctx.state === 'suspended') {
+        const resume = () => {
+          ctx.resume().catch(() => {});
+          window.removeEventListener('click', resume);
+        };
+        window.addEventListener('click', resume);
         ctx.resume().catch(() => {})
       }
 

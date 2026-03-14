@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
 import { useAudio } from '../contexts/AudioContext'
+import { useTheme } from 'next-themes'
 import { supabase } from '../lib/supabaseClient'
 import toast from 'react-hot-toast'
-import { Globe, User, Sparkles, Layers, Lock, ChevronDown, Volume2, VolumeX, Music, Palette, Info, BookOpen, Shield, FileText, HelpCircle } from 'lucide-react'
+import { Globe, User, Sparkles, Layers, Lock, ChevronDown, Volume2, VolumeX, Music, Palette, Info, BookOpen, Shield, FileText, HelpCircle, Sun, Moon, Monitor } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { db, auth } from '../lib/platformClient'
 
@@ -144,6 +145,7 @@ interface SettingsProps {
 export function Settings({ user }: SettingsProps) {
   const { t, lang, setLang } = useLang()
   const { config, setVolume, setIsMuted, toggleSfx, toggleMusic } = useAudio()
+  const { theme, setTheme } = useTheme()
   const [displayName, setDisplayName] = useState(user.displayName || '')
   const [archetype, setArchetype] = useState('seeker')
   const [tradition, setTradition] = useState('eclectic')
@@ -474,6 +476,37 @@ export function Settings({ user }: SettingsProps) {
               : '✦ Crossroads opens on login. Return from any page via the ⊕ button'}
           </p>
         )}
+      </div>
+
+      {/* UI Theme */}
+      <div className="rounded-2xl bg-card border border-border/40 p-5 space-y-4">
+        <div className="flex items-center gap-2 mb-1">
+          <Palette className="w-4 h-4 text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">
+            {lang === 'ru' ? 'Визуальная тема' : 'Visual Theme'}
+          </h3>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { id: 'light', icon: <Sun className="w-4 h-4" />, label: lang === 'ru' ? 'Светлая' : 'Light' },
+            { id: 'dark', icon: <Moon className="w-4 h-4" />, label: lang === 'ru' ? 'Тёмная' : 'Dark' },
+            { id: 'system', icon: <Monitor className="w-4 h-4" />, label: lang === 'ru' ? 'Система' : 'System' },
+          ].map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTheme(t.id)}
+              className={cn(
+                'flex flex-col items-center justify-center p-3 rounded-xl border text-xs font-medium transition-all gap-2',
+                theme === t.id
+                  ? 'bg-primary/10 border-primary/40 text-primary'
+                  : 'border-border/40 text-muted-foreground hover:border-primary/20 hover:text-foreground'
+              )}
+            >
+              {t.icon}
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Language */}
