@@ -466,8 +466,8 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
         hecate: { left: '58%', top: '63%', width: '28%', height: '15%', transform: 'translate(-50%, -50%)' },
       }
     : {
-        wisdom: { left: '56%', top: '40%', width: 'clamp(180px, 16vw, 260px)', height: 'clamp(86px, 9vw, 118px)', transform: 'translateX(-50%)' },
-        practice: { left: '42%', top: '61%', width: 'clamp(180px, 16vw, 260px)', height: 'clamp(96px, 10vw, 128px)', transform: 'translate(-50%, -50%)' },
+        wisdom: { left: '55%', top: '40%', width: 'clamp(180px, 16vw, 260px)', height: 'clamp(86px, 9vw, 118px)', transform: 'translateX(-50%)' },
+        practice: { left: '43%', top: '61%', width: 'clamp(180px, 16vw, 260px)', height: 'clamp(96px, 10vw, 128px)', transform: 'translate(-50%, -50%)' },
         connection: { right: '33%', top: '61%', width: 'clamp(180px, 16vw, 260px)', height: 'clamp(96px, 10vw, 128px)', transform: 'translate(50%, -50%)' },
         hecate: { left: '53%', top: '72%', width: 'clamp(140px, 11vw, 190px)', height: 'clamp(132px, 12vw, 190px)', transform: 'translate(-50%, -50%)' },
       }

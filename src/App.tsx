@@ -321,7 +321,7 @@ function AppContent() {
             userArchetype={user.archetype}
             userTradition={user.tradition}
             onMenuClick={isMobile ? () => setIsSidebarOpen(true) : undefined}
-            onCrossroads={() => handleNavigate('crossroads')}
+            onCrossroads={effectiveNavTheme === 'crossroads' ? () => handleNavigate('crossroads') : undefined}
           />
         )}
         <FloatingLanguageSwitcher />
