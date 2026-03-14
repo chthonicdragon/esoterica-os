@@ -1,0 +1,6 @@
+public/models/anubis.glb
+public/models/idol.glb
+project/
+node_modules/
+dist/
+.git/
