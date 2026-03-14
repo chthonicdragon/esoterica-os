@@ -194,7 +194,7 @@ function AppContent() {
   }, [])
 
   const handleNavigate = (page: Page) => {
-    if (page !== 'dashboard') {
+    if (page !== 'dashboard' && user) {
       const title = PAGE_TITLES[page]
       registerFeatureOpened(user.id, page, title.en, title.ru)
     }
@@ -221,7 +221,7 @@ function AppContent() {
             <div className="absolute inset-2 rounded-full border border-[hsl(var(--neon))/20] animate-spin-slow" style={{ animationDirection: 'reverse', animationDuration: '15s' }} />
             <div className="absolute inset-0 flex items-center justify-center text-2xl">⭐</div>
           </div>
-          <p className="text-sm text-muted-foreground font-cinzel tracking-widest">LOADING</p>
+          <p className="text-sm text-muted-foreground font-cinzel tracking-widest">{lang === 'ru' ? 'ЗАГРУЗКА' : 'LOADING'}</p>
         </div>
       </div>
     )
@@ -244,7 +244,8 @@ function AppContent() {
     )
   }
 
-  const pageTitle = PAGE_TITLES[currentPage][lang]
+  const pageTitleObj = PAGE_TITLES[currentPage]
+  const pageTitle = (pageTitleObj as any)[lang] || pageTitleObj.en
 
   return (
     <div className="flex h-screen overflow-hidden bg-background" onClick={handleInteraction}>
@@ -262,11 +263,11 @@ function AppContent() {
         </div>
       )}
 
-      {!isMobile && (
+      {!isMobile && user && (
         <Sidebar currentPage={currentPage} onNavigate={handleNavigate} userId={user.id} />
       )}
 
-      {isMobile && (
+      {isMobile && user && (
         <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
           <SheetContent side="left" className="p-0 w-64 bg-[hsl(var(--sidebar))] border-r border-border/40">
             <Sidebar currentPage={currentPage} onNavigate={handleNavigate} userId={user.id} />
@@ -275,14 +276,16 @@ function AppContent() {
       )}
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header 
-          title={pageTitle} 
-          userName={user.displayName || user.email} 
-          userArchetype={user.archetype}
-          userTradition={user.tradition}
-          onMenuClick={isMobile ? () => setIsSidebarOpen(true) : undefined}
-          onCrossroads={() => handleNavigate('crossroads')}
-        />
+        {user && (
+          <Header 
+            title={pageTitle} 
+            userName={user.displayName || user.email} 
+            userArchetype={user.archetype}
+            userTradition={user.tradition}
+            onMenuClick={isMobile ? () => setIsSidebarOpen(true) : undefined}
+            onCrossroads={() => handleNavigate('crossroads')}
+          />
+        )}
         <FloatingLanguageSwitcher />
         <main className={`flex-1 ${currentPage === 'altars' || currentPage === 'forum' || currentPage === 'knowledge-graph' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
           <Suspense fallback={<PageLoader />}>
@@ -368,7 +371,7 @@ function LandingPage() {
     setAuthError(null)
     setIsSigningIn(true)
 
-    const rawRedirect = (import.meta.env.VITE_AUTH_REDIRECT_URL as string | undefined)?.trim()
+    const rawRedirect = (import.meta.env as any).VITE_AUTH_REDIRECT_URL?.trim()
     const hasPlaceholder = !!rawRedirect && (rawRedirect.includes('<') || rawRedirect.includes('>'))
 
     if (hasPlaceholder) {

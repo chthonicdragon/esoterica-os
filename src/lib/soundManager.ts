@@ -179,6 +179,24 @@ class SoundManager {
     this.updateState();
   }
 
+  public setMuted(muted: boolean) {
+    this.config.muted = muted;
+    this.saveConfig();
+    this.updateState();
+  }
+
+  public setMusicTrack(path: string) {
+    if (this.musicTrack) {
+      this.musicTrack.pause();
+    }
+    this.musicTrack = new Audio(path);
+    this.musicTrack.loop = true;
+    this.updateMusicVolume();
+    if (!this.config.muted && !this.config.musicMuted) {
+      this.playMusic().catch(() => {});
+    }
+  }
+
   public getConfig() {
     return { ...this.config };
   }
