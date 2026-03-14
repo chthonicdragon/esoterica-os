@@ -18,6 +18,9 @@ import { initAchievementListener } from './lib/achievements'
 import { eventBus } from './lib/eventBus'
 import toast from 'react-hot-toast'
 import { FloatingLanguageSwitcher } from './components/FloatingLanguageSwitcher'
+import { ThemeBackground } from './components/theme/ThemeBackground'
+import { ThemeSelector } from './components/theme/ThemeSelector'
+import { Palette } from 'lucide-react'
 
 type Page = 'crossroads' | 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'divination' | 'journal' | 'forum' | 'marketplace' | 'settings' | 'knowledge-graph' | 'chakra-intelligence'
 const PAGE_STORAGE_KEY = 'esoterica_current_page_v1'
@@ -105,6 +108,7 @@ function AppContent() {
   const [isLandscapeOnMobile, setIsLandscapeOnMobile] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [showLandscapeHint, setShowLandscapeHint] = useState(true)
+  const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState(false)
 
   useEffect(() => {
     if (typeof window === 'undefined' || !safeModeRequested) return
@@ -249,6 +253,9 @@ function AppContent() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background" onClick={handleInteraction}>
+      <ThemeBackground />
+      <ThemeSelector open={isThemeSelectorOpen} onClose={() => setIsThemeSelectorOpen(false)} />
+      
       {isLandscapeOnMobile && showLandscapeHint && (
         <div className="pointer-events-auto fixed top-3 left-1/2 -translate-x-1/2 z-[60] px-3 py-2 rounded-xl border border-white/10 bg-black/40 backdrop-blur text-xs text-muted-foreground flex items-center gap-2">
           <Maximize2 className="w-3.5 h-3.5 text-primary rotate-90" />
@@ -287,6 +294,16 @@ function AppContent() {
           />
         )}
         <FloatingLanguageSwitcher />
+        
+        {/* Theme Switcher Pill */}
+        <button
+          onClick={() => setIsThemeSelectorOpen(true)}
+          className="fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-primary/20 border border-primary/40 backdrop-blur-md flex items-center justify-center text-primary shadow-lg hover:scale-110 transition-all group"
+          title={lang === 'ru' ? 'Изменить тему' : 'Change Theme'}
+        >
+          <Palette className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+        </button>
+
         <main className={`flex-1 ${currentPage === 'altars' || currentPage === 'forum' || currentPage === 'knowledge-graph' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
           <Suspense fallback={<PageLoader />}>
             {currentPage === 'dashboard' && <Pages.Dashboard user={user} onNavigate={(p) => handleNavigate(p as Page)} />}

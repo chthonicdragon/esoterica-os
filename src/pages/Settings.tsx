@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react'
 import { useLang } from '../contexts/LanguageContext'
 import { useAudio } from '../contexts/AudioContext'
-import { useTheme } from 'next-themes'
+import { useTheme } from '../contexts/ThemeContext'
+import { BUILTIN_THEMES } from '../lib/themeRegistry'
 import { supabase } from '../lib/supabaseClient'
 import toast from 'react-hot-toast'
-import { Globe, User, Sparkles, Layers, Lock, ChevronDown, Volume2, VolumeX, Music, Palette, Info, BookOpen, Shield, FileText, HelpCircle, Sun, Moon, Monitor } from 'lucide-react'
+import { Globe, User, Sparkles, Layers, Lock, ChevronDown, Volume2, VolumeX, Music, Palette, Info, BookOpen, Shield, FileText, HelpCircle, Sun, Moon, Monitor, ExternalLink } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { db, auth } from '../lib/platformClient'
 
@@ -478,35 +479,56 @@ export function Settings({ user }: SettingsProps) {
         )}
       </div>
 
-      {/* UI Theme */}
+      {/* Visual Theme Engine */}
       <div className="rounded-2xl bg-card border border-border/40 p-5 space-y-4">
-        <div className="flex items-center gap-2 mb-1">
-          <Palette className="w-4 h-4 text-primary" />
-          <h3 className="text-sm font-semibold text-foreground">
-            {lang === 'ru' ? 'Визуальная тема' : 'Visual Theme'}
-          </h3>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 mb-1">
+            <Palette className="w-4 h-4 text-primary" />
+            <h3 className="text-sm font-semibold text-foreground">
+              {lang === 'ru' ? 'Визуальная атмосфера' : 'Visual Atmosphere'}
+            </h3>
+          </div>
+          <button
+            onClick={() => {
+              // Open the selector (controlled via App.tsx usually, but here we can just trigger a custom event or use a local state if we had it)
+              // For simplicity, let's just show a few quick-select options here
+            }}
+            className="text-[10px] text-primary hover:underline flex items-center gap-1"
+          >
+            {lang === 'ru' ? 'Все темы' : 'Browse All'} <ExternalLink className="w-2.5 h-2.5" />
+          </button>
         </div>
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { id: 'light', icon: <Sun className="w-4 h-4" />, label: lang === 'ru' ? 'Светлая' : 'Light' },
-            { id: 'dark', icon: <Moon className="w-4 h-4" />, label: lang === 'ru' ? 'Тёмная' : 'Dark' },
-            { id: 'system', icon: <Monitor className="w-4 h-4" />, label: lang === 'ru' ? 'Система' : 'System' },
-          ].map((t) => (
+
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+          {BUILTIN_THEMES.slice(0, 5).map((t) => (
             <button
               key={t.id}
-              onClick={() => setTheme(t.id)}
+              onClick={() => setTheme(t)}
               className={cn(
-                'flex flex-col items-center justify-center p-3 rounded-xl border text-xs font-medium transition-all gap-2',
-                theme === t.id
-                  ? 'bg-primary/10 border-primary/40 text-primary'
-                  : 'border-border/40 text-muted-foreground hover:border-primary/20 hover:text-foreground'
+                'flex-shrink-0 w-24 flex flex-col items-center gap-2 p-2 rounded-xl border transition-all',
+                theme.id === t.id
+                  ? 'bg-primary/10 border-primary/50 text-primary'
+                  : 'border-border/40 text-muted-foreground hover:border-primary/20'
               )}
             >
-              {t.icon}
-              {t.label}
+              <div 
+                className="w-full h-10 rounded-lg overflow-hidden relative"
+                style={{ background: `hsl(${t.colors.background})` }}
+              >
+                <div className="absolute inset-0 opacity-40" style={{ background: `linear-gradient(45deg, hsl(${t.colors.primary}), transparent)` }} />
+              </div>
+              <span className="text-[10px] font-medium truncate w-full text-center">
+                {t.name[lang as 'ru' | 'en']}
+              </span>
             </button>
           ))}
         </div>
+        
+        <p className="text-[10px] text-muted-foreground italic text-center">
+          {lang === 'ru' 
+            ? '✦ Нажмите на кнопку палитры в углу экрана, чтобы открыть полную библиотеку' 
+            : '✦ Click the palette icon in the screen corner to open the full library'}
+        </p>
       </div>
 
       {/* Language */}
