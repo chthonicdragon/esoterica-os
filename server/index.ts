@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+process.env.PORT = "5001";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
