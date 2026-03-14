@@ -1,8 +1,6 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
-import { useCrossroadsAmbient } from '../hooks/useCrossroadsAmbient'
-import { useAudio } from '../contexts/AudioContext'
 import { useLang } from '../contexts/LanguageContext'
 import { useIsMobile } from '../hooks/use-mobile'
 
@@ -451,52 +449,25 @@ function CovenModal({
 export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
   const [activeModal, setActiveModal] = useState<PathId | null>(null)
   const [covenOpen, setCovenOpen] = useState(false)
-  const { config, playAmbient } = useAudio()
   const { lang } = useLang()
   const isMobile = useIsMobile()
 
   const t = T[lang as 'ru' | 'en'] ?? T.ru
 
-  // Stop the standard app ambient when Crossroads mounts; restore it on unmount
-  useEffect(() => {
-    // Attempt to resume audio context on mount in case it was suspended by browser policy
-    if (typeof window !== 'undefined' && (window.AudioContext || (window as any).webkitAudioContext)) {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      const dummyCtx = new AudioCtx();
-      if (dummyCtx.state === 'suspended') {
-        const resume = () => {
-          dummyCtx.resume();
-          window.removeEventListener('click', resume);
-        };
-        window.addEventListener('click', resume);
-      }
-    }
-    
-    playAmbient(false)
-    return () => {
-      playAmbient(true)
-    }
-  }, [playAmbient])
-
-  useCrossroadsAmbient({
-    enabled: !config.muted && !config.musicMuted,
-    volume: config.volume,
-  })
-
   const openPath = useCallback((id: PathId) => setActiveModal(id), [])
   const closeModal = useCallback(() => setActiveModal(null), [])
   const layout = isMobile
     ? {
-        wisdom: { left: '50%', top: '24%', width: '42%', height: '14%', transform: 'translateX(-50%)' },
-        practice: { left: '16%', top: '54%', width: '34%', height: '18%', transform: 'translate(-50%, -50%)' },
-        connection: { right: '16%', top: '54%', width: '34%', height: '18%', transform: 'translate(50%, -50%)' },
-        hecate: { left: '50%', top: '50%', width: '46%', height: '30%', transform: 'translate(-50%, -50%)' },
+        wisdom: { left: '50%', top: '43%', width: '42%', height: '12%', transform: 'translateX(-50%)' },
+        practice: { left: '10%', top: '67%', width: '34%', height: '16%', transform: 'translate(-50%, -50%)' },
+        connection: { right: '10%', top: '67%', width: '34%', height: '16%', transform: 'translate(50%, -50%)' },
+        hecate: { left: '50%', top: '69%', width: '48%', height: '20%', transform: 'translate(-50%, -50%)' },
       }
     : {
-        wisdom: { left: '50%', top: '22%', width: '240px', height: '110px', transform: 'translateX(-50%)' },
-        practice: { left: '24%', top: '58%', width: '240px', height: '120px', transform: 'translate(-50%, -50%)' },
-        connection: { right: '24%', top: '58%', width: '240px', height: '120px', transform: 'translate(50%, -50%)' },
-        hecate: { left: '50%', top: '52%', width: '210px', height: '300px', transform: 'translate(-50%, -50%)' },
+        wisdom: { left: '50%', top: '43%', width: '220px', height: '95px', transform: 'translateX(-50%)' },
+        practice: { left: '12%', top: '66%', width: '220px', height: '110px', transform: 'translate(-50%, -50%)' },
+        connection: { right: '12%', top: '66%', width: '220px', height: '110px', transform: 'translate(50%, -50%)' },
+        hecate: { left: '50%', top: '68%', width: '220px', height: '170px', transform: 'translate(-50%, -50%)' },
       }
 
   return (
@@ -510,18 +481,17 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
 
       <div className="relative w-full overflow-hidden select-none bg-[#04020e]" style={{ height: '100dvh' }}>
 
-        {/* Background image */}
-        <div className="absolute inset-0 w-full h-full overflow-hidden">
-          <motion.img
-            src="/hecate-crossroads.jpg"
-            alt="Hecate's Crossroads"
-            className="absolute inset-0 w-full h-full object-cover object-center"
-            initial={{ opacity: 0, scale: 1.04 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 1.4, ease: 'easeOut' }}
-            draggable={false}
-          />
-        </div>
+        <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+          <div className="relative h-full max-h-[100dvh]" style={{ width: 'min(100vw, 56.25dvh)' }}>
+            <motion.img
+              src="/hecate-crossroads.jpg"
+              alt="Hecate's Crossroads"
+              className="absolute inset-0 w-full h-full object-cover object-center"
+              initial={{ opacity: 0, scale: 1.04 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1.4, ease: 'easeOut' }}
+              draggable={false}
+            />
 
         {/* Atmospheric gradient overlay */}
         <div
@@ -554,8 +524,8 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
           </h1>
         </motion.div>
 
-        {/* ── Interaction Zones Container ── */}
-        <div className="absolute inset-0 max-w-7xl mx-auto w-full h-full">
+            {/* ── Interaction Zones Container ── */}
+            <div className="absolute inset-0 w-full h-full">
           {/* ── Wisdom Path zone (upper center) ── */}
           <motion.button
             data-testid="zone-wisdom-path"
@@ -657,6 +627,8 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
               </span>
             </motion.div>
           </motion.button>
+            </div>
+          </div>
         </div>
 
         {/* ── Bottom "choose your path" label ── */}

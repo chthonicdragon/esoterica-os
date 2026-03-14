@@ -172,6 +172,9 @@ export function Settings({ user }: SettingsProps) {
         theme === 'crossroads' ? 'crossroads' : 'dashboard'
       )
     } catch {}
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('nav-theme-changed'))
+    }
     toast.success(
       theme === 'crossroads'
         ? (lang === 'ru' ? '✦ Тема «Перекрёсток Гекаты» активирована' : '✦ Hecate\'s Crossroads theme activated')

@@ -20,6 +20,7 @@ import toast from 'react-hot-toast'
 import { FloatingLanguageSwitcher } from './components/FloatingLanguageSwitcher'
 import { ThemeBackground } from './components/theme/ThemeBackground'
 import { ThemeSelector } from './components/theme/ThemeSelector'
+import { soundManager } from './lib/soundManager'
 
 type Page = 'crossroads' | 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'divination' | 'journal' | 'forum' | 'marketplace' | 'settings' | 'knowledge-graph' | 'chakra-intelligence'
 const PAGE_STORAGE_KEY = 'esoterica_current_page_v1'
@@ -108,6 +109,7 @@ function AppContent() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [showLandscapeHint, setShowLandscapeHint] = useState(true)
   const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState(false)
+  const [navTheme, setNavThemeState] = useState(() => getNavTheme())
   const [crossroadsSidebarMode, setCrossroadsSidebarMode] = useState<'show' | 'hide'>(getCrossroadsSidebarMode())
 
   useEffect(() => {
@@ -201,15 +203,25 @@ function AppContent() {
     if (typeof window === 'undefined') return
     const openThemeSelector = () => setIsThemeSelectorOpen(true)
     const syncSidebarMode = () => setCrossroadsSidebarMode(getCrossroadsSidebarMode())
+    const syncNavTheme = () => setNavThemeState(getNavTheme())
     window.addEventListener('open-theme-selector', openThemeSelector as EventListener)
     window.addEventListener('crossroads-sidebar-mode-changed', syncSidebarMode)
+    window.addEventListener('nav-theme-changed', syncNavTheme)
     window.addEventListener('storage', syncSidebarMode)
+    window.addEventListener('storage', syncNavTheme)
     return () => {
       window.removeEventListener('open-theme-selector', openThemeSelector as EventListener)
       window.removeEventListener('crossroads-sidebar-mode-changed', syncSidebarMode)
+      window.removeEventListener('nav-theme-changed', syncNavTheme)
       window.removeEventListener('storage', syncSidebarMode)
+      window.removeEventListener('storage', syncNavTheme)
     }
   }, [])
+
+  useEffect(() => {
+    const nextTrack = navTheme === 'crossroads' ? '/sounds/Crossroads of Hecate.mp3' : '/sounds/ambient.mp3'
+    soundManager.setMusicTrack(nextTrack)
+  }, [navTheme])
 
   const handleNavigate = (page: Page) => {
     if (page !== 'dashboard' && user) {
@@ -284,7 +296,7 @@ function AppContent() {
         </div>
       )}
 
-      {!isMobile && user && (crossroadsSidebarMode === 'show' || getNavTheme() !== 'crossroads') && (
+      {!isMobile && user && (crossroadsSidebarMode === 'show' || navTheme !== 'crossroads') && (
         <Sidebar currentPage={currentPage} onNavigate={handleNavigate} userId={user.id} />
       )}
 

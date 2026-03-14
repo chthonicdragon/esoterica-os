@@ -3,7 +3,6 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { type ThemeDefinition, DEFAULT_THEME } from '../lib/themeRegistry';
 import { getActiveTheme, saveActiveTheme } from '../services/themeService';
 import { useUser } from './UserContext';
-import { soundManager } from '../lib/soundManager';
 
 interface ThemeContextType {
   theme: ThemeDefinition;
@@ -36,11 +35,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     Object.entries(colors).forEach(([key, value]) => {
       root.style.setProperty(`--${key}`, value);
     });
-
-    // Handle music swap
-    if (theme.musicTrack) {
-      soundManager.setMusicTrack(theme.musicTrack);
-    }
   }, [theme]);
 
   const setTheme = async (newTheme: ThemeDefinition) => {
