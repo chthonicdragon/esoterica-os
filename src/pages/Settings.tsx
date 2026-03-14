@@ -5,11 +5,11 @@ import { useTheme } from '../contexts/ThemeContext'
 import { BUILTIN_THEMES } from '../lib/themeRegistry'
 import { supabase } from '../lib/supabaseClient'
 import toast from 'react-hot-toast'
-import { Globe, User, Sparkles, Layers, Lock, ChevronDown, Volume2, VolumeX, Music, Palette, Info, BookOpen, Shield, FileText, HelpCircle, Sun, Moon, Monitor, ExternalLink } from 'lucide-react'
+import { Globe, User, Sparkles, Layers, Lock, ChevronDown, Volume2, VolumeX, Music, Palette, Info, BookOpen, Shield, FileText, HelpCircle, ExternalLink } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { db, auth } from '../lib/platformClient'
 
-import { getNavTheme, setNavTheme, type NavTheme } from '../lib/navTheme'
+import { getNavTheme, setNavTheme, getCrossroadsSidebarMode, setCrossroadsSidebarMode, type NavTheme, type CrossroadsSidebarMode } from '../lib/navTheme'
 
 const ADMIN_CODE = 'esoterica2025' // Код администратора
 const ARCHETYPES = [
@@ -160,6 +160,7 @@ export function Settings({ user }: SettingsProps) {
   const [deleting, setDeleting] = useState(false)
   const [confirmText, setConfirmText] = useState('')
   const [navTheme, setNavThemeState] = useState<NavTheme>(getNavTheme)
+  const [crossroadsSidebarMode, setCrossroadsSidebarModeState] = useState<CrossroadsSidebarMode>(getCrossroadsSidebarMode)
 
   function handleNavThemeChange(theme: NavTheme) {
     setNavTheme(theme)
@@ -176,6 +177,20 @@ export function Settings({ user }: SettingsProps) {
         ? (lang === 'ru' ? '✦ Тема «Перекрёсток Гекаты» активирована' : '✦ Hecate\'s Crossroads theme activated')
         : (lang === 'ru' ? '✦ Тема «Esoterica OS» активирована' : '✦ Esoterica OS theme activated'),
       { duration: 2200 }
+    )
+  }
+
+  function handleCrossroadsSidebarModeChange(mode: CrossroadsSidebarMode) {
+    setCrossroadsSidebarMode(mode)
+    setCrossroadsSidebarModeState(mode)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('crossroads-sidebar-mode-changed'))
+    }
+    toast.success(
+      mode === 'hide'
+        ? (lang === 'ru' ? 'Сайдбар скрыт в теме Перекрёстка' : 'Sidebar hidden for Crossroads theme')
+        : (lang === 'ru' ? 'Сайдбар включён в теме Перекрёстка' : 'Sidebar enabled for Crossroads theme'),
+      { duration: 2000 }
     )
   }
 
@@ -471,11 +486,37 @@ export function Settings({ user }: SettingsProps) {
           </button>
         </div>
         {navTheme === 'crossroads' && (
-          <p className="text-[10px] text-violet-400/60 text-center">
-            {lang === 'ru'
-              ? '✦ При входе открывается Перекрёсток. Из любой страницы вернитесь через кнопку ⊕'
-              : '✦ Crossroads opens on login. Return from any page via the ⊕ button'}
-          </p>
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => handleCrossroadsSidebarModeChange('hide')}
+                className={cn(
+                  'rounded-xl border px-3 py-2 text-xs transition-all',
+                  crossroadsSidebarMode === 'hide'
+                    ? 'bg-violet-500/10 border-violet-500/50 text-violet-300'
+                    : 'border-border/40 text-muted-foreground hover:border-violet-500/35'
+                )}
+              >
+                {lang === 'ru' ? 'Скрыть сайдбар' : 'Hide Sidebar'}
+              </button>
+              <button
+                onClick={() => handleCrossroadsSidebarModeChange('show')}
+                className={cn(
+                  'rounded-xl border px-3 py-2 text-xs transition-all',
+                  crossroadsSidebarMode === 'show'
+                    ? 'bg-violet-500/10 border-violet-500/50 text-violet-300'
+                    : 'border-border/40 text-muted-foreground hover:border-violet-500/35'
+                )}
+              >
+                {lang === 'ru' ? 'Показывать сайдбар' : 'Show Sidebar'}
+              </button>
+            </div>
+            <p className="text-[10px] text-violet-400/60 text-center">
+              {lang === 'ru'
+                ? '✦ При входе открывается Перекрёсток. Возврат из шапки через символ ✣'
+                : '✦ Crossroads opens on login. Return from header via ✣ icon'}
+            </p>
+          </div>
         )}
       </div>
 
@@ -490,12 +531,13 @@ export function Settings({ user }: SettingsProps) {
           </div>
           <button
             onClick={() => {
-              // Open the selector (controlled via App.tsx usually, but here we can just trigger a custom event or use a local state if we had it)
-              // For simplicity, let's just show a few quick-select options here
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('open-theme-selector'))
+              }
             }}
             className="text-[10px] text-primary hover:underline flex items-center gap-1"
           >
-            {lang === 'ru' ? 'Все темы' : 'Browse All'} <ExternalLink className="w-2.5 h-2.5" />
+            {lang === 'ru' ? 'Выбрать тему' : 'Choose Theme'} <ExternalLink className="w-2.5 h-2.5" />
           </button>
         </div>
 

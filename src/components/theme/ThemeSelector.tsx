@@ -1,7 +1,7 @@
 // src/components/theme/ThemeSelector.tsx
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, Palette, Sparkles, Lock } from 'lucide-react';
+import { X, Check, Palette } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { BUILTIN_THEMES, type ThemeDefinition } from '../../lib/themeRegistry';
 import { useLang } from '../../contexts/LanguageContext';

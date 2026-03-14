@@ -4,6 +4,7 @@ import { X } from 'lucide-react'
 import { useCrossroadsAmbient } from '../hooks/useCrossroadsAmbient'
 import { useAudio } from '../contexts/AudioContext'
 import { useLang } from '../contexts/LanguageContext'
+import { useIsMobile } from '../hooks/use-mobile'
 
 type AppPage =
   | 'dashboard'
@@ -452,6 +453,7 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
   const [covenOpen, setCovenOpen] = useState(false)
   const { config, playAmbient } = useAudio()
   const { lang } = useLang()
+  const isMobile = useIsMobile()
 
   const t = T[lang as 'ru' | 'en'] ?? T.ru
 
@@ -483,6 +485,19 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
 
   const openPath = useCallback((id: PathId) => setActiveModal(id), [])
   const closeModal = useCallback(() => setActiveModal(null), [])
+  const layout = isMobile
+    ? {
+        wisdom: { left: '50%', top: '24%', width: '42%', height: '14%', transform: 'translateX(-50%)' },
+        practice: { left: '16%', top: '54%', width: '34%', height: '18%', transform: 'translate(-50%, -50%)' },
+        connection: { right: '16%', top: '54%', width: '34%', height: '18%', transform: 'translate(50%, -50%)' },
+        hecate: { left: '50%', top: '50%', width: '46%', height: '30%', transform: 'translate(-50%, -50%)' },
+      }
+    : {
+        wisdom: { left: '50%', top: '22%', width: '240px', height: '110px', transform: 'translateX(-50%)' },
+        practice: { left: '24%', top: '58%', width: '240px', height: '120px', transform: 'translate(-50%, -50%)' },
+        connection: { right: '24%', top: '58%', width: '240px', height: '120px', transform: 'translate(50%, -50%)' },
+        hecate: { left: '50%', top: '52%', width: '210px', height: '300px', transform: 'translate(-50%, -50%)' },
+      }
 
   return (
     <>
@@ -500,7 +515,7 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
           <motion.img
             src="/hecate-crossroads.jpg"
             alt="Hecate's Crossroads"
-            className="absolute inset-0 w-full h-full object-cover object-center lg:object-top"
+            className="absolute inset-0 w-full h-full object-cover object-center"
             initial={{ opacity: 0, scale: 1.04 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 1.4, ease: 'easeOut' }}
@@ -540,12 +555,12 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
         </motion.div>
 
         {/* ── Interaction Zones Container ── */}
-        <div className="absolute inset-0 max-w-5xl mx-auto w-full h-full">
+        <div className="absolute inset-0 max-w-7xl mx-auto w-full h-full">
           {/* ── Wisdom Path zone (upper center) ── */}
           <motion.button
             data-testid="zone-wisdom-path"
             className="absolute flex items-center justify-center z-20"
-            style={{ left: '50%', top: '22%', transform: 'translateX(-50%)', width: '200px', height: '100px' }}
+            style={layout.wisdom}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.92 }}
             onClick={() => openPath('wisdom')}
@@ -566,7 +581,7 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
           <motion.button
             data-testid="zone-practice-path"
             className="absolute flex items-center justify-center z-20"
-            style={{ left: '15%', top: '55%', transform: 'translate(-50%, -50%)', width: '200px', height: '100px' }}
+            style={layout.practice}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.92 }}
             onClick={() => openPath('practice')}
@@ -587,7 +602,7 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
           <motion.button
             data-testid="zone-connection-path"
             className="absolute flex items-center justify-center z-20"
-            style={{ right: '15%', top: '55%', transform: 'translate(50%, -50%)', width: '200px', height: '100px' }}
+            style={layout.connection}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.92 }}
             onClick={() => openPath('connection')}
@@ -608,7 +623,7 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
           <motion.button
             data-testid="zone-hecate-statue"
             className="absolute flex items-center justify-center z-10"
-            style={{ left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: '180px', height: '280px' }}
+            style={layout.hecate}
             whileTap={{ scale: 0.97 }}
             onClick={() => setCovenOpen(true)}
             initial={{ opacity: 0 }}

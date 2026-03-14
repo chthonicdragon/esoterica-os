@@ -73,10 +73,10 @@ export function Header({ title, userName, userArchetype, userTradition, onMenuCl
         {onCrossroads && (
           <button
             onClick={(e) => { e.stopPropagation(); onCrossroads() }}
-            className="p-2 rounded-lg bg-secondary border border-border/40 text-muted-foreground hover:text-foreground transition-colors"
-            title="Return to Hecate's Crossroads"
+            className="p-2 rounded-lg bg-violet-500/15 border border-violet-400/40 text-violet-200 hover:text-violet-100 transition-colors"
+            title={lang === 'ru' ? 'Вернуться на Перекрёсток Гекаты' : "Return to Hecate's Crossroads"}
           >
-            <span className="text-sm">⭕</span>
+            <span className="text-sm">✣</span>
           </button>
         )}
         {/* Audio Toggle */}

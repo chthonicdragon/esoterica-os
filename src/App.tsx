@@ -8,9 +8,9 @@ import { Header } from './components/layout/Header'
 import { Sheet, SheetContent } from './components/ui/sheet'
 import { RouteErrorBoundary } from './components/RouteErrorBoundary'
 import * as Pages from './pages'
-import { getNavTheme } from './lib/navTheme'
+import { getNavTheme, getCrossroadsSidebarMode } from './lib/navTheme'
 import { PageLoader } from './components/PageLoader'
-import { Maximize2 } from 'lucide-react'
+import { Maximize2, Palette } from 'lucide-react'
 import { useIsMobile } from './hooks/use-mobile'
 import { supabase } from './lib/supabaseClient'
 import { registerFeatureOpened } from './lib/unlockNotifications'
@@ -20,7 +20,6 @@ import toast from 'react-hot-toast'
 import { FloatingLanguageSwitcher } from './components/FloatingLanguageSwitcher'
 import { ThemeBackground } from './components/theme/ThemeBackground'
 import { ThemeSelector } from './components/theme/ThemeSelector'
-import { Palette } from 'lucide-react'
 
 type Page = 'crossroads' | 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'divination' | 'journal' | 'forum' | 'marketplace' | 'settings' | 'knowledge-graph' | 'chakra-intelligence'
 const PAGE_STORAGE_KEY = 'esoterica_current_page_v1'
@@ -109,6 +108,7 @@ function AppContent() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [showLandscapeHint, setShowLandscapeHint] = useState(true)
   const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState(false)
+  const [crossroadsSidebarMode, setCrossroadsSidebarMode] = useState<'show' | 'hide'>(getCrossroadsSidebarMode())
 
   useEffect(() => {
     if (typeof window === 'undefined' || !safeModeRequested) return
@@ -197,6 +197,20 @@ function AppContent() {
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const openThemeSelector = () => setIsThemeSelectorOpen(true)
+    const syncSidebarMode = () => setCrossroadsSidebarMode(getCrossroadsSidebarMode())
+    window.addEventListener('open-theme-selector', openThemeSelector as EventListener)
+    window.addEventListener('crossroads-sidebar-mode-changed', syncSidebarMode)
+    window.addEventListener('storage', syncSidebarMode)
+    return () => {
+      window.removeEventListener('open-theme-selector', openThemeSelector as EventListener)
+      window.removeEventListener('crossroads-sidebar-mode-changed', syncSidebarMode)
+      window.removeEventListener('storage', syncSidebarMode)
+    }
+  }, [])
+
   const handleNavigate = (page: Page) => {
     if (page !== 'dashboard' && user) {
       const title = PAGE_TITLES[page]
@@ -270,7 +284,7 @@ function AppContent() {
         </div>
       )}
 
-      {!isMobile && user && (
+      {!isMobile && user && (crossroadsSidebarMode === 'show' || getNavTheme() !== 'crossroads') && (
         <Sidebar currentPage={currentPage} onNavigate={handleNavigate} userId={user.id} />
       )}
 
@@ -298,10 +312,11 @@ function AppContent() {
         {/* Theme Switcher Pill */}
         <button
           onClick={() => setIsThemeSelectorOpen(true)}
-          className="fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-primary/20 border border-primary/40 backdrop-blur-md flex items-center justify-center text-primary shadow-lg hover:scale-110 transition-all group"
+          className="fixed bottom-6 right-6 z-40 h-12 px-3 rounded-full bg-violet-500/20 border border-violet-400/40 backdrop-blur-md flex items-center justify-center text-violet-200 shadow-lg hover:scale-105 transition-all group gap-2"
           title={lang === 'ru' ? 'Изменить тему' : 'Change Theme'}
         >
-          <Palette className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+          <span className="text-sm">✣</span>
+          <Palette className="w-4 h-4 group-hover:rotate-12 transition-transform" />
         </button>
 
         <main className={`flex-1 ${currentPage === 'altars' || currentPage === 'forum' || currentPage === 'knowledge-graph' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>

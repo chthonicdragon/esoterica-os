@@ -36,6 +36,8 @@ class SoundManager {
   private musicTrack: HTMLAudioElement | null = null;
   private musicPlaying: boolean = false;
   private initialized: boolean = false;
+  private musicRequestId: number = 0;
+  private musicPlayPromise: Promise<void> | null = null;
 
   constructor() {
     this.config = this.loadConfig();
@@ -132,6 +134,7 @@ class SoundManager {
 
   public async playMusic() {
     if (!this.musicTrack) return;
+    const requestId = ++this.musicRequestId;
     if (this.config.muted || this.config.musicMuted) {
       this.musicTrack.pause();
       this.musicPlaying = false;
@@ -139,19 +142,49 @@ class SoundManager {
     }
 
     try {
-      await this.musicTrack.play();
-      this.musicPlaying = true;
-    } catch (e) {
-      console.warn('Music playback failed (likely autoplay policy)', e);
-      this.musicPlaying = false;
-    }
+      const playPromise = this.musicTrack.play();
+      if (!playPromise) {
+        this.musicPlaying = true;
+        return;
+      }
+      this.musicPlayPromise = playPromise
+        .then(() => {
+          if (requestId === this.musicRequestId) {
+            this.musicPlaying = true;
+          }
+        })
+        .catch((e: any) => {
+          if (requestId !== this.musicRequestId) return;
+          if (e?.name === 'AbortError') return;
+          this.musicPlaying = false;
+          console.warn('Music playback failed (likely autoplay policy)', e);
+        })
+        .finally(() => {
+          if (requestId === this.musicRequestId) {
+            this.musicPlayPromise = null;
+          }
+        });
+      await this.musicPlayPromise;
+    } catch {}
   }
 
   public pauseMusic() {
-    if (this.musicTrack) {
-      this.musicTrack.pause();
+    if (!this.musicTrack) return;
+    const track = this.musicTrack;
+    const pauseNow = () => {
+      track.pause();
       this.musicPlaying = false;
+    };
+    this.musicRequestId += 1;
+    if (this.musicPlayPromise) {
+      this.musicPlayPromise.finally(() => {
+        if (this.musicTrack === track) {
+          pauseNow();
+        }
+      });
+      return;
     }
+    pauseNow();
   }
 
   // --- Configuration ---
@@ -186,10 +219,12 @@ class SoundManager {
   }
 
   public setMusicTrack(path: string) {
+    this.musicRequestId += 1;
     if (this.musicTrack) {
       this.musicTrack.pause();
     }
     this.musicTrack = new Audio(path);
+    this.musicTrack.preload = 'auto';
     this.musicTrack.loop = true;
     this.updateMusicVolume();
     if (!this.config.muted && !this.config.musicMuted) {
