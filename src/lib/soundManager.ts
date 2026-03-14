@@ -38,6 +38,7 @@ class SoundManager {
   private initialized: boolean = false;
   private musicRequestId: number = 0;
   private musicPlayPromise: Promise<void> | null = null;
+  private musicUnlockAttached: boolean = false;
 
   constructor() {
     this.config = this.loadConfig();
@@ -52,9 +53,11 @@ class SoundManager {
     
     Object.entries(SOUND_SOURCES).forEach(([name, paths]) => this.preloadWithFallback(name, paths));
     
-    // Setup music
-    this.musicTrack = new Audio('/sounds/ambient.mp3');
+    if (!this.musicTrack) {
+      this.musicTrack = new Audio('/sounds/ambient.mp3');
+    }
     this.musicTrack.loop = true;
+    this.musicTrack.preload = 'auto';
     this.updateMusicVolume();
     
     // Try to play music if not muted
@@ -156,6 +159,10 @@ class SoundManager {
         .catch((e: any) => {
           if (requestId !== this.musicRequestId) return;
           if (e?.name === 'AbortError') return;
+          if (e?.name === 'NotAllowedError') {
+            this.attachMusicUnlockRetry();
+            return;
+          }
           this.musicPlaying = false;
           console.warn('Music playback failed (likely autoplay policy)', e);
         })
@@ -166,6 +173,19 @@ class SoundManager {
         });
       await this.musicPlayPromise;
     } catch {}
+  }
+
+  private attachMusicUnlockRetry() {
+    if (this.musicUnlockAttached || typeof window === 'undefined') return;
+    this.musicUnlockAttached = true;
+    const unlock = () => {
+      this.musicUnlockAttached = false;
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('keydown', unlock);
+      this.playMusic().catch(() => {});
+    };
+    window.addEventListener('click', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
   }
 
   public pauseMusic() {
@@ -220,8 +240,10 @@ class SoundManager {
 
   public setMusicTrack(path: string) {
     this.musicRequestId += 1;
-    if (this.musicTrack) {
-      this.musicTrack.pause();
+    const previousTrack = this.musicTrack
+    if (previousTrack) {
+      previousTrack.pause();
+      previousTrack.currentTime = 0;
     }
     this.musicTrack = new Audio(path);
     this.musicTrack.preload = 'auto';

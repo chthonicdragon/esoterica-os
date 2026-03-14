@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import { useLang } from '../contexts/LanguageContext'
 import { useIsMobile } from '../hooks/use-mobile'
+import crossroadsDesktopBg from '../IMG_7914.jpg'
 
 type AppPage =
   | 'dashboard'
@@ -451,23 +452,24 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
   const [covenOpen, setCovenOpen] = useState(false)
   const { lang } = useLang()
   const isMobile = useIsMobile()
+  const currentLang: 'ru' | 'en' = lang === 'en' ? 'en' : 'ru'
 
-  const t = T[lang as 'ru' | 'en'] ?? T.ru
+  const t = T[currentLang]
 
-  const openPath = useCallback((id: PathId) => setActiveModal(id), [])
-  const closeModal = useCallback(() => setActiveModal(null), [])
+  const openPath = (id: PathId) => setActiveModal(id)
+  const closeModal = () => setActiveModal(null)
   const layout = isMobile
     ? {
-        wisdom: { left: '50%', top: '43%', width: '42%', height: '12%', transform: 'translateX(-50%)' },
-        practice: { left: '10%', top: '67%', width: '34%', height: '16%', transform: 'translate(-50%, -50%)' },
-        connection: { right: '10%', top: '67%', width: '34%', height: '16%', transform: 'translate(50%, -50%)' },
-        hecate: { left: '50%', top: '69%', width: '48%', height: '20%', transform: 'translate(-50%, -50%)' },
+        wisdom: { left: '50%', top: '40%', width: '42%', height: '12%', transform: 'translateX(-50%)' },
+        practice: { left: '23%', top: '67%', width: '34%', height: '16%', transform: 'translate(-50%, -50%)' },
+        connection: { right: '23%', top: '67%', width: '34%', height: '16%', transform: 'translate(50%, -50%)' },
+        hecate: { left: '50%', top: '63%', width: '28%', height: '15%', transform: 'translate(-50%, -50%)' },
       }
     : {
-        wisdom: { left: '50%', top: '43%', width: '220px', height: '95px', transform: 'translateX(-50%)' },
-        practice: { left: '12%', top: '66%', width: '220px', height: '110px', transform: 'translate(-50%, -50%)' },
-        connection: { right: '12%', top: '66%', width: '220px', height: '110px', transform: 'translate(50%, -50%)' },
-        hecate: { left: '50%', top: '68%', width: '220px', height: '170px', transform: 'translate(-50%, -50%)' },
+        wisdom: { left: '50%', top: '35%', width: 'clamp(180px, 16vw, 260px)', height: 'clamp(86px, 9vw, 118px)', transform: 'translateX(-50%)' },
+        practice: { left: '37%', top: '61%', width: 'clamp(180px, 16vw, 260px)', height: 'clamp(96px, 10vw, 128px)', transform: 'translate(-50%, -50%)' },
+        connection: { right: '35%', top: '61%', width: 'clamp(180px, 16vw, 260px)', height: 'clamp(96px, 10vw, 128px)', transform: 'translate(50%, -50%)' },
+        hecate: { left: '50%', top: '59%', width: 'clamp(140px, 11vw, 190px)', height: 'clamp(132px, 12vw, 190px)', transform: 'translate(-50%, -50%)' },
       }
 
   return (
@@ -482,9 +484,12 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
       <div className="relative w-full overflow-hidden select-none bg-[#04020e]" style={{ height: '100dvh' }}>
 
         <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
-          <div className="relative h-full max-h-[100dvh]" style={{ width: 'min(100vw, 56.25dvh)' }}>
+          <div
+            className="relative h-full max-h-[100dvh]"
+            style={{ width: isMobile ? 'min(100vw, 56.25dvh)' : '100vw' }}
+          >
             <motion.img
-              src="/hecate-crossroads.jpg"
+              src={isMobile ? '/hecate-crossroads.jpg' : crossroadsDesktopBg}
               alt="Hecate's Crossroads"
               className="absolute inset-0 w-full h-full object-cover object-center"
               initial={{ opacity: 0, scale: 1.04 }}
@@ -527,106 +532,126 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
             {/* ── Interaction Zones Container ── */}
             <div className="absolute inset-0 w-full h-full">
           {/* ── Wisdom Path zone (upper center) ── */}
-          <motion.button
-            data-testid="zone-wisdom-path"
-            className="absolute flex items-center justify-center z-20"
+          <motion.div
+            className="absolute z-20"
             style={layout.wisdom}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.92 }}
-            onClick={() => openPath('wisdom')}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1.2, duration: 0.6 }}
           >
-            <PathMarker
-              label={t.paths.wisdom.label}
-              color={PATH_COLORS.wisdom.color}
-              dotColor={PATH_COLORS.wisdom.dotColor}
-              labelPos="above"
-              pulseDelay={0}
-            />
-          </motion.button>
+            <motion.button
+              data-testid="zone-wisdom-path"
+              aria-label={currentLang === 'ru' ? 'Открыть Путь Мудрости' : 'Open Wisdom Path'}
+              className="w-full h-full flex items-center justify-center"
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.92 }}
+              onClick={() => openPath('wisdom')}
+            >
+              <PathMarker
+                label={t.paths.wisdom.label}
+                color={PATH_COLORS.wisdom.color}
+                dotColor={PATH_COLORS.wisdom.dotColor}
+                labelPos="above"
+                pulseDelay={0}
+              />
+            </motion.button>
+          </motion.div>
 
           {/* ── Practice Path zone (left road) ── */}
-          <motion.button
-            data-testid="zone-practice-path"
-            className="absolute flex items-center justify-center z-20"
+          <motion.div
+            className="absolute z-20"
             style={layout.practice}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.92 }}
-            onClick={() => openPath('practice')}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1.35, duration: 0.6 }}
           >
-            <PathMarker
-              label={t.paths.practice.label}
-              color={PATH_COLORS.practice.color}
-              dotColor={PATH_COLORS.practice.dotColor}
-              labelPos="below"
-              pulseDelay={0.5}
-            />
-          </motion.button>
+            <motion.button
+              data-testid="zone-practice-path"
+              aria-label={currentLang === 'ru' ? 'Открыть Путь Практики' : 'Open Practice Path'}
+              className="w-full h-full flex items-center justify-center"
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.92 }}
+              onClick={() => openPath('practice')}
+            >
+              <PathMarker
+                label={t.paths.practice.label}
+                color={PATH_COLORS.practice.color}
+                dotColor={PATH_COLORS.practice.dotColor}
+                labelPos="below"
+                pulseDelay={0.5}
+              />
+            </motion.button>
+          </motion.div>
 
           {/* ── Connection Path zone (right road) ── */}
-          <motion.button
-            data-testid="zone-connection-path"
-            className="absolute flex items-center justify-center z-20"
+          <motion.div
+            className="absolute z-20"
             style={layout.connection}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.92 }}
-            onClick={() => openPath('connection')}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1.5, duration: 0.6 }}
           >
-            <PathMarker
-              label={t.paths.connection.label}
-              color={PATH_COLORS.connection.color}
-              dotColor={PATH_COLORS.connection.dotColor}
-              labelPos="below"
-              pulseDelay={1.0}
-            />
-          </motion.button>
+            <motion.button
+              data-testid="zone-connection-path"
+              aria-label={currentLang === 'ru' ? 'Открыть Путь Связи' : 'Open Connection Path'}
+              className="w-full h-full flex items-center justify-center"
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.92 }}
+              onClick={() => openPath('connection')}
+            >
+              <PathMarker
+                label={t.paths.connection.label}
+                color={PATH_COLORS.connection.color}
+                dotColor={PATH_COLORS.connection.dotColor}
+                labelPos="below"
+                pulseDelay={1.0}
+              />
+            </motion.button>
+          </motion.div>
 
           {/* ── Hecate statue zone (center) ── */}
-          <motion.button
-            data-testid="zone-hecate-statue"
-            className="absolute flex items-center justify-center z-10"
+          <motion.div
+            className="absolute z-30"
             style={layout.hecate}
-            whileTap={{ scale: 0.97 }}
-            onClick={() => setCovenOpen(true)}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1.0, duration: 0.8 }}
           >
-            <motion.div
-              className="absolute inset-0 rounded-full pointer-events-none"
-              animate={{
-                boxShadow: [
-                  'inset 0 0 0px rgba(251,191,36,0)',
-                  'inset 0 0 40px rgba(251,191,36,0.08)',
-                  'inset 0 0 0px rgba(251,191,36,0)',
-                ],
-              }}
-              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-            />
-            <motion.div
-              className="absolute bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap"
-              animate={{ opacity: [0.3, 0.7, 0.3] }}
-              transition={{ duration: 4.5, repeat: Infinity }}
+            <motion.button
+              data-testid="zone-hecate-statue"
+              aria-label={currentLang === 'ru' ? 'Открыть Ковен Гекаты' : 'Open Hecate Coven'}
+              className="relative w-full h-full flex items-center justify-center"
+              whileTap={{ scale: 0.97 }}
+              onClick={() => setCovenOpen(true)}
             >
-              <span
-                className="text-[9px] md:text-[10px] tracking-[0.4em] uppercase font-cinzel"
-                style={{
-                  color: '#fcd34d',
-                  textShadow: '0 0 14px rgba(251,191,36,0.6)',
+              <motion.div
+                className="absolute inset-0 rounded-full pointer-events-none"
+                animate={{
+                  boxShadow: [
+                    'inset 0 0 0px rgba(251,191,36,0)',
+                    'inset 0 0 40px rgba(251,191,36,0.08)',
+                    'inset 0 0 0px rgba(251,191,36,0)',
+                  ],
                 }}
+                transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+              />
+              <motion.div
+                className="absolute bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap"
+                animate={{ opacity: [0.3, 0.7, 0.3] }}
+                transition={{ duration: 4.5, repeat: Infinity }}
               >
-                {t.hecateLabel}
-              </span>
-            </motion.div>
-          </motion.button>
+                <span
+                  className="text-[9px] md:text-[10px] tracking-[0.4em] uppercase font-cinzel"
+                  style={{
+                    color: '#fcd34d',
+                    textShadow: '0 0 14px rgba(251,191,36,0.6)',
+                  }}
+                >
+                  {t.hecateLabel}
+                </span>
+              </motion.div>
+            </motion.button>
+          </motion.div>
             </div>
           </div>
         </div>
@@ -650,7 +675,7 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
 
         {/* ── Mist particles ── */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+          {Array.from({ length: 7 }).map((_, i) => (
             <motion.div
               key={i}
               className="absolute rounded-full"
@@ -672,13 +697,13 @@ export function HecateCrossroads({ onNavigate }: HecateCrossroadsProps) {
       {/* Modals */}
       <PathModal
         pathId={activeModal}
-        lang={lang as 'ru' | 'en'}
+        lang={currentLang}
         onClose={closeModal}
         onNavigate={onNavigate}
       />
       <CovenModal
         open={covenOpen}
-        lang={lang as 'ru' | 'en'}
+        lang={currentLang}
         onClose={() => setCovenOpen(false)}
       />
     </>

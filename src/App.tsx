@@ -220,8 +220,12 @@ function AppContent() {
 
   useEffect(() => {
     const nextTrack = navTheme === 'crossroads' ? '/sounds/Crossroads of Hecate.mp3' : '/sounds/ambient.mp3'
+    soundManager.pauseMusic()
     soundManager.setMusicTrack(nextTrack)
-  }, [navTheme])
+    if (hasInteracted) {
+      soundManager.playMusic().catch(() => {})
+    }
+  }, [navTheme, hasInteracted])
 
   const handleNavigate = (page: Page) => {
     if (page !== 'dashboard' && user) {
@@ -316,7 +320,7 @@ function AppContent() {
             userArchetype={user.archetype}
             userTradition={user.tradition}
             onMenuClick={isMobile ? () => setIsSidebarOpen(true) : undefined}
-            onCrossroads={() => handleNavigate('crossroads')}
+            onCrossroads={navTheme === 'crossroads' ? () => handleNavigate('crossroads') : undefined}
           />
         )}
         <FloatingLanguageSwitcher />
