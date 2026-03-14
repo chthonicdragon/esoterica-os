@@ -7,6 +7,7 @@ import type { CatalogItem, PlacedObject } from './types'
 interface AltarObject3DProps {
   placed: PlacedObject
   catalog: CatalogItem
+  modelUrl?: string
   selected: boolean
   ritualActive: boolean
   onSelect: (id: string) => void
@@ -179,6 +180,7 @@ function CrystalGlow({ position, color, active }: { position: [number, number, n
 export function AltarObject3D({
   placed,
   catalog,
+  modelUrl,
   selected,
   ritualActive,
   onSelect,
@@ -186,7 +188,8 @@ export function AltarObject3D({
   const groupRef = useRef<THREE.Group>(null!)
   const [hovered, setHovered] = useState(false)
   const [pressing, setPressing] = useState(false)
-  const isModel = Boolean(catalog.modelUrl)
+  const effectiveModelUrl = modelUrl || catalog.modelUrl
+  const isModel = Boolean(effectiveModelUrl)
   const tuning = MODEL_PLACEMENT_TUNING[catalog.id]
   const baseYOffset = tuning?.yOffset || 0
 
@@ -246,14 +249,14 @@ export function AltarObject3D({
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => { setHovered(false); setPressing(false) }}
     >
-      {isModel && catalog.modelUrl ? (
+      {isModel && effectiveModelUrl ? (
         <ModelErrorBoundary
           fallback={<mesh geometry={geometry} material={material} castShadow receiveShadow />}
         >
           <group scale={catalog.scale}>
             <Suspense fallback={<mesh geometry={geometry} material={material} castShadow receiveShadow />}>
               <ModelMesh
-                modelUrl={catalog.modelUrl}
+                modelUrl={effectiveModelUrl}
                 color={catalog.color}
                 category={catalog.category}
               />

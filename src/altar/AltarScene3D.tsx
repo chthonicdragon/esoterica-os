@@ -1,10 +1,11 @@
-import { useRef, Suspense, useMemo, useEffect } from 'react'
+import { useRef, Suspense, useMemo, useEffect, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, useGLTF, useProgress } from '@react-three/drei'
 import * as THREE from 'three'
 import type { AltarLayout } from './types'
 import { CATALOG, ALTAR_THEMES, ALTAR_BASES } from './catalog'
 import { AltarObject3D } from './AltarObject3D'
+import { resolveModelUrl } from '../lib/modelUrlResolver'
 
 type AltarVisualPreset = 'soft' | 'cinematic'
 const PRELOADED_MODEL_URLS = new Set<string>()
@@ -86,10 +87,12 @@ function AltarBaseMesh({
 function AltarTable({
   themeKey,
   baseId,
+  baseModelUrl,
   workSurfaceY,
 }: {
   themeKey: string
   baseId: AltarLayout['baseId']
+  baseModelUrl?: string
   workSurfaceY: number
 }) {
   const theme = ALTAR_THEMES[themeKey as keyof typeof ALTAR_THEMES]
@@ -100,7 +103,7 @@ function AltarTable({
     <group>
       {altarBase ? (
         <AltarBaseMesh
-          modelUrl={altarBase.modelUrl}
+          modelUrl={baseModelUrl || altarBase.modelUrl}
           tint={altarBase.tint}
           targetSpan={altarBase.targetSpan}
           targetTopY={workSurfaceY}
@@ -381,7 +384,9 @@ export function AltarScene3D({
   const isSafeQuality = renderQuality === 'safe'
   const theme = ALTAR_THEMES[layout.theme]
   const hasModelBase = ALTAR_BASES.some(base => base.id === layout.baseId)
-  const catalogMap = Object.fromEntries(CATALOG.map(c => [c.id, c]))
+  const catalogMap = useMemo(() => Object.fromEntries(CATALOG.map(c => [c.id, c])), [])
+  const [resolvedModelUrls, setResolvedModelUrls] = useState<Record<string, string>>({})
+  const baseModelUrl = ALTAR_BASES.find(base => base.id === layout.baseId)?.modelUrl
   const candleCount = layout.objects.reduce((acc, placed) => {
     const cat = catalogMap[placed.catalogId]
     return acc + (cat?.effect === 'flicker' ? 1 : 0)
@@ -389,20 +394,48 @@ export function AltarScene3D({
   const candleGlowStrength = Math.min(1, 0.2 + candleCount * 0.12)
 
   useEffect(() => {
-    const baseUrl = ALTAR_BASES.find(base => base.id === layout.baseId)?.modelUrl
     const modelUrls = new Set<string>()
-    if (baseUrl) modelUrls.add(baseUrl)
+    if (baseModelUrl) modelUrls.add(baseModelUrl)
+    layout.objects.forEach((placed) => {
+      const catalogItem = catalogMap[placed.catalogId]
+      if (catalogItem?.modelUrl) modelUrls.add(catalogItem.modelUrl)
+    })
+    const pending = Array.from(modelUrls)
+    if (pending.length === 0) return
+    let cancelled = false
+    ;(async () => {
+      const entries = await Promise.all(
+        pending.map(async (url) => [url, await resolveModelUrl(url)] as const)
+      )
+      if (cancelled) return
+      setResolvedModelUrls((prev) => {
+        const next = { ...prev }
+        entries.forEach(([source, resolved]) => {
+          next[source] = resolved
+        })
+        return next
+      })
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [baseModelUrl, layout.objects, catalogMap])
+
+  useEffect(() => {
+    const modelUrls = new Set<string>()
+    if (baseModelUrl) modelUrls.add(baseModelUrl)
     layout.objects.forEach((placed) => {
       const catalogItem = catalogMap[placed.catalogId]
       if (catalogItem?.modelUrl) modelUrls.add(catalogItem.modelUrl)
     })
 
-    modelUrls.forEach((url) => {
-      if (PRELOADED_MODEL_URLS.has(url)) return
-      PRELOADED_MODEL_URLS.add(url)
-      useGLTF.preload(url)
+    modelUrls.forEach((sourceUrl) => {
+      const targetUrl = resolvedModelUrls[sourceUrl] || sourceUrl
+      if (PRELOADED_MODEL_URLS.has(targetUrl)) return
+      PRELOADED_MODEL_URLS.add(targetUrl)
+      useGLTF.preload(targetUrl)
     })
-  }, [layout.baseId, layout.objects, catalogMap])
+  }, [baseModelUrl, layout.objects, catalogMap, resolvedModelUrls])
 
   const lighting = useMemo(() => {
     if (visualPreset === 'soft') {
@@ -481,7 +514,12 @@ export function AltarScene3D({
 
       {/* Altar */}
       <Suspense fallback={null}>
-        <AltarTable themeKey={layout.theme} baseId={layout.baseId} workSurfaceY={workSurfaceY} />
+        <AltarTable
+          themeKey={layout.theme}
+          baseId={layout.baseId}
+          baseModelUrl={baseModelUrl ? resolvedModelUrls[baseModelUrl] || baseModelUrl : undefined}
+          workSurfaceY={workSurfaceY}
+        />
       </Suspense>
       {!hasModelBase && <AltarCloth themeKey={layout.theme} />}
       <AltarGroundContact
@@ -505,6 +543,7 @@ export function AltarScene3D({
             key={placed.id}
             placed={placed}
             catalog={cat}
+            modelUrl={cat.modelUrl ? (resolvedModelUrls[cat.modelUrl] || cat.modelUrl) : undefined}
             selected={selectedId === placed.id}
             ritualActive={ritualActive}
             onSelect={onSelect}

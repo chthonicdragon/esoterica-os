@@ -278,6 +278,8 @@ function AppContent() {
     )
   }
 
+  const effectiveNavTheme = typeof window !== 'undefined' ? getNavTheme() : navTheme
+  const effectiveCrossroadsSidebarMode = typeof window !== 'undefined' ? getCrossroadsSidebarMode() : crossroadsSidebarMode
   const pageTitleObj = PAGE_TITLES[currentPage]
   const pageTitle = (pageTitleObj as any)[lang] || pageTitleObj.en
 
@@ -299,7 +301,7 @@ function AppContent() {
         </div>
       )}
 
-      {!isMobile && user && (navTheme !== 'crossroads' || crossroadsSidebarMode === 'show') && (
+      {!isMobile && user && (effectiveNavTheme !== 'crossroads' || effectiveCrossroadsSidebarMode === 'show') && (
         <Sidebar currentPage={currentPage} onNavigate={handleNavigate} userId={user.id} />
       )}
 
