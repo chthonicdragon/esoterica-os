@@ -320,7 +320,7 @@ function AppContent() {
             userName={user.displayName || user.email} 
             userArchetype={user.archetype}
             userTradition={user.tradition}
-            onMenuClick={isMobile ? () => setIsSidebarOpen(true) : undefined}
+            onMenuClick={isMobile && (effectiveNavTheme !== 'crossroads' || effectiveCrossroadsSidebarMode === 'show') ? () => setIsSidebarOpen(true) : undefined}
             onCrossroads={effectiveNavTheme === 'crossroads' ? () => handleNavigate('crossroads') : undefined}
           />
         )}
