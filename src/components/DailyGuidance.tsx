@@ -1,6 +1,7 @@
+// DailyGuidance.tsx
 import React, { useState, useEffect } from 'react'
 import { useLang } from '../contexts/LanguageContext'
-import { AstrologyService, NumerologyService, TranslationService, type Horoscope } from '../services/magicalDataService'
+import { AstrologyService, NumerologyService, type Horoscope } from '../services/magicalDataService'
 import { Sparkles, Star, Calendar, RefreshCw, Settings } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { AutoTranslate } from './AutoTranslate'
@@ -25,20 +26,53 @@ export function DailyGuidance() {
   const [loading, setLoading] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
 
-  // Load profile
+  // --- Free translation function ---
+  async function translateText(text: string, targetLang: 'ru' | 'en'): Promise<string> {
+    if (!text || targetLang === 'en') return text
+
+    // cache key
+    const cacheKey = `translated_horoscope_${sign}_${birthDate}_${targetLang}`
+    const cached = localStorage.getItem(cacheKey)
+    if (cached) return cached
+
+    try {
+      const res = await fetch('https://libretranslate.de/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          q: text,
+          source: 'en',
+          target: targetLang,
+          format: 'text',
+        }),
+      })
+      const data = await res.json()
+      const translated = data.translatedText || text
+      localStorage.setItem(cacheKey, translated)
+      return translated
+    } catch (e) {
+      console.warn('Translation failed, fallback to original', e)
+      return text
+    }
+  }
+
+  // --- Load profile from localStorage ---
   useEffect(() => {
     const savedSign = localStorage.getItem('esoterica_user_sign')
-    const savedEastern = localStorage.getItem('esoterica_eastern_zodiac_' + (localStorage.getItem('supabase.auth.token') ? JSON.parse(localStorage.getItem('supabase.auth.token')!).currentSession?.user?.id : ''))
-    // Fallback: try to find any eastern zodiac key
+    const savedEastern = localStorage.getItem(
+      'esoterica_eastern_zodiac_' +
+        (localStorage.getItem('supabase.auth.token')
+          ? JSON.parse(localStorage.getItem('supabase.auth.token')!).currentSession?.user?.id
+          : '')
+    )
     const anyEasternKey = Object.keys(localStorage).find(k => k.startsWith('esoterica_eastern_zodiac_'))
-    
     const savedDate = localStorage.getItem('esoterica_user_birthdate')
+
     if (savedSign) setSign(savedSign)
     if (savedDate) setBirthDate(savedDate)
-    
     const easternVal = savedEastern || (anyEasternKey ? localStorage.getItem(anyEasternKey) : '')
     if (easternVal) setEasternSign(easternVal)
-    
+
     if (savedSign && savedDate) {
       fetchData(savedSign, savedDate)
     } else {
@@ -46,6 +80,7 @@ export function DailyGuidance() {
     }
   }, [])
 
+  // --- Fetch data for numerology + astrology ---
   const fetchData = async (s: string, d: string) => {
     setLoading(true)
     try {
@@ -57,7 +92,15 @@ export function DailyGuidance() {
 
       // 2. Astrology
       const astro = await AstrologyService.getDailyHoroscope(s)
-      setHoroscope(astro)
+      if (astro) {
+        const translatedDescription = await translateText(astro.description, lang)
+        setHoroscope({
+          ...astro,
+          description: translatedDescription,
+        })
+      } else {
+        setHoroscope(null)
+      }
     } catch (e) {
       console.error(e)
     } finally {
@@ -65,29 +108,34 @@ export function DailyGuidance() {
     }
   }
 
+  // --- Save profile ---
   const handleSave = () => {
     if (sign && birthDate) {
       localStorage.setItem('esoterica_user_sign', sign)
       localStorage.setItem('esoterica_user_birthdate', birthDate)
-      
-      // Save eastern zodiac
-      const userId = localStorage.getItem('supabase.auth.token') ? JSON.parse(localStorage.getItem('supabase.auth.token')!).currentSession?.user?.id : 'guest'
+
+      const userId = localStorage.getItem('supabase.auth.token')
+        ? JSON.parse(localStorage.getItem('supabase.auth.token')!).currentSession?.user?.id
+        : 'guest'
       if (userId && easternSign) {
         localStorage.setItem(`esoterica_eastern_zodiac_${userId}`, easternSign)
       }
-      
+
       setIsEditing(false)
       fetchData(sign, birthDate)
     }
   }
 
   if (loading && !horoscope) {
-    return <div className="p-4 text-center text-xs text-muted-foreground animate-pulse">{lang === 'ru' ? 'Загрузка космических данных...' : 'Loading cosmic data...'}</div>
+    return <div className="p-4 text-center text-xs text-muted-foreground animate-pulse">
+      {lang === 'ru' ? 'Загрузка космических данных...' : 'Loading cosmic data...'}
+    </div>
   }
 
   if (isEditing) {
     return (
       <div className="rounded-2xl bg-card border border-primary/20 p-5 space-y-4 animate-fade-in">
+        {/* Profile Setup UI */}
         <div className="flex items-center gap-2 mb-2">
           <Sparkles className="w-4 h-4 text-primary" />
           <h3 className="text-sm font-semibold">{lang === 'ru' ? 'Настройка профиля' : 'Profile Setup'}</h3>
@@ -102,7 +150,7 @@ export function DailyGuidance() {
             >
               <option value="">Select...</option>
               {ZODIAC_SIGNS.map(z => (
-                <option key={z} value={z}>{TranslationService.translate(z, lang)}</option>
+                <option key={z} value={z}>{z.charAt(0).toUpperCase() + z.slice(1)}</option>
               ))}
             </select>
           </div>
@@ -140,8 +188,10 @@ export function DailyGuidance() {
     )
   }
 
+  // --- Display Astrology + Numerology ---
   return (
     <div className="relative rounded-2xl bg-gradient-to-br from-indigo-900/20 to-purple-900/20 border border-white/10 p-5 overflow-hidden group">
+      {/* Edit button */}
       <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
         <button onClick={() => setIsEditing(true)} className="p-1.5 hover:bg-white/10 rounded-lg text-muted-foreground">
           <Settings className="w-3 h-3" />
@@ -149,13 +199,13 @@ export function DailyGuidance() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Astrology Column */}
+        {/* Astrology */}
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-indigo-300">
             <Star className="w-4 h-4" />
             <h4 className="text-xs font-bold uppercase tracking-widest">{lang === 'ru' ? 'Астрология' : 'Astrology'}</h4>
           </div>
-          
+
           {horoscope ? (
             <div className="space-y-2">
               <div className="flex justify-between items-end">
@@ -165,11 +215,11 @@ export function DailyGuidance() {
                 </span>
                 <span className="text-[10px] text-indigo-400">{horoscope.date_range}</span>
               </div>
-              
+
               <div className="text-xs text-indigo-200/80 leading-relaxed italic">
                 <AutoTranslate>{horoscope.description}</AutoTranslate>
               </div>
-              
+
               <div className="flex flex-wrap gap-2 mt-2">
                 <Badge label={lang === 'ru' ? 'Настроение' : 'Mood'} value={horoscope.mood} color="bg-blue-500/20 text-blue-300" />
                 <Badge label={lang === 'ru' ? 'Число' : 'Lucky #'} value={horoscope.lucky_number} color="bg-amber-500/20 text-amber-300" />
@@ -181,7 +231,7 @@ export function DailyGuidance() {
           )}
         </div>
 
-        {/* Numerology Column */}
+        {/* Numerology */}
         <div className="space-y-3 md:border-l md:border-white/10 md:pl-6">
           <div className="flex items-center gap-2 text-purple-300">
             <Calendar className="w-4 h-4" />

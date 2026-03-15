@@ -127,7 +127,10 @@ function AppContent() {
   const [showLandscapeHint, setShowLandscapeHint] = useState(true)
   const [navTheme, setNavTheme] = useState(() => getNavTheme())
   const [crossroadsSidebarMode, setCrossroadsSidebarMode] = useState<'show' | 'hide'>(getCrossroadsSidebarMode())
-  const [isProfileSheetOpen, setIsProfileSheetOpen] = useState(false)
+  const [isProfileSheetOpen, setIsProfileSheetOpen] = useState(false) 
+  useEffect(() => {
+  soundManager.init()
+}, [])
 
   useEffect(() => {
     if (typeof window === 'undefined' || !safeModeRequested) return
@@ -187,7 +190,7 @@ function AppContent() {
   // Effect to handle navigation sounds
   useEffect(() => {
     if (hasInteracted) {
-      playUiSound('whoosh')
+     playUiSound('wind')
     }
   }, [currentPage, hasInteracted, playUiSound])
 

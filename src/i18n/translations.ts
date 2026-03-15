@@ -14,6 +14,7 @@ export const translations = {
     knowledgeGraph: 'Knowledge Graph',
     chakras: 'Chakra Intelligence',
     marketplace: 'Marketplace',
+    covens: 'Covens',
     settings: 'Settings',
 
     // Dashboard
@@ -153,6 +154,7 @@ export const translations = {
     knowledgeGraph: 'Паутина знаний',
     chakras: 'Чакры',
     marketplace: 'Маркетплейс',
+    covens: 'Ковены',
     settings: 'Настройки',
 
     // Dashboard

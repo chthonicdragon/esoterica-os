@@ -276,13 +276,13 @@ Rules:
     const resolveClientKey = (): string => {
       let k = ''
       try {
-        // @ts-ignore
+        // @ts-expect-error
         k = import.meta.env.VITE_OPENROUTER_API_KEY
       } catch {}
       if (k) return k
       
       if (typeof window !== 'undefined') {
-        // @ts-ignore
+        // @ts-expect-error
         if (window.__VITE_OPENROUTER_KEY) return window.__VITE_OPENROUTER_KEY
         if (window.localStorage && window.localStorage.getItem('eos_openrouter_key')) {
           return window.localStorage.getItem('eos_openrouter_key') || ''
@@ -354,7 +354,7 @@ Rules:
       }
       const text = await direct.text().catch(() => '')
       console.warn(`AI API error: ${text || direct.status}. Falling back to regex.`)
-      // @ts-ignore
+    // @ts-expect-error
       return this.extractWithRegex(wikiText, entity, pantheon)
     }
 
@@ -362,7 +362,7 @@ Rules:
     const directContent = directData?.choices?.[0]?.message?.content || ''
     if (!directContent) {
         console.warn('Empty AI response. Falling back to regex.')
-        // @ts-ignore
+        // @ts-expect-error
         return this.extractWithRegex(wikiText, entity, pantheon)
     }
     return JSON.parse(directContent)

@@ -31,10 +31,10 @@ export default defineConfig({
     outDir: path.resolve(import.meta.dirname, "dist"),
     emptyOutDir: true,
   },
-  server: {
-    fs: {
-      strict: true,
-      deny: ["**/.*"],
-    },
-  },
+  // server: {
+  //   fs: {
+  //     strict: true,
+  //     deny: ["**/.*"],
+  //   },
+  // },
 });

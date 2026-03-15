@@ -1,11 +1,11 @@
-import { useRef, Suspense, useMemo, useEffect, useState } from 'react'
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import * as THREE from 'three'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, useGLTF, useProgress } from '@react-three/drei'
-import * as THREE from 'three'
+
 import type { AltarLayout } from './types'
 import { CATALOG, ALTAR_THEMES, ALTAR_BASES } from './catalog'
 import { AltarObject3D } from './AltarObject3D'
-import { resolveModelUrl } from '../lib/modelUrlResolver'
 import { resolveModelUrl } from '../lib/modelUrlResolver'
 
 type AltarVisualPreset = 'soft' | 'cinematic'
@@ -526,7 +526,7 @@ export function AltarScene3D({
       <pointLight position={[0.1, 0.46, 0.08]} color="#ffb366" intensity={lighting.candleBase + candleGlowStrength * lighting.candleBoost} distance={1.5} decay={2} />
 
       {/* Fog */}
-      {/* @ts-ignore */}
+     // @ts-expect-error
       <fog attach="fog" args={[theme.fogColor, lighting.fogNear, lighting.fogFar]} />
 
       {/* Altar */}
