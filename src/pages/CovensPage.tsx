@@ -21,6 +21,8 @@ interface CovenMember {
   coven_id: string
   user_id: string
   role: string
+  user_name?: string | null
+  email?: string | null
   created_at?: string
 }
 
@@ -30,6 +32,7 @@ interface Coven {
   description: string | null
   is_public: boolean
   created_by: string
+  leader_id?: string | null
   created_at?: string
   coven_members?: CovenMember[]
 }
@@ -53,6 +56,9 @@ export default function CovensPage({ user }: CovensPageProps) {
   const [selectedMembers, setSelectedMembers] = useState<CovenMember[]>([])
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [membershipLoading, setMembershipLoading] = useState(false)
+  const [transferTargetId, setTransferTargetId] = useState('')
+  const [transferLoading, setTransferLoading] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   const fetchCovens = async (silent = false) => {
     if (silent) {
@@ -93,12 +99,25 @@ export default function CovensPage({ user }: CovensPageProps) {
     try {
       const { data, error } = await supabase
         .from('coven_members')
-        .select('*')
+        .select(`
+          *,
+          profiles!inner(
+            full_name,
+            email
+          )
+        `)
         .eq('coven_id', covenId)
         .order('created_at', { ascending: true })
 
       if (error) throw error
-      setSelectedMembers((data as CovenMember[]) || [])
+
+      const members = ((data as any[]) || []).map((member) => ({
+        ...member,
+        user_name: member.profiles?.full_name ?? null,
+        email: member.profiles?.email ?? null,
+      }))
+
+      setSelectedMembers(members)
     } catch (e) {
       console.error('Error fetching coven members:', e)
       setSelectedMembers([])
@@ -111,6 +130,7 @@ export default function CovensPage({ user }: CovensPageProps) {
   const handleOpenCoven = async (coven: Coven) => {
     setSelectedCoven(coven)
     setShowDetailsSheet(true)
+    setTransferTargetId('')
     await fetchCovenMembers(coven.id)
   }
 
@@ -128,6 +148,7 @@ export default function CovensPage({ user }: CovensPageProps) {
           description: newCovenDescription.trim() || null,
           is_public: newCovenIsPublic,
           created_by: user.id,
+          leader_id: user.id,
         })
         .select()
         .single()
@@ -164,7 +185,13 @@ export default function CovensPage({ user }: CovensPageProps) {
       }
 
       setSelectedCoven(created)
-      setSelectedMembers([{ coven_id: covenData.id, user_id: user.id, role: 'leader' }])
+      setSelectedMembers([{
+        coven_id: covenData.id,
+        user_id: user.id,
+        role: 'leader',
+        user_name: user.displayName ?? null,
+        email: user.email ?? null,
+      }])
       setShowDetailsSheet(true)
     } catch (error) {
       console.error('Error creating coven:', error)
@@ -179,6 +206,11 @@ export default function CovensPage({ user }: CovensPageProps) {
   const isSelectedLeader = useMemo(() => {
     return selectedMembers.some((m) => m.user_id === user.id && m.role === 'leader')
   }, [selectedMembers, user.id])
+
+  const canDeleteSelectedCoven = useMemo(() => {
+    if (!selectedCoven) return false
+    return selectedCoven.created_by === user.id || selectedCoven.leader_id === user.id || isSelectedLeader
+  }, [selectedCoven, user.id, isSelectedLeader])
 
   const handleJoinCoven = async () => {
     if (!selectedCoven) return
@@ -206,6 +238,62 @@ export default function CovensPage({ user }: CovensPageProps) {
     }
   }
 
+  const handleTransferLeadership = async () => {
+    if (!selectedCoven || !transferTargetId) return
+
+    if (transferTargetId === user.id) {
+      toast.error(lang === 'ru' ? 'Нельзя передать лидерство самому себе' : 'Cannot transfer leadership to yourself')
+      return
+    }
+
+    setTransferLoading(true)
+    try {
+      const targetMember = selectedMembers.find((m) => m.user_id === transferTargetId)
+
+      if (!targetMember) {
+        toast.error(lang === 'ru' ? 'Пользователь не состоит в ковене' : 'User is not a member of this coven')
+        return
+      }
+
+      const { error: demoteError } = await supabase
+        .from('coven_members')
+        .update({ role: 'member' })
+        .eq('coven_id', selectedCoven.id)
+        .eq('user_id', user.id)
+
+      if (demoteError) throw demoteError
+
+      const { error: promoteError } = await supabase
+        .from('coven_members')
+        .update({ role: 'leader' })
+        .eq('coven_id', selectedCoven.id)
+        .eq('user_id', transferTargetId)
+
+      if (promoteError) throw promoteError
+
+      const { error: covenUpdateError } = await supabase
+        .from('covens')
+        .update({ leader_id: transferTargetId })
+        .eq('id', selectedCoven.id)
+
+      if (covenUpdateError) {
+        console.warn('leader_id update skipped/failed:', covenUpdateError)
+      }
+
+      toast.success(lang === 'ru' ? 'Лидерство передано' : 'Leadership transferred')
+
+      setSelectedCoven((prev) => (prev ? { ...prev, leader_id: transferTargetId } : prev))
+      setTransferTargetId('')
+      await fetchCovenMembers(selectedCoven.id)
+      await fetchCovens(true)
+    } catch (e) {
+      console.error('Error transferring leadership:', e)
+      toast.error(lang === 'ru' ? 'Не удалось передать лидерство' : 'Failed to transfer leadership')
+    } finally {
+      setTransferLoading(false)
+    }
+  }
+
   const handleLeaveCoven = async () => {
     if (!selectedCoven) return
     if (!isSelectedMember) return
@@ -218,74 +306,6 @@ export default function CovensPage({ user }: CovensPageProps) {
       )
       return
     }
-
-    const handleTransferLeadership = async () => {
-  if (!selectedCoven || !transferTargetId) return
-
-  if (transferTargetId === user.id) {
-    toast.error(lang === 'ru' ? 'Нельзя передать лидерство самому себе' : 'Cannot transfer leadership to yourself')
-    return
-  }
-
-  setTransferLoading(true)
-  try {
-    // 1. Новый лидер должен уже быть участником
-    const targetMember = selectedMembers.find(
-      (m) => m.user_id === transferTargetId
-    )
-
-    if (!targetMember) {
-      toast.error(lang === 'ru' ? 'Пользователь не состоит в ковене' : 'User is not a member of this coven')
-      return
-    }
-
-    // 2. Снимаем лидерство с текущего лидера
-    const { error: demoteError } = await supabase
-      .from('coven_members')
-      .update({ role: 'member' })
-      .eq('coven_id', selectedCoven.id)
-      .eq('user_id', user.id)
-
-    if (demoteError) throw demoteError
-
-    // 3. Назначаем нового лидера
-    const { error: promoteError } = await supabase
-      .from('coven_members')
-      .update({ role: 'leader' })
-      .eq('coven_id', selectedCoven.id)
-      .eq('user_id', transferTargetId)
-
-    if (promoteError) throw promoteError
-
-    // 4. Обновляем запись ковена, если у тебя есть leader_id
-    const { error: covenUpdateError } = await supabase
-      .from('covens')
-      .update({ leader_id: transferTargetId })
-      .eq('id', selectedCoven.id)
-
-    // если поля leader_id нет, эту часть можно удалить
-    if (covenUpdateError) {
-      console.warn('leader_id update skipped/failed:', covenUpdateError)
-    }
-
-    toast.success(
-      lang === 'ru' ? 'Лидерство передано' : 'Leadership transferred'
-    )
-
-    setTransferTargetId('')
-    await fetchCovenMembers(selectedCoven.id)
-    await fetchCovens(true)
-  } catch (e) {
-    console.error('Error transferring leadership:', e)
-    toast.error(
-      lang === 'ru'
-        ? 'Не удалось передать лидерство'
-        : 'Failed to transfer leadership'
-    )
-  } finally {
-    setTransferLoading(false)
-  }
-}
 
     setMembershipLoading(true)
     try {
@@ -310,31 +330,37 @@ export default function CovensPage({ user }: CovensPageProps) {
   }
 
   const handleDeleteCoven = async () => {
-  if (!selectedCoven) return
+    if (!selectedCoven) return
 
-  const confirm = window.confirm(
-    lang === 'ru'
-      ? 'Удалить ковен? Это действие нельзя отменить.'
-      : 'Delete this coven? This action cannot be undone.'
-  )
+    const confirm = window.confirm(
+      lang === 'ru'
+        ? 'Удалить ковен? Это действие нельзя отменить.'
+        : 'Delete this coven? This action cannot be undone.'
+    )
 
-  if (!confirm) return
+    if (!confirm) return
 
-  const { error } = await supabase
-    .from('covens')
-    .delete()
-    .eq('id', selectedCoven.id)
+    setDeleteLoading(true)
+    try {
+      const { error } = await supabase
+        .from('covens')
+        .delete()
+        .eq('id', selectedCoven.id)
 
-  if (error) {
-    toast.error(lang === 'ru' ? 'Ошибка удаления' : 'Delete failed')
-    return
+      if (error) throw error
+
+      toast.success(lang === 'ru' ? 'Ковен удалён' : 'Coven deleted')
+      setShowDetailsSheet(false)
+      setSelectedCoven(null)
+      setSelectedMembers([])
+      await fetchCovens(true)
+    } catch (e) {
+      console.error('Error deleting coven:', e)
+      toast.error(lang === 'ru' ? 'Ошибка удаления' : 'Delete failed')
+    } finally {
+      setDeleteLoading(false)
+    }
   }
-
-  toast.success(lang === 'ru' ? 'Ковен удалён' : 'Coven deleted')
-
-  setShowDetailsSheet(false)
-  fetchCovens()
-}
 
   const memberCountLabel = (count: number) =>
     lang === 'ru' ? `${count} участников` : `${count} members`
@@ -601,8 +627,13 @@ export default function CovensPage({ user }: CovensPageProps) {
                               ? lang === 'ru'
                                 ? 'Вы'
                                 : 'You'
-                              : member.user_id}
+                              : member.user_name || member.email || member.user_id}
                           </p>
+                          {(member.user_name || member.email) && member.user_id !== user.id && (
+                            <p className="text-[11px] text-muted-foreground truncate">
+                              {member.email || member.user_id}
+                            </p>
+                          )}
                         </div>
                         <span className="text-[11px] uppercase text-primary font-medium">
                           {member.role === 'leader'
@@ -626,10 +657,64 @@ export default function CovensPage({ user }: CovensPageProps) {
               <div className="pt-2">
                 {isSelectedMember ? (
                   isSelectedLeader ? (
-                    <div className="rounded-lg border border-primary/30 bg-primary/10 p-3 text-sm text-primary">
-                      {lang === 'ru'
-                        ? 'Вы лидер этого ковена.'
-                        : 'You are the leader of this coven.'}
+                    <div className="space-y-3">
+                      <div className="rounded-lg border border-primary/30 bg-primary/10 p-3 text-sm text-primary">
+                        {lang === 'ru'
+                          ? 'Вы лидер этого ковена.'
+                          : 'You are the leader of this coven.'}
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs text-muted-foreground">
+                          {lang === 'ru' ? 'Передать лидерство' : 'Transfer leadership'}
+                        </label>
+                        <select
+                          value={transferTargetId}
+                          onChange={(e) => setTransferTargetId(e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg bg-white/5 border border-border/40 text-sm"
+                        >
+                          <option value="">
+                            {lang === 'ru' ? 'Выберите участника' : 'Select a member'}
+                          </option>
+                          {selectedMembers
+                            .filter((member) => member.user_id !== user.id)
+                            .map((member) => (
+                              <option key={member.user_id} value={member.user_id}>
+                                {member.user_name || member.email || member.user_id}
+                              </option>
+                            ))}
+                        </select>
+
+                        <button
+                          onClick={handleTransferLeadership}
+                          disabled={transferLoading || !transferTargetId}
+                          className="w-full px-4 py-2 rounded-lg border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+                        >
+                          {transferLoading
+                            ? lang === 'ru'
+                              ? 'Передача...'
+                              : 'Transferring...'
+                            : lang === 'ru'
+                              ? 'Передать лидерство'
+                              : 'Transfer Leadership'}
+                        </button>
+                      </div>
+
+                      {canDeleteSelectedCoven && (
+                        <button
+                          onClick={handleDeleteCoven}
+                          disabled={deleteLoading}
+                          className="w-full px-4 py-2 rounded-lg border border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20 transition-colors disabled:opacity-60"
+                        >
+                          {deleteLoading
+                            ? lang === 'ru'
+                              ? 'Удаление...'
+                              : 'Deleting...'
+                            : lang === 'ru'
+                              ? 'Удалить ковен'
+                              : 'Delete Coven'}
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <button

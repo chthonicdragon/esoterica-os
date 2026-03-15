@@ -18,8 +18,24 @@ const CHAKRA_ORDER: ChakraName[] = ['root', 'sacral', 'solar_plexus', 'heart', '
 
 type BodyVariant = 'male' | 'female'
 
-function BodyModel({ variant, intensity }: { variant: BodyVariant; intensity: number }) {
-  const url = variant === 'female' ? '/chakras/female_muscle_human_body.glb' : '/chakras/man_muscle_human_body.glb'
+function BodyFallback({ intensity }: { intensity: number }) {
+  return (
+    <mesh position={[0, 0.5, -0.2]}>
+      <capsuleGeometry args={[0.8, 2.8, 12, 20]} />
+      <meshStandardMaterial
+        color="#cfe2ff"
+        transparent
+        opacity={0.14 + intensity * 0.18}
+        roughness={0.9}
+        metalness={0.02}
+        emissive="#6aa3ff"
+        emissiveIntensity={0.08 + intensity * 0.2}
+      />
+    </mesh>
+  )
+}
+
+function LoadedBodyModel({ url, intensity }: { url: string; intensity: number }) {
   const gltf = useGLTF(url) as unknown as { scene: THREE.Group }
 
   const material = useMemo(() => {
@@ -66,6 +82,50 @@ function BodyModel({ variant, intensity }: { variant: BodyVariant; intensity: nu
       <primitive object={object} />
     </group>
   )
+}
+
+function BodyModel({ variant, intensity }: { variant: BodyVariant; intensity: number }) {
+  const url = variant === 'female' ? '/chakras/female_muscle_human_body.glb' : '/chakras/man_muscle_human_body.glb'
+  const [assetState, setAssetState] = useState<'checking' | 'ready' | 'missing'>('checking')
+
+  useEffect(() => {
+    let cancelled = false
+
+    const checkAsset = async () => {
+      try {
+        let response = await fetch(url, { method: 'HEAD' })
+
+        if (response.status === 405 || response.status === 501) {
+          response = await fetch(url, { method: 'GET' })
+        }
+
+        const contentType = (response.headers.get('content-type') || '').toLowerCase()
+        const isHtml = contentType.includes('text/html')
+
+        if (!response.ok || isHtml) {
+          if (!cancelled) setAssetState('missing')
+          return
+        }
+
+        if (!cancelled) setAssetState('ready')
+      } catch {
+        if (!cancelled) setAssetState('missing')
+      }
+    }
+
+    setAssetState('checking')
+    checkAsset()
+
+    return () => {
+      cancelled = true
+    }
+  }, [url])
+
+  if (assetState !== 'ready') {
+    return <BodyFallback intensity={intensity} />
+  }
+
+  return <LoadedBodyModel url={url} intensity={intensity} />
 }
 
 function ChakraSphere({
