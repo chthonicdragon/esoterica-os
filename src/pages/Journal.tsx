@@ -44,7 +44,7 @@ interface JournalProps {
   user: { id: string }
 }
 
-export function Journal({ user }: JournalProps) {
+export default function Journal({ user }: JournalProps) {
   const { t, lang } = useLang()
   const { playUiSound } = useAudio()
   const isMobile = useIsMobile()

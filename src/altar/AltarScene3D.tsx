@@ -6,6 +6,7 @@ import type { AltarLayout } from './types'
 import { CATALOG, ALTAR_THEMES, ALTAR_BASES } from './catalog'
 import { AltarObject3D } from './AltarObject3D'
 import { resolveModelUrl } from '../lib/modelUrlResolver'
+import { resolveModelUrl } from '../lib/modelUrlResolver'
 
 type AltarVisualPreset = 'soft' | 'cinematic'
 const PRELOADED_MODEL_URLS = new Set<string>()
@@ -34,18 +35,8 @@ function AmbientMist({ active }: { active: boolean }) {
   )
 }
 
-function AltarBaseMesh({
-  modelUrl,
-  tint,
-  targetSpan,
-  targetTopY,
-}: {
-  modelUrl: string
-  tint: string
-  targetSpan: number
-  targetTopY: number
-}) {
-  const gltf = useGLTF(modelUrl)
+function AltarBaseModel({ url, tint, targetSpan, targetTopY }: { url: string, tint: string, targetSpan: number, targetTopY: number }) {
+  const gltf = useGLTF(url)
   const model = useMemo(() => {
     const cloned = gltf.scene.clone(true)
     const sourceBox = new THREE.Box3().setFromObject(cloned)
@@ -81,6 +72,32 @@ function AltarBaseMesh({
   }, [model, tint])
 
   return <primitive object={model} />
+}
+
+function AltarBaseMesh({
+  modelUrl,
+  tint,
+  targetSpan,
+  targetTopY,
+}: {
+  modelUrl: string
+  tint: string
+  targetSpan: number
+  targetTopY: number
+}) {
+  const [resolvedUrl, setResolvedUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+    resolveModelUrl(modelUrl).then(url => {
+      if (isMounted) setResolvedUrl(url)
+    })
+    return () => { isMounted = false }
+  }, [modelUrl])
+
+  if (!resolvedUrl) return null
+
+  return <Suspense fallback={null}><AltarBaseModel url={resolvedUrl} tint={tint} targetSpan={targetSpan} targetTopY={targetTopY} /></Suspense>
 }
 
 // The altar table surface

@@ -69,7 +69,7 @@ const INITIATION_LEVELS = [
   { level: 6, name: 'Magister', nameRu: 'Магистр', min: 100 },
 ]
 
-export function Dashboard({ user, onNavigate }: DashboardProps) {
+export default function Dashboard({ user, onNavigate }: DashboardProps) {
   const { t, lang } = useLang()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [recentRituals, setRecentRituals] = useState<Ritual[]>([])

@@ -3,7 +3,7 @@ import { useLang } from '../../contexts/LanguageContext'
 import { useAudio } from '../../contexts/AudioContext'
 import {
   LayoutDashboard, FlameKindling, Bot, Moon, Sparkles,
-  BookOpen, ShoppingBag, Settings, LogOut, Hexagon, MessageSquare, Eye, Activity
+  BookOpen, ShoppingBag, Settings, LogOut, Hexagon, MessageSquare, Eye, Activity, Users
 } from 'lucide-react'
 import { SpiderWebIcon } from '../icons/SpiderWebIcon'
 import { cn } from '../../lib/utils'
@@ -48,6 +48,7 @@ export function Sidebar({ currentPage, onNavigate, userId }: SidebarProps) {
     { id: 'divination' as Page, icon: Eye, label: (t as any).divination || 'Oracle' },
     { id: 'journal' as Page, icon: BookOpen, label: t.journal },
     { id: 'forum' as Page, icon: MessageSquare, label: (t as any).forum || 'Forum', badge: forumBadge },
+    { id: 'covens' as Page, icon: Users, label: (t as any).covens || 'Covens' },
     { id: 'marketplace' as Page, icon: ShoppingBag, label: t.marketplace },
   ]
 

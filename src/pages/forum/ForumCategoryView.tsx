@@ -35,7 +35,7 @@ export function ForumCategoryView({ user, categoryId, onNavigate }: Props) {
           .eq('id', categoryId)
           .maybeSingle(),
         supabase
-          .from('forum_topics')
+          .from('forumTopics')
           .select('*')
           .eq('categoryId', categoryId)
           .order('createdAt', { ascending: false })

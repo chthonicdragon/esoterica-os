@@ -138,7 +138,7 @@ async function buildPracticeContext(userId: string, lang: string): Promise<strin
   return parts.join('\n')
 }
 
-export function AIMentor({ user }: AIMentorProps) {
+export default function AIMentor({ user }: AIMentorProps) {
   const { t, lang } = useLang()
   const [selectedArchetype, setSelectedArchetype] = useState<ArchetypeKey>('hecate')
   const [messages, setMessages] = useState<Message[]>(() => loadChatHistory('hecate'))

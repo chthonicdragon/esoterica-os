@@ -184,7 +184,7 @@ interface WeaveAttempt {
   ritualName: string
 }
 
-export function KnowledgeGraph({ user }: Props) {
+export default function KnowledgeGraph({ user }: Props) {
   const { lang } = useLang()
   const t = translations[lang as 'en' | 'ru'] ?? translations.en
   const getTypeLabel = useCallback((type: string) => {

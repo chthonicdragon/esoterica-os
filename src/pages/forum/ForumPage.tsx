@@ -13,7 +13,7 @@ interface ForumPageProps {
   user: { id: string; email?: string; displayName?: string }
 }
 
-export function ForumPage({ user }: ForumPageProps) {
+export default function ForumPage({ user }: ForumPageProps) {
   const { lang } = useLang()
   const { playUiSound } = useAudio()
   const [view, setView] = useState<ForumView>('categories')

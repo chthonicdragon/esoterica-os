@@ -29,7 +29,7 @@ const PLANETS = ['Saturn', 'Jupiter', 'Mars', 'Sun', 'Venus', 'Mercury', 'Moon']
 const ELEMENTS = ['Fire', 'Water', 'Air', 'Earth', 'Spirit']
 const OFFERINGS = ['incense', 'wine', 'blood', 'honey', 'coins', 'candles']
 
-export function SigilLab({ user }: SigilLabProps) {
+export default function SigilLab({ user }: SigilLabProps) {
   const { t, lang } = useLang()
   const { playUiSound } = useAudio()
   const [intention, setIntention] = useState('')

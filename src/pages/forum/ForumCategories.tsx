@@ -17,7 +17,7 @@ export function ForumCategories({ onNavigate }: Props) {
     queryKey: ['forum-categories'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('forum_categories')
+        .from('forumCategories')
         .select('*')
         .order('sortOrder', { ascending: true })
       if (error) throw error

@@ -5,10 +5,10 @@ import { useUser } from './contexts/UserContext'
 // import { blink } from './blink/client' // removed, migrated to Supabase
 import { Sidebar } from './components/layout/Sidebar'
 import { Header } from './components/layout/Header'
-import { Sheet, SheetContent } from './components/ui/sheet'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose } from './components/ui/sheet'
 import { RouteErrorBoundary } from './components/RouteErrorBoundary'
 import * as Pages from './pages'
-import { getNavTheme, getCrossroadsSidebarMode } from './lib/navTheme'
+import { getNavTheme, getCrossroadsSidebarMode, setNavTheme as setNavThemeInStorage } from './lib/navTheme'
 import { PageLoader } from './components/PageLoader'
 import { Maximize2 } from 'lucide-react'
 import { useIsMobile } from './hooks/use-mobile'
@@ -21,7 +21,7 @@ import { FloatingLanguageSwitcher } from './components/FloatingLanguageSwitcher'
 import { ThemeBackground } from './components/theme/ThemeBackground'
 import { soundManager } from './lib/soundManager'
 
-type Page = 'crossroads' | 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'divination' | 'journal' | 'forum' | 'marketplace' | 'settings' | 'knowledge-graph' | 'chakra-intelligence'
+type Page = 'crossroads' | 'dashboard' | 'altars' | 'ai-mentor' | 'ritual-tracker' | 'sigil-lab' | 'divination' | 'journal' | 'forum' | 'marketplace' | 'settings' | 'knowledge-graph' | 'chakra-intelligence' | 'covens'
 const PAGE_STORAGE_KEY = 'esoterica_current_page_v1'
 
 const ALL_PAGES: Page[] = [
@@ -38,6 +38,7 @@ const ALL_PAGES: Page[] = [
   'settings',
   'knowledge-graph',
   'chakra-intelligence',
+  'covens',
 ]
 
 const isValidPage = (value: string | null | undefined): value is Page => {
@@ -85,7 +86,24 @@ const PAGE_TITLES: Record<Page, { en: string; ru: string }> = {
   settings: { en: 'Settings', ru: 'Настройки' },
   'knowledge-graph': { en: 'Knowledge Graph', ru: 'Паутина знаний' },
   'chakra-intelligence': { en: 'Chakra Intelligence', ru: 'Чакры' },
+  covens: { en: 'Covens', ru: 'Ковены' },
 }
+
+const ARCHETYPES_RU: Record<string, string> = {
+  seeker: 'Искатель', witch: 'Ведьма', mage: 'Маг', shaman: 'Шаман', alchemist: 'Алхимик', mystic: 'Мистик',
+  'daemon-worker': 'Демонолатор', 'spirit-worker': 'Духовник', oracle: 'Оракул', seer: 'Провидец', esotericist: 'Эзотерист',
+  necromancer: 'Некромант', totemist: 'Тотемист', dreamwalker: 'Сновидец', enchanter: 'Заклинатель',
+  'knowledge-keeper': 'Хранитель знаний', invoker: 'Инвокатор',
+}
+
+const TRADITIONS_RU: Record<string, string> = {
+  eclectic: 'Эклектическая', hellenic: 'Эллинская', slavic: 'Славянская', norse: 'Скандинавская', daemonic: 'Демоническая',
+  chaos: 'Хаос', ceremonial: 'Церемониальная', hermetic: 'Герметическая', kabbalistic: 'Каббалистическая', druidic: 'Друидическая',
+  eastern: 'Восточная', shamanic: 'Шаманская', arcane: 'Арканическая', 'lunar-magic': 'Лунная магия',
+  'light-magic': 'Светлая магия', 'dark-lunar': 'Темная / Лунная', angelic: 'Ангельская / Светлая', draconian: 'Драконианская',
+}
+
+const formatTitleCase = (value: string) => value.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
 
 function AppContent() {
   const { user, loading } = useUser()
@@ -107,8 +125,9 @@ function AppContent() {
   const [isLandscapeOnMobile, setIsLandscapeOnMobile] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [showLandscapeHint, setShowLandscapeHint] = useState(true)
-  const [navTheme, setNavThemeState] = useState(() => getNavTheme())
+  const [navTheme, setNavTheme] = useState(() => getNavTheme())
   const [crossroadsSidebarMode, setCrossroadsSidebarMode] = useState<'show' | 'hide'>(getCrossroadsSidebarMode())
+  const [isProfileSheetOpen, setIsProfileSheetOpen] = useState(false)
 
   useEffect(() => {
     if (typeof window === 'undefined' || !safeModeRequested) return
@@ -200,7 +219,7 @@ function AppContent() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     const syncSidebarMode = () => setCrossroadsSidebarMode(getCrossroadsSidebarMode())
-    const syncNavTheme = () => setNavThemeState(getNavTheme())
+    const syncNavTheme = () => setNavTheme(getNavTheme())
     const syncThemeState = () => {
       syncSidebarMode()
       syncNavTheme()
@@ -234,6 +253,27 @@ function AppContent() {
     }
     setCurrentPage(page)
     setIsSidebarOpen(false)
+  }
+
+  function handleNavThemeChange(theme: NavTheme) {
+    setNavThemeInStorage(theme) // Сохраняем в localStorage
+    setNavTheme(theme) // Обновляем состояние React
+    // Update stored page so next reload respects the new theme default
+    try {
+      localStorage.setItem(
+        'esoterica_current_page_v1',
+        theme === 'crossroads' ? 'crossroads' : 'dashboard'
+      )
+    } catch {}
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('nav-theme-changed'))
+    }
+    toast.success(
+      theme === 'crossroads'
+        ? (lang === 'ru' ? '✦ Тема «Перекрёсток Гекаты» активирована' : '✦ Hecate\'s Crossroads theme activated')
+        : (lang === 'ru' ? '✦ Тема «Esoterica OS» активирована' : '✦ Esoterica OS theme activated'),
+      { duration: 2200 }
+    )
   }
 
   const recoverFromAltarCrash = () => {
@@ -322,9 +362,51 @@ function AppContent() {
             userTradition={user.tradition}
             onMenuClick={isMobile && (effectiveNavTheme !== 'crossroads' || effectiveCrossroadsSidebarMode === 'show') ? () => setIsSidebarOpen(true) : undefined}
             onCrossroads={effectiveNavTheme === 'crossroads' ? () => handleNavigate('crossroads') : undefined}
+            onProfileClick={() => setIsProfileSheetOpen(true)}
           />
         )}
         <FloatingLanguageSwitcher />
+
+          {/* Profile Sheet */}
+          <Sheet open={isProfileSheetOpen} onOpenChange={setIsProfileSheetOpen}>
+            <SheetContent side="right" className="w-full md:w-[400px] flex flex-col">
+              <SheetHeader>
+                <SheetTitle>{lang === 'ru' ? 'Профиль пользователя' : 'User Profile'}</SheetTitle>
+                <SheetDescription>
+                  {lang === 'ru' ? 'Информация о вашем профиле и настройках.' : 'Information about your profile and settings.'}
+                </SheetDescription>
+              </SheetHeader>
+              {user && (
+                <div className="flex flex-col items-center justify-center p-4 space-y-4">
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-[hsl(var(--neon))] flex items-center justify-center text-3xl font-bold text-white shadow-[0_0_20px_hsl(var(--primary)/0.5)]">
+                    {user.displayName?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
+                  </div>
+                  <h3 className="text-xl font-semibold text-foreground">{user.displayName || user.email}</h3>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {user.archetype && (
+                      <span className="px-3 py-1.5 rounded-full border border-primary/30 bg-primary/10 text-sm text-primary/90 uppercase tracking-wider">
+                        {lang === 'ru' ? (ARCHETYPES_RU[user.archetype] || user.archetype) : formatTitleCase(user.archetype)}
+                      </span>
+                    )}
+                    {user.tradition && (
+                      <span className="px-3 py-1.5 rounded-full border border-white/20 bg-white/5 text-sm text-muted-foreground uppercase tracking-wider">
+                        {lang === 'ru' ? (TRADITIONS_RU[user.tradition] || user.tradition) : formatTitleCase(user.tradition)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground text-center">
+                    {lang === 'ru' ? 'Здесь будет больше информации о профиле и опции.' : 'More profile information and options will be available here.'}
+                  </p>
+                </div>
+              )}
+              {!user && (
+                <p className="text-center text-muted-foreground mt-8">
+                  {lang === 'ru' ? 'Войдите, чтобы просмотреть информацию о профиле.' : 'Please log in to view profile information.'}
+                </p>
+              )}
+              <SheetClose />
+            </SheetContent>
+          </Sheet>
 
         <main className={`flex-1 ${currentPage === 'altars' || currentPage === 'forum' || currentPage === 'knowledge-graph' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
           <Suspense fallback={<PageLoader />}>
@@ -390,6 +472,7 @@ function AppContent() {
             {currentPage === 'settings' && <Pages.Settings user={user} />}
             {currentPage === 'knowledge-graph' && <div className="flex-1 p-4 overflow-hidden"><Pages.KnowledgeGraph user={user} /></div>}
             {currentPage === 'chakra-intelligence' && <Pages.ChakraIntelligence onBack={() => handleNavigate('dashboard')} />}
+            {currentPage === 'covens' && <Pages.CovensPage user={user} />}
           </Suspense>
         </main>
       </div>

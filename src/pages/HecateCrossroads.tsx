@@ -63,6 +63,7 @@ const T = {
         icon: '🌐' as const,
         pages: [
           { id: 'forum' as AppPage, name: 'Форум', icon: '💬', description: 'Собирайся в священном кругу — общайся, делись и учись у практиков со всего мира.' },
+          { id: 'covens' as AppPage, name: 'Ковены', icon: '🤝', description: 'Найди или создай свое сообщество практикующих.' },
           { id: 'marketplace' as AppPage, name: 'Маркетплейс', icon: '🪬', description: 'Священные материалы от проверенных практиков — травы, кристаллы и инструменты.' },
           { id: 'ai-mentor' as AppPage, name: 'ИИ Наставник', icon: '🌟', description: 'Обратись к цифровому оракулу — персонализированное руководство от ИИ, обученного на мистических традициях.' },
           { id: 'settings' as AppPage, name: 'Настройки', icon: '⚙️', description: 'Персонализируй свою практику — уведомления, конфиденциальность, внешний вид и аккаунт.' },
@@ -118,6 +119,7 @@ const T = {
         icon: '🌐' as const,
         pages: [
           { id: 'forum' as AppPage, name: 'Forum', icon: '💬', description: 'Gather in the sacred circle — discuss, share, and learn with practitioners worldwide.' },
+          { id: 'covens' as AppPage, name: 'Covens', icon: '🤝', description: 'Find or create your community of practitioners.' },
           { id: 'marketplace' as AppPage, name: 'Marketplace', icon: '🪬', description: 'Source sacred supplies from trusted practitioners — herbs, crystals, and tools.' },
           { id: 'ai-mentor' as AppPage, name: 'AI Mentor', icon: '🌟', description: 'Consult the digital oracle — personalized guidance from an AI trained in mystical traditions.' },
           { id: 'settings' as AppPage, name: 'Settings', icon: '⚙️', description: 'Personalize your practice — notifications, privacy, appearance, and account.' },

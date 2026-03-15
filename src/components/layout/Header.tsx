@@ -11,6 +11,7 @@ interface HeaderProps {
   userTradition?: string
   onMenuClick?: () => void
   onCrossroads?: () => void
+  onProfileClick?: () => void
 }
 
 const ARCHETYPES_RU: Record<string, string> = {
@@ -29,7 +30,7 @@ const TRADITIONS_RU: Record<string, string> = {
 
 const formatTitleCase = (value: string) => value.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
 
-export function Header({ title, userName, userArchetype, userTradition, onMenuClick, onCrossroads }: HeaderProps) {
+export function Header({ title, userName, userArchetype, userTradition, onMenuClick, onCrossroads, onProfileClick }: HeaderProps) {
   const { t, lang } = useLang()
   const { isMuted, setIsMuted, playUiSound } = useAudio()
   const moonPhase = getMoonPhase()
@@ -112,7 +113,10 @@ export function Header({ title, userName, userArchetype, userTradition, onMenuCl
                 )}
               </div>
             </div>
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-[hsl(var(--neon))] flex items-center justify-center text-xs font-bold text-white shadow-[0_0_10px_hsl(var(--primary)/0.3)]">
+            <div 
+              className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-[hsl(var(--neon))] flex items-center justify-center text-xs font-bold text-white shadow-[0_0_10px_hsl(var(--primary)/0.3)]"
+              onClick={onProfileClick}
+            >
               {userName.charAt(0).toUpperCase()}
             </div>
           </div>

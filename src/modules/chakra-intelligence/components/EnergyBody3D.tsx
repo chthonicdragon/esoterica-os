@@ -5,13 +5,13 @@ import * as THREE from 'three'
 import { CHAKRA_INFO, ChakraName } from '../types'
 
 const CHAKRA_POSITIONS: Record<ChakraName, [number, number, number]> = {
-  root: [0, -3, 0],
-  sacral: [0, -2, 0],
-  solar_plexus: [0, -1, 0],
-  heart: [0, 0, 0],
-  throat: [0, 1, 0],
-  third_eye: [0, 2, 0],
-  crown: [0, 3, 0],
+  root: [0, -0.1, 0],        // гениталии
+  sacral: [0, 0.6, 0],      // ниже пупка
+  solar_plexus: [0, 1.3, 0],// диафрагма / желудок
+  heart: [0, 1.7, 0],        // центр груди
+  throat: [0, 2.5, 0],       // горло
+  third_eye: [0, 3.0, 0],    // между бровями
+  crown: [0, 3.5, 0],        // макушка
 }
 
 const CHAKRA_ORDER: ChakraName[] = ['root', 'sacral', 'solar_plexus', 'heart', 'throat', 'third_eye', 'crown']

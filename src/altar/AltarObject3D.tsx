@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import type { CatalogItem, PlacedObject } from './types'
+import { resolveModelUrl } from '../lib/modelUrlResolver'
 
 interface AltarObject3DProps {
   placed: PlacedObject
@@ -44,16 +45,8 @@ class ModelErrorBoundary extends React.Component<{
   }
 }
 
-function ModelMesh({
-  modelUrl,
-  color,
-  category,
-}: {
-  modelUrl: string
-  color: string
-  category: CatalogItem['category']
-}) {
-  const gltf = useGLTF(modelUrl)
+function ResolvedModel({ url, color, category }: { url: string, color: string, category: CatalogItem['category'] }) {
+  const gltf = useGLTF(url)
   const model = useMemo(() => {
     const cloned = gltf.scene.clone(true)
 
@@ -105,6 +98,30 @@ function ModelMesh({
   }, [model, color, category])
 
   return <primitive object={model} />
+}
+
+function ModelMesh({
+  modelUrl,
+  color,
+  category,
+}: {
+  modelUrl: string
+  color: string
+  category: CatalogItem['category']
+}) {
+  const [resolvedUrl, setResolvedUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+    resolveModelUrl(modelUrl).then(url => {
+      if (isMounted) setResolvedUrl(url)
+    })
+    return () => { isMounted = false }
+  }, [modelUrl])
+
+  if (!resolvedUrl) return null
+
+  return <Suspense fallback={null}><ResolvedModel url={resolvedUrl} color={color} category={category} /></Suspense>
 }
 
 function Flame({ position, active }: { position: [number, number, number]; active: boolean }) {

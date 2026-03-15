@@ -17,7 +17,7 @@ interface DivinationLabProps {
 
 type DivinationMode = 'oracle' | 'tarot'
 
-export function DivinationLab({ user }: DivinationLabProps) {
+export default function DivinationLab({ user }: DivinationLabProps) {
   const { t, lang } = useLang()
   const { playUiSound } = useAudio()
   

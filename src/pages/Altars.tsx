@@ -45,7 +45,7 @@ const DEFAULT_SESSION: RitualSession = {
   interrupted: false,
 }
 
-export function Altars({ user }: AltarsProps) {
+export default function Altars({ user }: AltarsProps) {
   const { lang } = useLang()
   const { playUiSound } = useAudio()
   const isMobile = useIsMobile()

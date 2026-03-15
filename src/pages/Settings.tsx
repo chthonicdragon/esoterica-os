@@ -144,7 +144,7 @@ interface SettingsProps {
   user: { id: string; email?: string; displayName?: string }
 }
 
-export function Settings({ user }: SettingsProps) {
+export default function Settings({ user }: SettingsProps) {
   const { t, lang, setLang } = useLang()
   const { config, setVolume, setIsMuted, toggleSfx, toggleMusic } = useAudio()
   const { theme, setTheme } = useTheme()

@@ -11,7 +11,7 @@ const MARKETPLACE_ITEMS = [
   { id: 6, title: 'Chaos Magick Sigil Generator', titleRu: 'Генератор сигил хаос-магии', type: 'sigils', price: '$3.99', emoji: '🔮', author: 'ChaosAdept', rating: 4.5 },
 ]
 
-export function Marketplace() {
+export default function Marketplace({ user }: { user: any }) {
   const { t, lang } = useLang()
 
   return (
