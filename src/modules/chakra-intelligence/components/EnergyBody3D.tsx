@@ -5,21 +5,49 @@ import * as THREE from 'three'
 import { CHAKRA_INFO, ChakraName } from '../types'
 
 const CHAKRA_POSITIONS: Record<ChakraName, [number, number, number]> = {
-  root: [0, -0.1, 0],        // гениталии
-  sacral: [0, 0.6, 0],      // ниже пупка
-  solar_plexus: [0, 1.3, 0],// диафрагма / желудок
-  heart: [0, 1.7, 0],        // центр груди
-  throat: [0, 2.5, 0],       // горло
-  third_eye: [0, 3.0, 0],    // между бровями
-  crown: [0, 3.5, 0],        // макушка
+  root: [0, -0.1, 0],
+  sacral: [0, 0.6, 0],
+  solar_plexus: [0, 1.3, 0],
+  heart: [0, 1.7, 0],
+  throat: [0, 2.5, 0],
+  third_eye: [0, 3.0, 0],
+  crown: [0, 3.5, 0],
 }
 
-const CHAKRA_ORDER: ChakraName[] = ['root', 'sacral', 'solar_plexus', 'heart', 'throat', 'third_eye', 'crown']
+const CHAKRA_ORDER: ChakraName[] = [
+  'root',
+  'sacral',
+  'solar_plexus',
+  'heart',
+  'throat',
+  'third_eye',
+  'crown',
+]
 
 type BodyVariant = 'male' | 'female'
 
-function BodyModel({ variant, intensity }: { variant: BodyVariant; intensity: number }) {
-  const url = variant === 'female' ? '/chakras/female_muscle_human_body.glb' : '/chakras/man_muscle_human_body.glb'
+// -----------------------------
+// Body Models
+// -----------------------------
+
+function BodyFallback({ intensity }: { intensity: number }) {
+  return (
+    <mesh position={[0, 0.5, -0.2]}>
+      <capsuleGeometry args={[0.8, 2.8, 12, 20]} />
+      <meshStandardMaterial
+        color="#cfe2ff"
+        transparent
+        opacity={0.14 + intensity * 0.18}
+        roughness={0.9}
+        metalness={0.02}
+        emissive="#6aa3ff"
+        emissiveIntensity={0.08 + intensity * 0.2}
+      />
+    </mesh>
+  )
+}
+
+function LoadedBodyModel({ url, intensity }: { url: string; intensity: number }) {
   const gltf = useGLTF(url) as unknown as { scene: THREE.Group }
 
   const material = useMemo(() => {
@@ -49,13 +77,11 @@ function BodyModel({ variant, intensity }: { variant: BodyVariant; intensity: nu
         mesh.material = material
       }
     })
-
     const box = new THREE.Box3().setFromObject(clone)
     const size = new THREE.Vector3()
     const center = new THREE.Vector3()
     box.getSize(size)
     box.getCenter(center)
-
     const targetHeight = 7.0
     const s = size.y > 0 ? targetHeight / size.y : 1
     return { object: clone, scale: s, yOffset: -center.y }
@@ -67,6 +93,51 @@ function BodyModel({ variant, intensity }: { variant: BodyVariant; intensity: nu
     </group>
   )
 }
+
+function BodyModel({ variant, intensity }: { variant: BodyVariant; intensity: number }) {
+  const url =
+    variant === 'female'
+      ? '/chakras/female_muscle_human_body.glb'
+      : '/chakras/man_muscle_human_body.glb'
+  const [assetState, setAssetState] = useState<'checking' | 'ready' | 'missing'>('checking')
+
+  useEffect(() => {
+    let cancelled = false
+
+    const checkAsset = async () => {
+      try {
+        let response = await fetch(url, { method: 'HEAD' })
+        if (response.status === 405 || response.status === 501) {
+          response = await fetch(url, { method: 'GET' })
+        }
+        const contentType = (response.headers.get('content-type') || '').toLowerCase()
+        const isHtml = contentType.includes('text/html')
+
+        if (!response.ok || isHtml) {
+          if (!cancelled) setAssetState('missing')
+          return
+        }
+        if (!cancelled) setAssetState('ready')
+      } catch {
+        if (!cancelled) setAssetState('missing')
+      }
+    }
+
+    setAssetState('checking')
+    checkAsset()
+    return () => {
+      cancelled = true
+    }
+  }, [url])
+
+  if (assetState !== 'ready') return <BodyFallback intensity={intensity} />
+
+  return <LoadedBodyModel url={url} intensity={intensity} />
+}
+
+// -----------------------------
+// ChakraSphere, EnergyChannel, EnergyParticles, CameraBreath
+// -----------------------------
 
 function ChakraSphere({
   name,
@@ -112,37 +183,28 @@ function ChakraSphere({
   })
 
   return (
-    <group position={new THREE.Vector3(...position)} onPointerDown={(e) => {
-      e.stopPropagation()
-      setBurstUntil(performance.now() + 1000)
-      onSelect(name)
-    }}>
+    <group
+      position={new THREE.Vector3(...position)}
+      onPointerDown={(e) => {
+        e.stopPropagation()
+        setBurstUntil(performance.now() + 1000)
+        onSelect(name)
+      }}
+    >
       <mesh ref={auraRef}>
         <sphereGeometry args={[0.22, 32, 32]} />
-        <meshBasicMaterial
-          color={color}
-          transparent
-          opacity={0.3}
-          side={THREE.DoubleSide}
-          depthWrite={false}
-        />
+        <meshBasicMaterial color={color} transparent opacity={0.3} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
       <mesh ref={coreRef}>
         <sphereGeometry args={[0.12, 32, 32]} />
-        <meshStandardMaterial
-          color={color}
-          emissive={color}
-          emissiveIntensity={0.8}
-          roughness={0.2}
-          metalness={0.8}
-        />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.8} roughness={0.2} metalness={0.8} />
       </mesh>
     </group>
   )
 }
 
 function EnergyChannel({ energy, scanStartAt }: { energy: number; scanStartAt: number }) {
-  const stops = useMemo(() => CHAKRA_ORDER.map(n => new THREE.Color(CHAKRA_INFO[n].color)), [])
+  const stops = useMemo(() => CHAKRA_ORDER.map((n) => new THREE.Color(CHAKRA_INFO[n].color)), [])
   const material = useMemo(() => {
     return new THREE.ShaderMaterial({
       uniforms: {
@@ -150,7 +212,7 @@ function EnergyChannel({ energy, scanStartAt }: { energy: number; scanStartAt: n
         uSpeed: { value: 0.8 + energy * 1.6 },
         uIntensity: { value: 0.4 + energy * 0.8 },
         uScanBoost: { value: 0 },
-        uStops: { value: stops.map(c => new THREE.Vector3(c.r, c.g, c.b)) },
+        uStops: { value: stops.map((c) => new THREE.Vector3(c.r, c.g, c.b)) },
       },
       vertexShader: `
         varying vec2 vUv;
@@ -166,7 +228,6 @@ function EnergyChannel({ energy, scanStartAt }: { energy: number; scanStartAt: n
         uniform float uScanBoost;
         uniform vec3 uStops[7];
         varying vec2 vUv;
-        
         vec3 chakraGradient(float t){
           float x = clamp(t * 6.0, 0.0, 6.0);
           if (x < 1.0) return mix(uStops[0], uStops[1], x - 0.0);
@@ -286,6 +347,10 @@ function CameraBreath() {
   return null
 }
 
+// -----------------------------
+// Основной компонент EnergyBody3D
+// -----------------------------
+
 interface EnergyBodyProps {
   chakras: Record<ChakraName, { level: number; color: string }>
   lang?: 'en' | 'ru'
@@ -294,10 +359,17 @@ interface EnergyBodyProps {
   onChakraClick?: (chakra: ChakraName) => void
 }
 
-export function EnergyBody3D({ chakras, lang = 'en', scanTrigger = 0, bodyVariant = 'male', onChakraClick }: EnergyBodyProps) {
+export function EnergyBody3D({
+  chakras,
+  lang = 'en',
+  scanTrigger = 0,
+  bodyVariant = 'male',
+  onChakraClick,
+}: EnergyBodyProps) {
   const [selected, setSelected] = useState<ChakraName>('heart')
   const [scanStartAt, setScanStartAt] = useState(0)
   const mobile = typeof window !== 'undefined' ? window.innerWidth < 768 : false
+
   const avgEnergy = useMemo(() => {
     const values = CHAKRA_ORDER.map((chakra) => chakras[chakra]?.level ?? 0)
     return values.reduce((acc, value) => acc + value, 0) / (values.length * 100)
@@ -307,9 +379,7 @@ export function EnergyBody3D({ chakras, lang = 'en', scanTrigger = 0, bodyVarian
     if (scanTrigger > 0) setScanStartAt(performance.now())
   }, [scanTrigger])
 
-  const selectedLabel = lang === 'ru'
-    ? CHAKRA_INFO[selected].nameRu
-    : CHAKRA_INFO[selected].name
+  const selectedLabel = lang === 'ru' ? CHAKRA_INFO[selected].nameRu : CHAKRA_INFO[selected].name
 
   return (
     <div className="w-full h-[380px] sm:h-[420px] md:h-[500px] rounded-xl overflow-hidden bg-black/40 border border-white/10 relative">
@@ -323,15 +393,11 @@ export function EnergyBody3D({ chakras, lang = 'en', scanTrigger = 0, bodyVarian
           <group>
             <BodyModel variant={bodyVariant} intensity={avgEnergy} />
             {CHAKRA_ORDER.map((name, index) => (
-              (() => {
-                const level = typeof chakras[name]?.level === 'number' ? chakras[name].level : 50
-                const chakraColor = CHAKRA_INFO[name].color
-                return (
               <ChakraSphere
                 key={name}
                 name={name}
-                level={level}
-                color={chakraColor}
+                level={chakras[name]?.level ?? 50}
+                color={CHAKRA_INFO[name].color}
                 index={index}
                 scanStartAt={scanStartAt}
                 onSelect={(chakra) => {
@@ -339,8 +405,6 @@ export function EnergyBody3D({ chakras, lang = 'en', scanTrigger = 0, bodyVarian
                   onChakraClick?.(chakra)
                 }}
               />
-                )
-              })()
             ))}
             <EnergyChannel energy={avgEnergy} scanStartAt={scanStartAt} />
           </group>
@@ -348,7 +412,6 @@ export function EnergyBody3D({ chakras, lang = 'en', scanTrigger = 0, bodyVarian
         <CameraBreath />
         <OrbitControls enableZoom autoRotate autoRotateSpeed={0.28 + avgEnergy * 0.5} minDistance={6.2} maxDistance={8.3} />
       </Canvas>
-
       <div className="absolute top-3 left-3 text-[11px] text-white/65 px-2 py-1 rounded border border-white/10 bg-black/35 backdrop-blur">
         {lang === 'ru' ? `Активная чакра: ${selectedLabel}` : `Active chakra: ${selectedLabel}`}
       </div>
